@@ -4,6 +4,7 @@ import com.stup.wristbandprinter.security.ApiKeyAuthFilter;
 import io.swagger.v3.oas.annotations.enums.SecuritySchemeIn;
 import io.swagger.v3.oas.annotations.enums.SecuritySchemeType;
 import io.swagger.v3.oas.annotations.security.SecurityScheme;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -46,6 +47,13 @@ public class SecurityConfig {
                     "/v3/api-docs/**"
                 ).permitAll()
                 .anyRequest().authenticated()
+            )
+            .exceptionHandling(ex -> ex
+                // Return 401 (not Spring Security's default 403) for unauthenticated requests
+                .authenticationEntryPoint((req, res, e) ->
+                    res.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized"))
+                .accessDeniedHandler((req, res, e) ->
+                    res.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized"))
             )
             .addFilterBefore(apiKeyAuthFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
