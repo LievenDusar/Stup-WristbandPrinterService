@@ -48,13 +48,13 @@ public class WristbandProperties {
         public void setTopDots(int topDots) { this.topDots = topDots; }
 
         public int getBetweenLogoAndText() { return betweenLogoAndText; }
-        public void setBetweenLogoAndText(int v) { this.betweenLogoAndText = v; }
+        public void setBetweenLogoAndText(int betweenLogoAndText) { this.betweenLogoAndText = betweenLogoAndText; }
 
         public int getBetweenTextAndBarcode() { return betweenTextAndBarcode; }
-        public void setBetweenTextAndBarcode(int v) { this.betweenTextAndBarcode = v; }
+        public void setBetweenTextAndBarcode(int betweenTextAndBarcode) { this.betweenTextAndBarcode = betweenTextAndBarcode; }
 
         public int getBetweenBarcodeAndLogo() { return betweenBarcodeAndLogo; }
-        public void setBetweenBarcodeAndLogo(int v) { this.betweenBarcodeAndLogo = v; }
+        public void setBetweenBarcodeAndLogo(int betweenBarcodeAndLogo) { this.betweenBarcodeAndLogo = betweenBarcodeAndLogo; }
     }
 
     public static class Text {
@@ -63,13 +63,13 @@ public class WristbandProperties {
         private int fontSizeAssociation = 20;
 
         public int getFontSizeEvent() { return fontSizeEvent; }
-        public void setFontSizeEvent(int v) { this.fontSizeEvent = v; }
+        public void setFontSizeEvent(int fontSizeEvent) { this.fontSizeEvent = fontSizeEvent; }
 
         public int getFontSizeName() { return fontSizeName; }
-        public void setFontSizeName(int v) { this.fontSizeName = v; }
+        public void setFontSizeName(int fontSizeName) { this.fontSizeName = fontSizeName; }
 
         public int getFontSizeAssociation() { return fontSizeAssociation; }
-        public void setFontSizeAssociation(int v) { this.fontSizeAssociation = v; }
+        public void setFontSizeAssociation(int fontSizeAssociation) { this.fontSizeAssociation = fontSizeAssociation; }
     }
 
     public static class Barcode {
