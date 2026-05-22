@@ -1,6 +1,29 @@
 target/
+
+# Maven wrapper
 .mvn/wrapper/maven-wrapper.jar
 !.mvn/wrapper/maven-wrapper.properties
+
+# Compiled output
 *.class
+
+# Logs
 *.log
+hs_err_pid*.log
+
+# IDE files
+.idea/
+*.iml
+.vscode/
+.eclipse/
+.settings/
+*.project
+*.classpath
+
+# OS
 .DS_Store
+Thumbs.db
+
+# Environment / secrets — never commit actual credentials
+.env
+.env.local

@@ -2,7 +2,7 @@ server:
   port: 8080
 
 security:
-  api-key: changeme
+  api-key: changeme  # Override via security.api-key env var or profile YAML in all real environments
 
 printer:
   host: localhost
