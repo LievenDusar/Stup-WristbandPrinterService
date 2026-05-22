@@ -1,0 +1,13 @@
+services:
+  wristband-printer:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - SECURITY_API_KEY=${API_KEY}
+      - PRINTER_HOST=${PRINTER_HOST}
+    volumes:
+      # Mount the directory containing stup-logo.png
+      - /opt/stup/images:/opt/stup/images:ro
+    restart: unless-stopped
