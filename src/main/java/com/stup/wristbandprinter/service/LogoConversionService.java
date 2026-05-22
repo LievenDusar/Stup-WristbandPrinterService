@@ -44,11 +44,11 @@ public class LogoConversionService {
 
             int targetWidth = props.getWidthDots() - 2 * props.getLogoSideMarginDots();
             int targetHeight = (int) ((double) original.getHeight() / original.getWidth() * targetWidth);
-            this.logoHeightDots = targetHeight;
 
             BufferedImage scaled = scaleImage(original, targetWidth, targetHeight);
             // Pre-rotate 180° — both logos are printed upside down on the wristband
             BufferedImage rotated = rotate180(scaled);
+            this.logoHeightDots = rotated.getHeight();
             this.cachedGfCommand = encodeAsGf(rotated);
 
             log.info("Logo converted successfully. Dimensions: {}x{} dots", targetWidth, targetHeight);
@@ -101,7 +101,7 @@ public class LogoConversionService {
                         int r = (rgb >> 16) & 0xFF;
                         int gv = (rgb >> 8) & 0xFF;
                         int bv = rgb & 0xFF;
-                        int luminance = (r + gv + bv) / 3;
+                        int luminance = (int) (0.299 * r + 0.587 * gv + 0.114 * bv);
                         if (luminance < 128) {  // dark pixel → print
                             b |= (1 << (7 - bit));
                         }
@@ -112,7 +112,7 @@ public class LogoConversionService {
         }
 
         int totalBytes = bytesPerRow * height;
-        return String.format("^GFA,%d,%d,%d,%s", hex.length(), totalBytes, bytesPerRow, hex);
+        return String.format("^GFA,%d,%d,%d,%s", totalBytes, totalBytes, bytesPerRow, hex);
     }
 
     private Resource resolveResource(String path) {
