@@ -1,0 +1,13 @@
+printer:
+  host: 192.168.1.100   # replace with your test printer IP
+  port: 9100
+  timeout-ms: 3000
+
+wristband:
+  logo-path: classpath:images/stup-logo.png
+
+security:
+  api-key: local-dev-key
+
+labelary:
+  base-url: http://api.labelary.com

@@ -1,0 +1,13 @@
+printer:
+  host: ${PRINTER_HOST}   # set via environment variable
+  port: 9100
+  timeout-ms: 5000
+
+wristband:
+  logo-path: /opt/stup/images/stup-logo.png
+
+security:
+  api-key: ${SECURITY_API_KEY}   # set via environment variable
+
+labelary:
+  base-url: http://api.labelary.com
