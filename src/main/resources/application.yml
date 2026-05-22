@@ -1,0 +1,44 @@
+server:
+  port: 8080
+
+security:
+  api-key: changeme
+
+printer:
+  host: localhost
+  port: 9100
+  timeout-ms: 5000
+
+wristband:
+  width-dots: 203
+  length-dots: 2233
+  dpi: 203
+  logo-path: classpath:images/stup-logo.png
+  logo-side-margin-dots: 10
+  margins:
+    top-dots: 40
+    between-logo-and-text: 150
+    between-text-and-barcode: 150
+    between-barcode-and-logo: 60
+  text:
+    font-size-event: 20
+    font-size-name: 28
+    font-size-association: 20
+  barcode:
+    type: CODE128
+    height-dots: 100
+    show-human-readable: true
+
+labelary:
+  base-url: http://api.labelary.com
+  timeout-ms: 5000
+
+springdoc:
+  swagger-ui:
+    enabled: true
+  api-docs:
+    enabled: true
+
+logging:
+  level:
+    com.stup.wristbandprinter: INFO
