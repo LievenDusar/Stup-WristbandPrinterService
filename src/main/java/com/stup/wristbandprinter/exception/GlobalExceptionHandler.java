@@ -27,6 +27,7 @@ public class GlobalExceptionHandler {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("status", 400);
         body.put("error", "Validation failed");
+        body.put("message", "Validation failed");
         body.put("fields", fieldErrors);
         return ResponseEntity.badRequest().body(body);
     }
@@ -43,10 +44,16 @@ public class GlobalExceptionHandler {
         return errorResponse(HttpStatus.SERVICE_UNAVAILABLE, "Labelary unavailable", ex.getMessage());
     }
 
+    @ExceptionHandler(LogoNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleLogoNotFound(LogoNotFoundException ex) {
+        log.error("Logo not available: {}", ex.getMessage());
+        return errorResponse(HttpStatus.INTERNAL_SERVER_ERROR, "Logo not available", "Logo image could not be loaded — check server configuration");
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleGeneric(Exception ex) {
         log.error("Unexpected error", ex);
-        return errorResponse(HttpStatus.INTERNAL_SERVER_ERROR, "Internal server error", ex.getMessage());
+        return errorResponse(HttpStatus.INTERNAL_SERVER_ERROR, "Internal server error", "An unexpected error occurred");
     }
 
     private ResponseEntity<Map<String, Object>> errorResponse(HttpStatus status, String error, String message) {
