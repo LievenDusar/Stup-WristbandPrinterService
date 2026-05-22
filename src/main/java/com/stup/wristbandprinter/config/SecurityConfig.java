@@ -13,6 +13,7 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 @Configuration
 @EnableWebSecurity
@@ -22,7 +23,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
     in = SecuritySchemeIn.HEADER,
     paramName = "X-API-Key"
 )
-public class SecurityConfig {
+public class SecurityConfig implements WebMvcConfigurer {
 
     private final ApiKeyAuthFilter apiKeyAuthFilter;
 
