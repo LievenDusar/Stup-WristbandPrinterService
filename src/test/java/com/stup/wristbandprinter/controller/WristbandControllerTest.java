@@ -1,17 +1,21 @@
 package com.stup.wristbandprinter.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.stup.wristbandprinter.config.SecurityConfig;
 import com.stup.wristbandprinter.domain.*;
 import com.stup.wristbandprinter.exception.LabelaryUnavailableException;
+import com.stup.wristbandprinter.security.ApiKeyAuthFilter;
 import com.stup.wristbandprinter.service.*;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
-import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -22,17 +26,19 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(WristbandController.class)
+@Import({SecurityConfig.class, ApiKeyAuthFilter.class})
+@TestPropertySource(properties = {"security.api-key=test-key"})
 class WristbandControllerTest {
 
     @Autowired MockMvc mockMvc;
     @Autowired ObjectMapper objectMapper;
 
-    @MockBean PrintQueueService printQueueService;
-    @MockBean WristbandLayoutService wristbandLayoutService;
-    @MockBean ZplGeneratorService zplGeneratorService;
-    @MockBean LabelaryPreviewService labelaryPreviewService;
+    @MockitoBean PrintQueueService printQueueService;
+    @MockitoBean WristbandLayoutService wristbandLayoutService;
+    @MockitoBean ZplGeneratorService zplGeneratorService;
+    @MockitoBean LabelaryPreviewService labelaryPreviewService;
 
-    private static final String API_KEY = "changeme";
+    private static final String API_KEY = "test-key";
 
     @Test
     void print_returns202WithJobId() throws Exception {
@@ -171,6 +177,34 @@ class WristbandControllerTest {
             .andExpect(status().isNoContent());
 
         verify(printQueueService).clearCompleted();
+    }
+
+    @Test
+    void print_returns401_whenApiKeyWrong() throws Exception {
+        mockMvc.perform(post("/api/wristbands/print")
+                .header("X-API-Key", "wrong-key")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(sampleRequest())))
+            .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void reprint_returns404_whenJobNotFound() throws Exception {
+        UUID jobId = UUID.randomUUID();
+        when(printQueueService.getJob(jobId)).thenReturn(Optional.empty());
+
+        mockMvc.perform(post("/api/wristbands/jobs/" + jobId + "/reprint")
+                .header("X-API-Key", API_KEY))
+            .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void streamJobs_isAccessibleWithoutApiKey() throws Exception {
+        when(printQueueService.subscribe()).thenReturn(new SseEmitter());
+
+        mockMvc.perform(get("/api/wristbands/jobs/stream")
+                .accept(MediaType.TEXT_EVENT_STREAM))
+            .andExpect(status().isOk());
     }
 
     private WristbandPrintRequest sampleRequest() {

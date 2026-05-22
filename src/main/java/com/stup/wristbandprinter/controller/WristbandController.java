@@ -4,6 +4,7 @@ import com.stup.wristbandprinter.domain.*;
 import com.stup.wristbandprinter.service.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -43,7 +44,7 @@ public class WristbandController {
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(job.toResponse());
     }
 
-    @PostMapping(value = "/preview/zpl", produces = MediaType.TEXT_PLAIN_VALUE)
+    @PostMapping(value = "/preview/zpl", produces = "text/plain;charset=UTF-8")
     @Operation(summary = "Generate and return ZPL code as plain text")
     public ResponseEntity<String> previewZpl(@Valid @RequestBody WristbandPrintRequest request) {
         WristbandData data = wristbandLayoutService.buildData(request);
@@ -79,6 +80,7 @@ public class WristbandController {
 
     @GetMapping(value = "/jobs/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     @Operation(summary = "Subscribe to real-time job status updates via SSE (no API key required)")
+    @SecurityRequirements({})
     public SseEmitter streamJobs() {
         return printQueueService.subscribe();
     }

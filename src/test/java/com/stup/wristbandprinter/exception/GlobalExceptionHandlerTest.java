@@ -1,6 +1,8 @@
 package com.stup.wristbandprinter.exception;
 
+import com.stup.wristbandprinter.config.SecurityConfig;
 import com.stup.wristbandprinter.controller.WristbandController;
+import com.stup.wristbandprinter.security.ApiKeyAuthFilter;
 import com.stup.wristbandprinter.service.PrintQueueService;
 import com.stup.wristbandprinter.service.WristbandLayoutService;
 import com.stup.wristbandprinter.service.ZplGeneratorService;
@@ -8,23 +10,27 @@ import com.stup.wristbandprinter.service.LabelaryPreviewService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(WristbandController.class)
+@Import({SecurityConfig.class, ApiKeyAuthFilter.class})
+@TestPropertySource(properties = {"security.api-key=test-key"})
 class GlobalExceptionHandlerTest {
 
     @Autowired
     private MockMvc mockMvc;
 
-    @MockBean private PrintQueueService printQueueService;
-    @MockBean private WristbandLayoutService wristbandLayoutService;
-    @MockBean private ZplGeneratorService zplGeneratorService;
-    @MockBean private LabelaryPreviewService labelaryPreviewService;
+    @MockitoBean private PrintQueueService printQueueService;
+    @MockitoBean private WristbandLayoutService wristbandLayoutService;
+    @MockitoBean private ZplGeneratorService zplGeneratorService;
+    @MockitoBean private LabelaryPreviewService labelaryPreviewService;
 
     @Test
     void missingRequiredField_returns400WithFieldDetails() throws Exception {
@@ -38,7 +44,7 @@ class GlobalExceptionHandlerTest {
             """;
 
         mockMvc.perform(post("/api/wristbands/preview/zpl")
-                .header("X-API-Key", "changeme")
+                .header("X-API-Key", "test-key")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body))
             .andExpect(status().isBadRequest())
