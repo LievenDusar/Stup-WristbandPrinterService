@@ -7,10 +7,10 @@ public class PrintJob {
 
     private final UUID jobId;
     private final WristbandPrintRequest request;
-    private volatile PrintJobStatus status;
+    private PrintJobStatus status;
     private final Instant submittedAt;
-    private volatile Instant completedAt;
-    private volatile String error;
+    private Instant completedAt;
+    private String error;
 
     public PrintJob(UUID jobId, WristbandPrintRequest request) {
         this.jobId = jobId;
@@ -22,18 +22,29 @@ public class PrintJob {
     public UUID getJobId() { return jobId; }
     public WristbandPrintRequest getRequest() { return request; }
 
-    public PrintJobStatus getStatus() { return status; }
-    public void setStatus(PrintJobStatus status) { this.status = status; }
+    public synchronized PrintJobStatus getStatus() { return status; }
+    public synchronized void setStatus(PrintJobStatus status) { this.status = status; }
 
     public Instant getSubmittedAt() { return submittedAt; }
 
-    public Instant getCompletedAt() { return completedAt; }
-    public void setCompletedAt(Instant completedAt) { this.completedAt = completedAt; }
+    public synchronized Instant getCompletedAt() { return completedAt; }
+    public synchronized void setCompletedAt(Instant completedAt) { this.completedAt = completedAt; }
 
-    public String getError() { return error; }
-    public void setError(String error) { this.error = error; }
+    public synchronized String getError() { return error; }
+    public synchronized void setError(String error) { this.error = error; }
 
-    public PrintJobResponse toResponse() {
+    /**
+     * Atomically update status, error, and completedAt in one synchronized call.
+     * Use this instead of individual setters when transitioning to a terminal state
+     * to prevent readers seeing a partially-updated snapshot.
+     */
+    public synchronized void complete(PrintJobStatus status, String error, Instant completedAt) {
+        this.status = status;
+        this.error = error;
+        this.completedAt = completedAt;
+    }
+
+    public synchronized PrintJobResponse toResponse() {
         return new PrintJobResponse(
             jobId,
             status,
