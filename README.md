@@ -39,6 +39,8 @@ cp .env.example .env   # fill in API_KEY and PRINTER_HOST
 docker compose up -d
 ```
 
+> **Printer network access:** The container uses Docker's default bridge network and routes outbound traffic through the host. The Zebra printer must be reachable from the server itself — verify with `ping <PRINTER_HOST>` on the server before deploying.
+
 ---
 
 ## Configuration
