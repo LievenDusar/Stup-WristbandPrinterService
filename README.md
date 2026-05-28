@@ -32,7 +32,6 @@ docker run -p 8080:8080 \
   -e SPRING_PROFILES_ACTIVE=prod \
   -e SECURITY_API_KEY=your-key \
   -e PRINTER_HOST=192.168.1.100 \
-  -v /opt/stup/images:/opt/stup/images:ro \
   stup/wristband-printer
 
 # Run with docker-compose
@@ -50,7 +49,7 @@ docker compose up -d
 | `printer.port` | `9100` | Zebra printer TCP port |
 | `printer.timeout-ms` | `5000` | Connection timeout in milliseconds |
 | `wristband.dpi` | `300` | Printer DPI (203 or 300) |
-| `wristband.logo-path` | `classpath:images/stup-logo.png` | Absolute path or `classpath:` path to STUP logo PNG |
+| `wristband.logo-path` | `classpath:images/stup-logo.png` | Path to STUP logo PNG — bundled inside the JAR, no external file needed |
 | `wristband.logo-side-margin-dots` | `75` | Left/right margin around logo in dots |
 | `wristband.margins.*` | see YAML | Spacing between layout elements in dots |
 | `wristband.text.*` | see YAML | Font sizes for event name, staff name, association |
