@@ -10,24 +10,24 @@ printer:
   timeout-ms: 5000
 
 wristband:
-  width-dots: 203
-  length-dots: 2233
-  dpi: 203
+  width-dots: 300
+  length-dots: 3300
+  dpi: 300
   logo-path: classpath:images/stup-logo.png
-  logo-side-margin-dots: 10
+  logo-side-margin-dots: 75
   margins:
-    top-dots: 40
-    between-logo-and-text: 150
-    between-text-and-barcode: 150
-    between-barcode-and-logo: 60
+    top-dots: 59
+    between-logo-and-text: 30
+    between-text-and-barcode: 40
+    between-barcode-and-logo: 70
   text:
-    font-size-event: 20
-    font-size-name: 28
-    font-size-association: 20
+    font-size-event: 45
+    font-size-name: 74
+    font-size-association: 45
   barcode:
     type: CODE128
-    height-dots: 100
-    show-human-readable: true
+    height-dots: 270
+    show-human-readable: false
 
 labelary:
   base-url: http://api.labelary.com

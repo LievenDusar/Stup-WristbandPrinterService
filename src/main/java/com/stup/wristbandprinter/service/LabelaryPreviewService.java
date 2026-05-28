@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
@@ -21,6 +22,7 @@ public class LabelaryPreviewService {
     private final LabelaryProperties labelaryProps;
     private final int dpmm;  // dots per mm derived from configured DPI
 
+    @Autowired
     public LabelaryPreviewService(LabelaryProperties labelaryProps, WristbandProperties wristbandProps) {
         this.restTemplate = new RestTemplate();
         this.labelaryProps = labelaryProps;

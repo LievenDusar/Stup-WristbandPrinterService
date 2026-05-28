@@ -1,5 +1,5 @@
 printer:
-  host: localhost   # replace with your printer IP for local testing
+  host: localhost # replace with your printer IP for local testing
   port: 9100
   timeout-ms: 3000
 
