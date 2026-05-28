@@ -49,14 +49,14 @@ docker compose up -d
 | `printer.host` | `localhost` | Zebra printer IP address |
 | `printer.port` | `9100` | Zebra printer TCP port |
 | `printer.timeout-ms` | `5000` | Connection timeout in milliseconds |
-| `wristband.dpi` | `203` | Printer DPI (203 or 300) |
+| `wristband.dpi` | `300` | Printer DPI (203 or 300) |
 | `wristband.logo-path` | `classpath:images/stup-logo.png` | Absolute path or `classpath:` path to STUP logo PNG |
-| `wristband.logo-side-margin-dots` | `10` | Left/right margin around logo in dots |
+| `wristband.logo-side-margin-dots` | `75` | Left/right margin around logo in dots |
 | `wristband.margins.*` | see YAML | Spacing between layout elements in dots |
 | `wristband.text.*` | see YAML | Font sizes for event name, staff name, association |
 | `wristband.barcode.type` | `CODE128` | Barcode symbology |
-| `wristband.barcode.height-dots` | `100` | Barcode height in dots |
-| `wristband.barcode.show-human-readable` | `true` | Show text below barcode |
+| `wristband.barcode.height-dots` | `270` | Barcode height in dots |
+| `wristband.barcode.show-human-readable` | `false` | Show text below barcode |
 | `labelary.base-url` | `http://api.labelary.com` | Labelary API base URL |
 | `security.api-key` | `changeme` | Static API key — override in production |
 
@@ -118,7 +118,7 @@ The `/api/wristbands/preview/image` endpoint sends the generated ZPL to the
 
 To preview manually, use `/api/wristbands/preview/zpl` to get the ZPL string,
 then paste it at [labelary.com/viewer.html](https://labelary.com/viewer.html).
-Set width to **1**, height to **11**, density to **8dpmm** (203 dpi).
+Set width to **1**, height to **11**, density to **12dpmm** (300 dpi).
 
 ---
 
