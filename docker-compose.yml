@@ -13,4 +13,9 @@ services:
       timeout: 5s
       retries: 3
       start_period: 20s
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+          cpus: '1.0'
     restart: unless-stopped
