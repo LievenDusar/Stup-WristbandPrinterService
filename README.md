@@ -99,10 +99,10 @@ curl -X POST http://localhost:8080/api/wristbands/print \
   -H "Content-Type: application/json" \
   -d '{
     "eventName": "Pukkelpop 2026",
-    "firstName": "Jan",
-    "lastName": "Janssens",
-    "associationName": "STUP vzw",
-    "barcodeValue": "123456789"
+    "firstName": "Annechien",
+    "lastName": "Van De Wall",
+    "associationName": "Chiro Sint-Christina Brustem",
+    "barcodeValue": "12345455244226789"
   }'
 ```
 
