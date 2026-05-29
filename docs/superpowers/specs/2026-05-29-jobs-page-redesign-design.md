@@ -15,6 +15,11 @@ alongside that we add usability and operational improvements and a brand reskin.
 - **Visual:** Full reskin to match stupvzw.be (option A).
 - **Backend:** Frontend changes **plus** the two backend additions that close real
   operational gaps — cancel a pending job, and a full job-detail view (option B).
+- **Auth:** Replace the browser's "type key → store in sessionStorage" model with a
+  server-issued **HttpOnly session cookie** (Option B from the auth discussion). The
+  long-lived secret never sits in JS-readable storage, and the SSE stream becomes
+  authenticated. The machine integration (Symfony) keeps using the `X-API-Key`
+  header unchanged.
 
 ## Design system (extracted from stupvzw.be `landing.d89c7cbe.css`)
 
@@ -47,7 +52,28 @@ self-contained `jobs.html` (no build step) is retained.
 7. **Styled SSE indicator** (Live / Reconnecting).
 8. Improved empty and loading states.
 
-## Backend changes
+## Authentication (session cookie)
+
+Replaces the typed-key-in-`sessionStorage` approach for the browser UI. The static
+`security.api-key` stays on the server; the browser is just never handed it to keep.
+
+- **`POST /api/wristbands/login`** — body `{ "apiKey": "..." }`. If it matches
+  `security.api-key`, respond `200` and set an **HttpOnly** cookie (`Secure` +
+  `SameSite=Strict` in prod; non-Secure + `SameSite=Lax` in `local`). Wrong key → `401`.
+- **`POST /api/wristbands/logout`** — clears the cookie, `204`.
+- **Cookie contents (stateless, no server-side session):** a signed token of the form
+  `expiry|HMAC-SHA256(expiry, signingSecret)`. The server validates the signature and
+  expiry without storing sessions — consistent with the existing
+  `SessionCreationPolicy.STATELESS` design. Signing secret is configurable
+  (`security.cookie-secret`); if unset it is derived from `security.api-key`.
+  Cookie max-age ~12h.
+- **`ApiKeyAuthFilter` accepts either** a valid `X-API-Key` header (machine clients,
+  unchanged) **or** a valid auth cookie (browser). Constant-time comparison retained
+  for the header path.
+- **`SecurityConfig`:** `/api/wristbands/login` is `permitAll` (you must reach it to
+  authenticate); `/jobs.html` stays `permitAll` (the static page shell). The SSE
+  stream `/api/wristbands/jobs/stream` is **removed from `permitAll`** — it now
+  requires the cookie, which `EventSource` sends automatically on same-origin requests.
 
 ### Cancel a pending job
 - **Endpoint:** `POST /api/wristbands/jobs/{jobId}/cancel` (requires API key).
@@ -65,46 +91,63 @@ self-contained `jobs.html` (no build step) is retained.
 - **Endpoint:** extend the existing authenticated `GET /api/wristbands/jobs/{jobId}`
   to return a richer `PrintJobDetailResponse` including `firstName`, `lastName`,
   `associationName`, `barcodeValue` (in addition to the current fields).
-- **Privacy constraint (important):** personal data (names, barcode) MUST NOT be
-  added to the SSE stream or the list endpoint, because `/jobs/stream` is
-  **unauthenticated** (EventSource cannot send the API-key header). The details
-  modal fetches the authenticated `GET /jobs/{id}` on demand, keeping PII behind
-  the API key. The public SSE/list payload (`PrintJobResponse`) is unchanged:
-  id, status, eventName, submittedAt, completedAt, error.
-- The list/SSE keep `eventName` as today (low sensitivity, already exposed).
+- **Privacy / payload constraint:** even though the SSE stream is now authenticated
+  (via the cookie), personal data (names, barcode) is still **not** broadcast to
+  every connected client — the SSE/list payload (`PrintJobResponse`) stays lean:
+  id, status, eventName, submittedAt, completedAt, error. The details modal fetches
+  the full record on demand via `GET /jobs/{id}`. This keeps broadcast payloads
+  small and PII fetched only when an operator explicitly opens a job.
 
 ### Frontend wiring for backend features
-- **Cancel button** appears only on `PENDING` rows; calls the cancel endpoint with
-  the API key; on `409` shows a toast ("Job already started").
-- **Details modal** opens from a row action; fetches `GET /jobs/{id}` with the API
-  key and renders the full wristband data. Requires an API key (prompt if missing).
+- **Login form** replaces the API-key-into-sessionStorage card: the operator enters
+  the key once, the page `POST`s it to `/login`, and on success relies on the cookie
+  for all subsequent calls (no key kept in JS). A **Sign out** button calls `/logout`.
+  If a call returns `401`, the page shows the login form again.
+- **Cancel button** appears only on `PENDING` rows; calls the cancel endpoint (cookie
+  auth); on `409` shows a toast ("Job already started").
+- **Details modal** opens from a row action; fetches `GET /jobs/{id}` (cookie auth)
+  and renders the full wristband data.
 
 ## Testing
 
 - **Backend (TDD):**
+  - Auth: `POST /login` with correct key → 200 + `Set-Cookie`; wrong key → 401.
+    A protected endpoint and the SSE stream succeed with the cookie and are rejected
+    (401) without it. Header `X-API-Key` still works (machine path unchanged).
+    Cookie token signing/validation (valid, tampered, expired) unit-tested.
   - Cancel: `PENDING → CANCELLED` succeeds and removes from queue; non-pending → 409;
     unknown id → 404.
   - `clearCompleted` also removes CANCELLED jobs.
   - `GET /jobs/{id}` returns the extended detail fields; list/SSE payload unchanged
     (no PII).
-  - Update `WristbandIntegrationTest` for the cancel flow and detail endpoint.
+  - Update `WristbandIntegrationTest` for login + cookie, cancel flow, and detail.
 - **Frontend:** single self-contained file, verified live in the browser (no JS test
-  harness introduced).
+  harness introduced). Local dev: `local` profile issues a non-Secure cookie so the
+  login flow works over `http://localhost:8080`.
 
 ## Out of scope
 
 - No live metrics panel on the page (the metrics endpoint sits behind auth; deferred).
-- No authentication change to `/jobs/stream`.
+- No per-user identity / SSO (Option C) — still a single static server-side key,
+  just delivered to the browser as a session cookie instead of a stored secret.
 - No build tooling / SPA framework — stays a single static HTML file.
 
 ## Affected files
 
-- `src/main/resources/static/jobs.html` — reskin + all frontend features.
+- `src/main/resources/static/jobs.html` — reskin + all frontend features + login/logout.
 - `src/main/java/.../domain/PrintJobStatus.java` — add `CANCELLED`.
 - `src/main/java/.../domain/PrintJobDetailResponse.java` — new detail DTO.
 - `src/main/java/.../domain/PrintJob.java` — `toDetailResponse()`.
 - `src/main/java/.../service/PrintQueueService.java` — `cancel(jobId)` logic.
 - `src/main/java/.../controller/WristbandController.java` — cancel endpoint;
   detail response on `GET /jobs/{id}`.
+- `src/main/java/.../controller/AuthController.java` — new `login`/`logout` endpoints.
+- `src/main/java/.../security/AuthCookieService.java` — new; sign/verify the cookie token.
+- `src/main/java/.../security/ApiKeyAuthFilter.java` — accept header **or** auth cookie.
+- `src/main/java/.../config/SecurityConfig.java` — permit `/login`; require auth on
+  `/jobs/stream`.
+- `src/main/resources/application*.yml` — `security.cookie-secret`, profile-specific
+  cookie `Secure`/`SameSite` settings.
 - `src/main/java/.../exception/GlobalExceptionHandler.java` — map cancel conflict to 409.
-- Tests: `PrintQueueServiceTest`, `WristbandControllerTest`, `WristbandIntegrationTest`.
+- Tests: `PrintQueueServiceTest`, `WristbandControllerTest`, `AuthControllerTest`,
+  `AuthCookieServiceTest`, `WristbandIntegrationTest`.
