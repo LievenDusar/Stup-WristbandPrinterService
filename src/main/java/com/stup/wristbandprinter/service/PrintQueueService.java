@@ -54,6 +54,9 @@ public class PrintQueueService {
 
     @PreDestroy
     public void stopWorker() {
+        if (worker == null) {
+            return;
+        }
         worker.shutdownNow();
         try {
             if (!worker.awaitTermination(5, TimeUnit.SECONDS)) {
@@ -104,10 +107,6 @@ public class PrintQueueService {
         while (!Thread.currentThread().isInterrupted()) {
             try {
                 PrintJob job = queue.take();
-                // Brief pause so callers that check status immediately after enqueue()
-                // always observe PENDING before the worker transitions to PRINTING.
-                // In production this is negligible relative to actual print duration.
-                Thread.sleep(5);
                 job.setStatus(PrintJobStatus.PRINTING);
                 broadcastUpdate(job);
                 try {

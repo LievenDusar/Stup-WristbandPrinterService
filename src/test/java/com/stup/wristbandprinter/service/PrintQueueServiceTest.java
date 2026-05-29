@@ -31,8 +31,9 @@ class PrintQueueServiceTest {
 
     @BeforeEach
     void setUp() {
+        // Worker is started per-test: tests that observe the PENDING state leave it
+        // unstarted so jobs are never picked up; tests that exercise processing start it.
         service = new PrintQueueService(layoutService, zplGeneratorService, printerService);
-        service.startWorker();
     }
 
     @AfterEach
@@ -48,12 +49,18 @@ class PrintQueueServiceTest {
     }
 
     @Test
+    void stopWorker_beforeStart_doesNotThrow() {
+        service.stopWorker();
+    }
+
+    @Test
     void enqueue_jobBecomesAfterProcessing() throws InterruptedException {
         CountDownLatch latch = new CountDownLatch(1);
         when(layoutService.buildData(any())).thenReturn(sampleData());
         when(zplGeneratorService.generate(any())).thenReturn("^XA^XZ");
         doAnswer(inv -> { latch.countDown(); return null; }).when(printerService).send(any());
 
+        service.startWorker();
         PrintJob job = service.enqueue(sampleRequest());
         boolean processed = latch.await(3, TimeUnit.SECONDS);
 
@@ -71,6 +78,7 @@ class PrintQueueServiceTest {
             throw new PrinterUnavailableException("Printer down");
         }).when(printerService).send(any());
 
+        service.startWorker();
         PrintJob job = service.enqueue(sampleRequest());
         latch.await(3, TimeUnit.SECONDS);
         Thread.sleep(100); // allow status update to propagate
@@ -101,6 +109,7 @@ class PrintQueueServiceTest {
         when(zplGeneratorService.generate(any())).thenReturn("^XA^XZ");
         doAnswer(inv -> { latch.countDown(); return null; }).when(printerService).send(any());
 
+        service.startWorker();
         PrintJob job = service.enqueue(sampleRequest());
         latch.await(3, TimeUnit.SECONDS);
         Thread.sleep(100);

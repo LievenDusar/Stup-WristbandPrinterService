@@ -65,6 +65,8 @@ docker compose up -d
 - Local: `--spring.profiles.active=local`
 - Production: `SPRING_PROFILES_ACTIVE=prod` env var
 
+> Under the `prod` profile the application refuses to start if `security.api-key` is unset, blank, or left at the default `changeme` — set `SECURITY_API_KEY` to a real value.
+
 **ZPL coordinate calibration:** All layout positions are configurable via `wristband.margins.*` and `wristband.text.*`. After first test print, adjust values in `application-prod.yml` without code changes.
 
 ---
