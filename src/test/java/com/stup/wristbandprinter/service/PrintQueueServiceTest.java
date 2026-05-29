@@ -7,6 +7,7 @@ import com.stup.wristbandprinter.domain.WristbandData;
 import com.stup.wristbandprinter.domain.WristbandPrintRequest;
 import com.stup.wristbandprinter.exception.PrinterUnavailableException;
 import com.stup.wristbandprinter.exception.QueueFullException;
+import com.stup.wristbandprinter.persistence.JobStore;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -14,7 +15,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -31,6 +37,7 @@ class PrintQueueServiceTest {
     @Mock private PrinterService printerService;
 
     private PrintQueueService service;
+    private InMemoryJobStore jobStore;
 
     @BeforeEach
     void setUp() {
@@ -42,7 +49,9 @@ class PrintQueueServiceTest {
     private PrintQueueService newService(int maxDepth) {
         QueueProperties queueProperties = new QueueProperties();
         queueProperties.setMaxDepth(maxDepth);
-        return new PrintQueueService(layoutService, zplGeneratorService, printerService, queueProperties);
+        jobStore = new InMemoryJobStore();
+        return new PrintQueueService(layoutService, zplGeneratorService, printerService,
+            queueProperties, jobStore);
     }
 
     @AfterEach
@@ -108,6 +117,39 @@ class PrintQueueServiceTest {
     }
 
     @Test
+    void enqueue_persistsJobToStore() {
+        PrintJob job = service.enqueue(sampleRequest());
+        assertThat(jobStore.loadAll())
+            .extracting(PrintJob::getJobId)
+            .contains(job.getJobId());
+    }
+
+    @Test
+    void recoverJobs_marksInterruptedJobsFailed() {
+        PrintJob inFlight = PrintJob.restore(UUID.randomUUID(), sampleRequest(),
+            PrintJobStatus.PRINTING, Instant.now(), null, null);
+        jobStore.save(inFlight);
+
+        service.recoverJobs();
+
+        List<PrintJob> recovered = service.getJobs(null);
+        assertThat(recovered).hasSize(1);
+        assertThat(recovered.get(0).getStatus()).isEqualTo(PrintJobStatus.FAILED);
+        assertThat(recovered.get(0).getError()).contains("restart");
+    }
+
+    @Test
+    void recoverJobs_preservesCompletedJobs() {
+        PrintJob done = PrintJob.restore(UUID.randomUUID(), sampleRequest(),
+            PrintJobStatus.DONE, Instant.now(), Instant.now(), null);
+        jobStore.save(done);
+
+        service.recoverJobs();
+
+        assertThat(service.getJobs(PrintJobStatus.DONE)).hasSize(1);
+    }
+
+    @Test
     void getJobs_returnsAllJobs() {
         service.enqueue(sampleRequest());
         service.enqueue(sampleRequest());
@@ -151,5 +193,26 @@ class PrintQueueServiceTest {
 
     private WristbandData sampleData() {
         return new WristbandData("Pukkelpop 2026", "Jan", "Janssens", "STUP vzw", "123456789");
+    }
+
+    /** Minimal in-memory JobStore so the queue service can be unit-tested without a database. */
+    private static class InMemoryJobStore implements JobStore {
+        private final Map<UUID, PrintJob> store = new LinkedHashMap<>();
+
+        @Override
+        public void save(PrintJob job) {
+            store.put(job.getJobId(), job);
+        }
+
+        @Override
+        public List<PrintJob> loadAll() {
+            return new ArrayList<>(store.values());
+        }
+
+        @Override
+        public void deleteCompleted() {
+            store.values().removeIf(j ->
+                j.getStatus() == PrintJobStatus.DONE || j.getStatus() == PrintJobStatus.FAILED);
+        }
     }
 }

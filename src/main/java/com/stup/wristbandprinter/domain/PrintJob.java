@@ -19,6 +19,22 @@ public class PrintJob {
         this.submittedAt = Instant.now();
     }
 
+    private PrintJob(UUID jobId, WristbandPrintRequest request, PrintJobStatus status,
+                     Instant submittedAt, Instant completedAt, String error) {
+        this.jobId = jobId;
+        this.request = request;
+        this.status = status;
+        this.submittedAt = submittedAt;
+        this.completedAt = completedAt;
+        this.error = error;
+    }
+
+    /** Rebuild a job from durable storage, preserving its original timestamps and state. */
+    public static PrintJob restore(UUID jobId, WristbandPrintRequest request, PrintJobStatus status,
+                                   Instant submittedAt, Instant completedAt, String error) {
+        return new PrintJob(jobId, request, status, submittedAt, completedAt, error);
+    }
+
     public UUID getJobId() { return jobId; }
     public WristbandPrintRequest getRequest() { return request; }
 

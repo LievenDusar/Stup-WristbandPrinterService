@@ -7,6 +7,9 @@ services:
       - SPRING_PROFILES_ACTIVE=prod
       - SECURITY_API_KEY=${API_KEY}
       - PRINTER_HOST=${PRINTER_HOST}
+    volumes:
+      # Persist the H2 print-job database across container recreation
+      - printjobs-data:/app/data
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8080/actuator/health"]
       interval: 30s
@@ -19,3 +22,6 @@ services:
           memory: 512m
           cpus: '1.0'
     restart: unless-stopped
+
+volumes:
+  printjobs-data:

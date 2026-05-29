@@ -1,6 +1,17 @@
 server:
   port: 8080
 
+spring:
+  datasource:
+    url: jdbc:h2:file:./data/printjobs;AUTO_SERVER=TRUE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+
 security:
   api-key: changeme  # Override via security.api-key env var or profile YAML in all real environments
 

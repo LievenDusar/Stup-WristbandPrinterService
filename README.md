@@ -50,6 +50,9 @@ docker compose up -d
 | `printer.host` | `localhost` | Zebra printer IP address |
 | `printer.port` | `9100` | Zebra printer TCP port |
 | `printer.timeout-ms` | `5000` | Connection timeout in milliseconds |
+| `printer.max-retries` | `2` | Extra attempts after the first on a transient socket failure |
+| `printer.retry-backoff-ms` | `500` | Pause between retry attempts |
+| `queue.max-depth` | `100` | Max pending jobs before new submissions are rejected with HTTP 429 |
 | `wristband.dpi` | `300` | Printer DPI (203 or 300) |
 | `wristband.logo-path` | `classpath:images/stup-logo.png` | Path to STUP logo PNG — bundled inside the JAR, no external file needed |
 | `wristband.logo-side-margin-dots` | `75` | Left/right margin around logo in dots |
@@ -122,6 +125,18 @@ The `/api/wristbands/preview/image` endpoint sends the generated ZPL to the
 To preview manually, use `/api/wristbands/preview/zpl` to get the ZPL string,
 then paste it at [labelary.com/viewer.html](https://labelary.com/viewer.html).
 Set width to **1**, height to **11**, density to **12dpmm** (300 dpi).
+
+---
+
+## Job persistence
+
+Print jobs are persisted to an embedded H2 database (file `./data/printjobs`), so the
+job history survives a restart. On startup, any job left `PENDING` or `PRINTING` by a
+previous run is marked `FAILED` ("Interrupted by service restart") — a half-printed
+wristband is never reprinted automatically; the operator can reprint deliberately.
+
+Under Docker the database lives on the `printjobs-data` volume (mounted at `/app/data`)
+so it survives container recreation.
 
 ---
 

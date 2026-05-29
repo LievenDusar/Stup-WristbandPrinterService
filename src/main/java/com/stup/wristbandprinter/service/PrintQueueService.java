@@ -7,6 +7,7 @@ import com.stup.wristbandprinter.domain.WristbandData;
 import com.stup.wristbandprinter.domain.WristbandPrintRequest;
 import com.stup.wristbandprinter.exception.PrinterUnavailableException;
 import com.stup.wristbandprinter.exception.QueueFullException;
+import com.stup.wristbandprinter.persistence.JobStore;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
@@ -33,21 +34,46 @@ public class PrintQueueService {
     private final ZplGeneratorService zplGeneratorService;
     private final PrinterService printerService;
     private final QueueProperties queueProperties;
+    private final JobStore jobStore;
 
     private ExecutorService worker;
 
     public PrintQueueService(WristbandLayoutService layoutService,
                               ZplGeneratorService zplGeneratorService,
                               PrinterService printerService,
-                              QueueProperties queueProperties) {
+                              QueueProperties queueProperties,
+                              JobStore jobStore) {
         this.layoutService = layoutService;
         this.zplGeneratorService = zplGeneratorService;
         this.printerService = printerService;
         this.queueProperties = queueProperties;
+        this.jobStore = jobStore;
         this.queue = new LinkedBlockingQueue<>(queueProperties.getMaxDepth());
     }
 
     @PostConstruct
+    public void init() {
+        recoverJobs();
+        startWorker();
+    }
+
+    /**
+     * Load persisted jobs on startup. Any job left PENDING or PRINTING by a previous
+     * run is marked FAILED (we can't know whether the wristband was partially printed);
+     * the operator can reprint it deliberately. Completed jobs are restored as-is.
+     */
+    public void recoverJobs() {
+        for (PrintJob job : jobStore.loadAll()) {
+            if (job.getStatus() == PrintJobStatus.PENDING
+                || job.getStatus() == PrintJobStatus.PRINTING) {
+                job.complete(PrintJobStatus.FAILED, "Interrupted by service restart", Instant.now());
+                jobStore.save(job);
+                log.warn("Recovered interrupted job {} as FAILED", job.getJobId());
+            }
+            jobs.put(job.getJobId(), job);
+        }
+    }
+
     public void startWorker() {
         worker = Executors.newSingleThreadExecutor(r -> {
             Thread t = new Thread(r, "print-queue-worker");
@@ -84,6 +110,7 @@ public class PrintQueueService {
                     + " jobs pending). Please retry shortly.");
         }
         jobs.put(job.getJobId(), job);
+        jobStore.save(job);
         broadcastUpdate(job);
         log.info("Job {} enqueued for event: {}, barcode: {}",
             job.getJobId(), request.getEventName(), request.getBarcodeValue());
@@ -104,6 +131,7 @@ public class PrintQueueService {
     public void clearCompleted() {
         jobs.values().removeIf(job ->
             job.getStatus() == PrintJobStatus.DONE || job.getStatus() == PrintJobStatus.FAILED);
+        jobStore.deleteCompleted();
     }
 
     public SseEmitter subscribe() {
@@ -120,6 +148,7 @@ public class PrintQueueService {
             try {
                 PrintJob job = queue.take();
                 job.setStatus(PrintJobStatus.PRINTING);
+                jobStore.save(job);
                 broadcastUpdate(job);
                 try {
                     WristbandData data = layoutService.buildData(job.getRequest());
@@ -133,6 +162,7 @@ public class PrintQueueService {
                     log.error("Unexpected error processing job {}: {}", job.getJobId(), e.getMessage(), e);
                     job.complete(PrintJobStatus.FAILED, e.getMessage(), Instant.now());
                 }
+                jobStore.save(job);
                 broadcastUpdate(job);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
