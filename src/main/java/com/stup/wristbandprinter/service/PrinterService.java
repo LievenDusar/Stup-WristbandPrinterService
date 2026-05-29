@@ -23,7 +23,32 @@ public class PrinterService {
     }
 
     public void send(String zpl) {
-        log.info("Sending ZPL to {}:{}", props.getHost(), props.getPort());
+        int maxAttempts = props.getMaxRetries() + 1;
+        IOException lastFailure = null;
+
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            log.info("Sending ZPL to {}:{} (attempt {}/{})",
+                props.getHost(), props.getPort(), attempt, maxAttempts);
+            try {
+                doSend(zpl);
+                log.info("ZPL sent successfully ({} bytes)", zpl.length());
+                return;
+            } catch (IOException e) {
+                lastFailure = e;
+                log.warn("Print attempt {}/{} failed: {}", attempt, maxAttempts, e.getMessage());
+                if (attempt < maxAttempts) {
+                    backoff();
+                }
+            }
+        }
+
+        throw new PrinterUnavailableException(
+            "Could not connect to printer at " + props.getHost() + ":" + props.getPort()
+                + " after " + maxAttempts + " attempt(s) — " + lastFailure.getMessage(),
+            lastFailure);
+    }
+
+    protected void doSend(String zpl) throws IOException {
         try (Socket socket = new Socket()) {
             socket.connect(
                 new java.net.InetSocketAddress(props.getHost(), props.getPort()),
@@ -33,11 +58,15 @@ public class PrinterService {
             OutputStream out = socket.getOutputStream();
             out.write(zpl.getBytes(StandardCharsets.UTF_8));
             out.flush();
-            log.info("ZPL sent successfully ({} bytes)", zpl.length());
-        } catch (IOException e) {
-            throw new PrinterUnavailableException(
-                "Could not connect to printer at " + props.getHost() + ":" + props.getPort()
-                    + " — " + e.getMessage(), e);
+        }
+    }
+
+    private void backoff() {
+        try {
+            Thread.sleep(props.getRetryBackoffMs());
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            throw new PrinterUnavailableException("Interrupted while retrying print", ie);
         }
     }
 }

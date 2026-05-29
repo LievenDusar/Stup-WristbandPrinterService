@@ -8,6 +8,11 @@ printer:
   host: localhost
   port: 9100
   timeout-ms: 5000
+  max-retries: 2          # additional attempts after the first on transient socket failure
+  retry-backoff-ms: 500   # pause between retries
+
+queue:
+  max-depth: 100          # max pending jobs before new submissions are rejected with 429
 
 wristband:
   width-dots: 300

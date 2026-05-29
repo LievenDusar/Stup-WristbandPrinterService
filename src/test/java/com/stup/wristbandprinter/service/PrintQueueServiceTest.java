@@ -1,10 +1,12 @@
 package com.stup.wristbandprinter.service;
 
+import com.stup.wristbandprinter.config.QueueProperties;
 import com.stup.wristbandprinter.domain.PrintJob;
 import com.stup.wristbandprinter.domain.PrintJobStatus;
 import com.stup.wristbandprinter.domain.WristbandData;
 import com.stup.wristbandprinter.domain.WristbandPrintRequest;
 import com.stup.wristbandprinter.exception.PrinterUnavailableException;
+import com.stup.wristbandprinter.exception.QueueFullException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -17,6 +19,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
@@ -33,7 +36,13 @@ class PrintQueueServiceTest {
     void setUp() {
         // Worker is started per-test: tests that observe the PENDING state leave it
         // unstarted so jobs are never picked up; tests that exercise processing start it.
-        service = new PrintQueueService(layoutService, zplGeneratorService, printerService);
+        service = newService(100);
+    }
+
+    private PrintQueueService newService(int maxDepth) {
+        QueueProperties queueProperties = new QueueProperties();
+        queueProperties.setMaxDepth(maxDepth);
+        return new PrintQueueService(layoutService, zplGeneratorService, printerService, queueProperties);
     }
 
     @AfterEach
@@ -51,6 +60,17 @@ class PrintQueueServiceTest {
     @Test
     void stopWorker_beforeStart_doesNotThrow() {
         service.stopWorker();
+    }
+
+    @Test
+    void enqueue_throwsWhenQueueFull() {
+        // No worker started, so nothing drains the queue.
+        service = newService(2);
+        service.enqueue(sampleRequest());
+        service.enqueue(sampleRequest());
+
+        assertThatThrownBy(() -> service.enqueue(sampleRequest()))
+            .isInstanceOf(QueueFullException.class);
     }
 
     @Test

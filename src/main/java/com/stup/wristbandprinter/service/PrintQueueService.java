@@ -1,10 +1,12 @@
 package com.stup.wristbandprinter.service;
 
+import com.stup.wristbandprinter.config.QueueProperties;
 import com.stup.wristbandprinter.domain.PrintJob;
 import com.stup.wristbandprinter.domain.PrintJobStatus;
 import com.stup.wristbandprinter.domain.WristbandData;
 import com.stup.wristbandprinter.domain.WristbandPrintRequest;
 import com.stup.wristbandprinter.exception.PrinterUnavailableException;
+import com.stup.wristbandprinter.exception.QueueFullException;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
@@ -23,22 +25,26 @@ public class PrintQueueService {
 
     private static final Logger log = LoggerFactory.getLogger(PrintQueueService.class);
 
-    private final LinkedBlockingQueue<PrintJob> queue = new LinkedBlockingQueue<>();
+    private final LinkedBlockingQueue<PrintJob> queue;
     private final ConcurrentHashMap<UUID, PrintJob> jobs = new ConcurrentHashMap<>();
     private final CopyOnWriteArrayList<SseEmitter> emitters = new CopyOnWriteArrayList<>();
 
     private final WristbandLayoutService layoutService;
     private final ZplGeneratorService zplGeneratorService;
     private final PrinterService printerService;
+    private final QueueProperties queueProperties;
 
     private ExecutorService worker;
 
     public PrintQueueService(WristbandLayoutService layoutService,
                               ZplGeneratorService zplGeneratorService,
-                              PrinterService printerService) {
+                              PrinterService printerService,
+                              QueueProperties queueProperties) {
         this.layoutService = layoutService;
         this.zplGeneratorService = zplGeneratorService;
         this.printerService = printerService;
+        this.queueProperties = queueProperties;
+        this.queue = new LinkedBlockingQueue<>(queueProperties.getMaxDepth());
     }
 
     @PostConstruct
@@ -70,8 +76,14 @@ public class PrintQueueService {
 
     public PrintJob enqueue(WristbandPrintRequest request) {
         PrintJob job = new PrintJob(UUID.randomUUID(), request);
+        if (!queue.offer(job)) {
+            log.warn("Print queue full (max depth {}); rejecting job for event: {}",
+                queueProperties.getMaxDepth(), request.getEventName());
+            throw new QueueFullException(
+                "Print queue is full (" + queueProperties.getMaxDepth()
+                    + " jobs pending). Please retry shortly.");
+        }
         jobs.put(job.getJobId(), job);
-        queue.add(job);
         broadcastUpdate(job);
         log.info("Job {} enqueued for event: {}, barcode: {}",
             job.getJobId(), request.getEventName(), request.getBarcodeValue());

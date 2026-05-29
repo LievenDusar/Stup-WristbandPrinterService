@@ -38,6 +38,12 @@ public class GlobalExceptionHandler {
         return errorResponse(HttpStatus.SERVICE_UNAVAILABLE, "Printer unavailable", ex.getMessage());
     }
 
+    @ExceptionHandler(QueueFullException.class)
+    public ResponseEntity<Map<String, Object>> handleQueueFull(QueueFullException ex) {
+        log.warn("Print queue full: {}", ex.getMessage());
+        return errorResponse(HttpStatus.TOO_MANY_REQUESTS, "Queue full", ex.getMessage());
+    }
+
     @ExceptionHandler(LabelaryUnavailableException.class)
     public ResponseEntity<Map<String, Object>> handleLabelaryUnavailable(LabelaryUnavailableException ex) {
         log.warn("Labelary unavailable: {}", ex.getMessage());
