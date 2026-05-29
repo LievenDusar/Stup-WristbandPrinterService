@@ -223,6 +223,11 @@ class PrintQueueServiceTest {
         }
 
         @Override
+        public void deleteById(UUID jobId) {
+            store.remove(jobId);
+        }
+
+        @Override
         public void deleteCompleted() {
             store.values().removeIf(j ->
                 j.getStatus() == PrintJobStatus.DONE || j.getStatus() == PrintJobStatus.FAILED);

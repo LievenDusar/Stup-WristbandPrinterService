@@ -119,21 +119,36 @@ public class PrintQueueService {
     }
 
     public PrintJob enqueue(WristbandPrintRequest request) {
-        PrintJob job = new PrintJob(UUID.randomUUID(), request);
-        if (!queue.offer(job)) {
-            log.warn("Print queue full (max depth {}); rejecting job for event: {}",
-                queueProperties.getMaxDepth(), request.getEventName());
-            throw new QueueFullException(
-                "Print queue is full (" + queueProperties.getMaxDepth()
-                    + " jobs pending). Please retry shortly.");
+        if (queue.size() >= queueProperties.getMaxDepth()) {
+            throw queueFull(request);
         }
-        jobs.put(job.getJobId(), job);
+
+        PrintJob job = new PrintJob(UUID.randomUUID(), request);
+        // Persist before exposing the job to the worker: otherwise the worker thread can
+        // dequeue and save it concurrently with this thread's save, causing duplicate inserts.
         jobStore.save(job);
+        jobs.put(job.getJobId(), job);
+
+        if (!queue.offer(job)) {
+            // Lost a capacity race against another submitter; undo the persisted row.
+            jobs.remove(job.getJobId());
+            jobStore.deleteById(job.getJobId());
+            throw queueFull(request);
+        }
+
         submittedCounter.increment();
         broadcastUpdate(job);
         log.info("Job {} enqueued for event: {}, barcode: {}",
             job.getJobId(), request.getEventName(), request.getBarcodeValue());
         return job;
+    }
+
+    private QueueFullException queueFull(WristbandPrintRequest request) {
+        log.warn("Print queue full (max depth {}); rejecting job for event: {}",
+            queueProperties.getMaxDepth(), request.getEventName());
+        return new QueueFullException(
+            "Print queue is full (" + queueProperties.getMaxDepth()
+                + " jobs pending). Please retry shortly.");
     }
 
     public Optional<PrintJob> getJob(UUID jobId) {

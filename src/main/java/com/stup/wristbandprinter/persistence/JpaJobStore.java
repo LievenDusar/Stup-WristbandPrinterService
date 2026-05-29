@@ -7,6 +7,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.UUID;
 
 @Component
 public class JpaJobStore implements JobStore {
@@ -39,6 +40,12 @@ public class JpaJobStore implements JobStore {
     @Transactional(readOnly = true)
     public List<PrintJob> loadAll() {
         return repository.findAll().stream().map(JpaJobStore::toDomain).toList();
+    }
+
+    @Override
+    @Transactional
+    public void deleteById(UUID jobId) {
+        repository.deleteById(jobId);
     }
 
     @Override
