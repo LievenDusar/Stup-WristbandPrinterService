@@ -8,10 +8,14 @@ import com.stup.wristbandprinter.domain.WristbandPrintRequest;
 import com.stup.wristbandprinter.exception.PrinterUnavailableException;
 import com.stup.wristbandprinter.exception.QueueFullException;
 import com.stup.wristbandprinter.persistence.JobStore;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -36,19 +40,33 @@ public class PrintQueueService {
     private final QueueProperties queueProperties;
     private final JobStore jobStore;
 
+    private final Counter submittedCounter;
+    private final Counter doneCounter;
+    private final Counter failedCounter;
+
     private ExecutorService worker;
 
     public PrintQueueService(WristbandLayoutService layoutService,
                               ZplGeneratorService zplGeneratorService,
                               PrinterService printerService,
                               QueueProperties queueProperties,
-                              JobStore jobStore) {
+                              JobStore jobStore,
+                              MeterRegistry meterRegistry) {
         this.layoutService = layoutService;
         this.zplGeneratorService = zplGeneratorService;
         this.printerService = printerService;
         this.queueProperties = queueProperties;
         this.jobStore = jobStore;
         this.queue = new LinkedBlockingQueue<>(queueProperties.getMaxDepth());
+
+        this.submittedCounter = Counter.builder("wristband.jobs.submitted")
+            .description("Total print jobs accepted into the queue").register(meterRegistry);
+        this.doneCounter = Counter.builder("wristband.jobs.completed")
+            .tag("status", "done").register(meterRegistry);
+        this.failedCounter = Counter.builder("wristband.jobs.completed")
+            .tag("status", "failed").register(meterRegistry);
+        Gauge.builder("wristband.queue.depth", queue, Collection::size)
+            .description("Pending print jobs waiting to be processed").register(meterRegistry);
     }
 
     @PostConstruct
@@ -111,6 +129,7 @@ public class PrintQueueService {
         }
         jobs.put(job.getJobId(), job);
         jobStore.save(job);
+        submittedCounter.increment();
         broadcastUpdate(job);
         log.info("Job {} enqueued for event: {}, barcode: {}",
             job.getJobId(), request.getEventName(), request.getBarcodeValue());
@@ -147,23 +166,31 @@ public class PrintQueueService {
         while (!Thread.currentThread().isInterrupted()) {
             try {
                 PrintJob job = queue.take();
-                job.setStatus(PrintJobStatus.PRINTING);
-                jobStore.save(job);
-                broadcastUpdate(job);
+                MDC.put("jobId", job.getJobId().toString());
                 try {
-                    WristbandData data = layoutService.buildData(job.getRequest());
-                    String zpl = zplGeneratorService.generate(data);
-                    printerService.send(zpl);
-                    job.complete(PrintJobStatus.DONE, null, Instant.now());
-                } catch (PrinterUnavailableException e) {
-                    log.warn("Print job {} failed: {}", job.getJobId(), e.getMessage());
-                    job.complete(PrintJobStatus.FAILED, e.getMessage(), Instant.now());
-                } catch (Exception e) {
-                    log.error("Unexpected error processing job {}: {}", job.getJobId(), e.getMessage(), e);
-                    job.complete(PrintJobStatus.FAILED, e.getMessage(), Instant.now());
+                    job.setStatus(PrintJobStatus.PRINTING);
+                    jobStore.save(job);
+                    broadcastUpdate(job);
+                    try {
+                        WristbandData data = layoutService.buildData(job.getRequest());
+                        String zpl = zplGeneratorService.generate(data);
+                        printerService.send(zpl);
+                        job.complete(PrintJobStatus.DONE, null, Instant.now());
+                        doneCounter.increment();
+                    } catch (PrinterUnavailableException e) {
+                        log.warn("Print job {} failed: {}", job.getJobId(), e.getMessage());
+                        job.complete(PrintJobStatus.FAILED, e.getMessage(), Instant.now());
+                        failedCounter.increment();
+                    } catch (Exception e) {
+                        log.error("Unexpected error processing job {}: {}", job.getJobId(), e.getMessage(), e);
+                        job.complete(PrintJobStatus.FAILED, e.getMessage(), Instant.now());
+                        failedCounter.increment();
+                    }
+                    jobStore.save(job);
+                    broadcastUpdate(job);
+                } finally {
+                    MDC.remove("jobId");
                 }
-                jobStore.save(job);
-                broadcastUpdate(job);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 break;

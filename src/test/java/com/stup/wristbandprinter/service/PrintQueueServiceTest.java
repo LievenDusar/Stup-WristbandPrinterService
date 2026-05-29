@@ -8,6 +8,8 @@ import com.stup.wristbandprinter.domain.WristbandPrintRequest;
 import com.stup.wristbandprinter.exception.PrinterUnavailableException;
 import com.stup.wristbandprinter.exception.QueueFullException;
 import com.stup.wristbandprinter.persistence.JobStore;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -38,6 +40,7 @@ class PrintQueueServiceTest {
 
     private PrintQueueService service;
     private InMemoryJobStore jobStore;
+    private MeterRegistry meterRegistry;
 
     @BeforeEach
     void setUp() {
@@ -50,8 +53,9 @@ class PrintQueueServiceTest {
         QueueProperties queueProperties = new QueueProperties();
         queueProperties.setMaxDepth(maxDepth);
         jobStore = new InMemoryJobStore();
+        meterRegistry = new SimpleMeterRegistry();
         return new PrintQueueService(layoutService, zplGeneratorService, printerService,
-            queueProperties, jobStore);
+            queueProperties, jobStore, meterRegistry);
     }
 
     @AfterEach
@@ -122,6 +126,15 @@ class PrintQueueServiceTest {
         assertThat(jobStore.loadAll())
             .extracting(PrintJob::getJobId)
             .contains(job.getJobId());
+    }
+
+    @Test
+    void enqueue_incrementsSubmittedCounterAndQueueDepth() {
+        service.enqueue(sampleRequest());
+        service.enqueue(sampleRequest());
+
+        assertThat(meterRegistry.get("wristband.jobs.submitted").counter().count()).isEqualTo(2);
+        assertThat(meterRegistry.get("wristband.queue.depth").gauge().value()).isEqualTo(2);
     }
 
     @Test

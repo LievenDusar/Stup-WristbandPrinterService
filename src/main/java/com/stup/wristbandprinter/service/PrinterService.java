@@ -2,6 +2,8 @@ package com.stup.wristbandprinter.service;
 
 import com.stup.wristbandprinter.config.PrinterProperties;
 import com.stup.wristbandprinter.exception.PrinterUnavailableException;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -17,12 +19,27 @@ public class PrinterService {
     private static final Logger log = LoggerFactory.getLogger(PrinterService.class);
 
     private final PrinterProperties props;
+    private final MeterRegistry meterRegistry;
+    private final Timer sendTimer;
 
-    public PrinterService(PrinterProperties props) {
+    public PrinterService(PrinterProperties props, MeterRegistry meterRegistry) {
         this.props = props;
+        this.meterRegistry = meterRegistry;
+        this.sendTimer = Timer.builder("wristband.printer.send")
+            .description("Time to send ZPL to the printer, including retries")
+            .register(meterRegistry);
     }
 
     public void send(String zpl) {
+        Timer.Sample sample = Timer.start(meterRegistry);
+        try {
+            sendWithRetries(zpl);
+        } finally {
+            sample.stop(sendTimer);
+        }
+    }
+
+    private void sendWithRetries(String zpl) {
         int maxAttempts = props.getMaxRetries() + 1;
         IOException lastFailure = null;
 

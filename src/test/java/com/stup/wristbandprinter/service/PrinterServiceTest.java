@@ -2,6 +2,8 @@ package com.stup.wristbandprinter.service;
 
 import com.stup.wristbandprinter.config.PrinterProperties;
 import com.stup.wristbandprinter.exception.PrinterUnavailableException;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
 
 import java.io.BufferedReader;
@@ -20,6 +22,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class PrinterServiceTest {
 
+    private final MeterRegistry registry = new SimpleMeterRegistry();
+
     @Test
     void send_writesZplToSocket() throws Exception {
         try (ServerSocket server = new ServerSocket(0)) {
@@ -35,16 +39,17 @@ class PrinterServiceTest {
                 }
             });
 
-            PrinterService service = new PrinterService(propsFor("localhost", port));
+            PrinterService service = new PrinterService(propsFor("localhost", port), registry);
             service.send("^XA^XZ");
 
             assertThat(received.get(5, TimeUnit.SECONDS)).isEqualTo("^XA^XZ");
+            assertThat(registry.get("wristband.printer.send").timer().count()).isEqualTo(1);
         }
     }
 
     @Test
     void send_throwsPrinterUnavailableException_whenHostUnreachable() {
-        PrinterService service = new PrinterService(propsFor("localhost", 19999));
+        PrinterService service = new PrinterService(propsFor("localhost", 19999), registry);
 
         assertThatThrownBy(() -> service.send("^XA^XZ"))
             .isInstanceOf(PrinterUnavailableException.class)
@@ -56,7 +61,7 @@ class PrinterServiceTest {
         AtomicInteger attempts = new AtomicInteger();
         PrinterProperties props = propsFor("localhost", 9100);
         props.setMaxRetries(2);
-        PrinterService service = new PrinterService(props) {
+        PrinterService service = new PrinterService(props, registry) {
             @Override
             protected void doSend(String zpl) throws IOException {
                 if (attempts.incrementAndGet() < 3) {
@@ -74,7 +79,7 @@ class PrinterServiceTest {
         AtomicInteger attempts = new AtomicInteger();
         PrinterProperties props = propsFor("localhost", 9100);
         props.setMaxRetries(2);
-        PrinterService service = new PrinterService(props) {
+        PrinterService service = new PrinterService(props, registry) {
             @Override
             protected void doSend(String zpl) throws IOException {
                 attempts.incrementAndGet();

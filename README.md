@@ -161,6 +161,20 @@ Click **Authorize** in Swagger UI and enter your API key to test endpoints inter
 
 ---
 
+## Metrics
+
+Micrometer metrics are exposed via Actuator at **http://localhost:8080/actuator/metrics**:
+
+- `wristband.jobs.submitted` — jobs accepted into the queue
+- `wristband.jobs.completed{status=done|failed}` — processed jobs by outcome
+- `wristband.queue.depth` — pending jobs waiting to print
+- `wristband.printer.send` — timer for sending ZPL to the printer (includes retries)
+
+Each job's `jobId` is added to the logging MDC while it is processed, so log lines for a
+job can be correlated.
+
+---
+
 ## Running tests
 
 ```bash
