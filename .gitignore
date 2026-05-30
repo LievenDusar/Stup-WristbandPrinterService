@@ -1,8 +1,5 @@
 target/
 
-# H2 embedded database (persisted print-job history)
-data/
-
 # Maven wrapper
 .mvn/wrapper/maven-wrapper.jar
 !.mvn/wrapper/maven-wrapper.properties
