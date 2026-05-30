@@ -105,6 +105,10 @@
                 <configuration>
                     <!-- Ensure the forked test JVM uses the same JDK as the build -->
                     <jvm>${java.home}/bin/java</jvm>
+                    <!-- Pin the Docker Engine API version so Testcontainers' docker-java
+                         client negotiates successfully with modern Docker daemons
+                         (1.44 is broadly supported; bump if your daemon requires higher). -->
+                    <argLine>-Dapi.version=1.44</argLine>
                 </configuration>
             </plugin>
         </plugins>
