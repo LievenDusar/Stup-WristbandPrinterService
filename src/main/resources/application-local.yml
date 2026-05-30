@@ -1,3 +1,9 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/wristbands
+    username: wristbands
+    password: wristbands
+
 printer:
   host: localhost # replace with your printer IP for local testing
   port: 9100
