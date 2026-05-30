@@ -27,16 +27,19 @@ Application starts on **http://localhost:8080**
 # Build
 docker build -t stup/wristband-printer .
 
-# Run (single container)
+# Recommended: docker-compose (also starts the PostgreSQL service)
+cp .env.example .env   # fill in API_KEY, PRINTER_HOST and DB_PASSWORD
+docker compose up -d
+
+# Standalone container — requires an external PostgreSQL (provide SPRING_DATASOURCE_*)
 docker run -p 8080:8080 \
   -e SPRING_PROFILES_ACTIVE=prod \
   -e SECURITY_API_KEY=your-key \
   -e PRINTER_HOST=192.168.1.100 \
+  -e SPRING_DATASOURCE_URL=jdbc:postgresql://<db-host>:5432/wristbands \
+  -e SPRING_DATASOURCE_USERNAME=wristbands \
+  -e SPRING_DATASOURCE_PASSWORD=your-db-password \
   stup/wristband-printer
-
-# Run with docker-compose
-cp .env.example .env   # fill in API_KEY and PRINTER_HOST
-docker compose up -d
 ```
 
 > **Printer network access:** The container uses Docker's default bridge network and routes outbound traffic through the host. The Zebra printer must be reachable from the server itself — verify with `ping <PRINTER_HOST>` on the server before deploying.
