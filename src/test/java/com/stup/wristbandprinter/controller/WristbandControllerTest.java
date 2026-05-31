@@ -228,6 +228,45 @@ class WristbandControllerTest {
             .andExpect(jsonPath("$.barcodeValue").value("123456789"));
     }
 
+    @Test
+    void cancel_pendingJob_returns200() throws Exception {
+        WristbandPrintRequest r = new WristbandPrintRequest();
+        r.setEventName("Pukkelpop 2026");
+        r.setFirstName("Jan");
+        r.setLastName("Janssens");
+        r.setAssociationName("STUP vzw");
+        r.setBarcodeValue("123456789");
+        UUID id = UUID.randomUUID();
+        PrintJob job = new PrintJob(id, r);
+        Mockito.when(printQueueService.cancel(id)).thenReturn(job);
+
+        mockMvc.perform(post("/api/wristbands/jobs/" + id + "/cancel")
+                .header("X-API-Key", "test-key"))
+            .andExpect(status().isOk());
+    }
+
+    @Test
+    void cancel_alreadyStarted_returns409() throws Exception {
+        UUID id = UUID.randomUUID();
+        Mockito.when(printQueueService.cancel(id))
+            .thenThrow(new com.stup.wristbandprinter.exception.JobNotCancellableException("already started"));
+
+        mockMvc.perform(post("/api/wristbands/jobs/" + id + "/cancel")
+                .header("X-API-Key", "test-key"))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.status").value(409));
+    }
+
+    @Test
+    void cancel_unknownJob_returns404() throws Exception {
+        UUID id = UUID.randomUUID();
+        Mockito.when(printQueueService.cancel(id)).thenReturn(null);
+
+        mockMvc.perform(post("/api/wristbands/jobs/" + id + "/cancel")
+                .header("X-API-Key", "test-key"))
+            .andExpect(status().isNotFound());
+    }
+
     private WristbandPrintRequest sampleRequest() {
         WristbandPrintRequest r = new WristbandPrintRequest();
         r.setEventName("Pukkelpop 2026");

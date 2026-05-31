@@ -96,6 +96,15 @@ public class WristbandController {
             .orElse(ResponseEntity.notFound().build());
     }
 
+    @PostMapping("/jobs/{jobId}/cancel")
+    @Operation(summary = "Cancel a pending print job")
+    public ResponseEntity<PrintJobResponse> cancel(@PathVariable UUID jobId) {
+        PrintJob job = printQueueService.cancel(jobId);
+        return job == null
+            ? ResponseEntity.notFound().build()
+            : ResponseEntity.ok(job.toResponse());
+    }
+
     @DeleteMapping("/jobs/completed")
     @Operation(summary = "Remove all DONE and FAILED jobs from the queue")
     public ResponseEntity<Void> clearCompleted() {

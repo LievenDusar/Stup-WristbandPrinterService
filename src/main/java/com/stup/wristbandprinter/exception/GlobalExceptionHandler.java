@@ -44,6 +44,12 @@ public class GlobalExceptionHandler {
         return errorResponse(HttpStatus.TOO_MANY_REQUESTS, "Queue full", ex.getMessage());
     }
 
+    @ExceptionHandler(JobNotCancellableException.class)
+    public ResponseEntity<Map<String, Object>> handleNotCancellable(JobNotCancellableException ex) {
+        log.warn("Job not cancellable: {}", ex.getMessage());
+        return errorResponse(HttpStatus.CONFLICT, "Job not cancellable", ex.getMessage());
+    }
+
     @ExceptionHandler(LabelaryUnavailableException.class)
     public ResponseEntity<Map<String, Object>> handleLabelaryUnavailable(LabelaryUnavailableException ex) {
         log.warn("Labelary unavailable: {}", ex.getMessage());
