@@ -5,6 +5,7 @@ import com.stup.wristbandprinter.domain.PrintJob;
 import com.stup.wristbandprinter.domain.PrintJobStatus;
 import com.stup.wristbandprinter.domain.WristbandData;
 import com.stup.wristbandprinter.domain.WristbandPrintRequest;
+import com.stup.wristbandprinter.exception.JobNotCancellableException;
 import com.stup.wristbandprinter.exception.PrinterUnavailableException;
 import com.stup.wristbandprinter.exception.QueueFullException;
 import com.stup.wristbandprinter.persistence.JobStore;
@@ -166,6 +167,33 @@ public class PrintQueueService {
         jobs.values().removeIf(job ->
             job.getStatus() == PrintJobStatus.DONE || job.getStatus() == PrintJobStatus.FAILED);
         jobStore.deleteCompleted();
+    }
+
+    /**
+     * Cancel a job that has not started printing. Only valid while PENDING: the job is
+     * removed from the worker queue and marked CANCELLED. Returns null if no such job
+     * exists; throws JobNotCancellableException if the job is no longer pending (the
+     * worker has already taken it or it has finished).
+     */
+    public PrintJob cancel(UUID jobId) {
+        PrintJob job = jobs.get(jobId);
+        if (job == null) {
+            return null;
+        }
+        if (job.getStatus() != PrintJobStatus.PENDING) {
+            throw new JobNotCancellableException(
+                "Job " + jobId + " is " + job.getStatus() + " and cannot be cancelled");
+        }
+        if (!queue.remove(job)) {
+            // The worker dequeued it between the status check and now.
+            throw new JobNotCancellableException(
+                "Job " + jobId + " has already started printing");
+        }
+        job.complete(PrintJobStatus.CANCELLED, null, Instant.now());
+        jobStore.save(job);
+        broadcastUpdate(job);
+        log.info("Job {} cancelled", jobId);
+        return job;
     }
 
     public SseEmitter subscribe() {

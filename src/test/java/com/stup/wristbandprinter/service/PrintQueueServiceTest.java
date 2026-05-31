@@ -5,6 +5,7 @@ import com.stup.wristbandprinter.domain.PrintJob;
 import com.stup.wristbandprinter.domain.PrintJobStatus;
 import com.stup.wristbandprinter.domain.WristbandData;
 import com.stup.wristbandprinter.domain.WristbandPrintRequest;
+import com.stup.wristbandprinter.exception.JobNotCancellableException;
 import com.stup.wristbandprinter.exception.PrinterUnavailableException;
 import com.stup.wristbandprinter.exception.QueueFullException;
 import com.stup.wristbandprinter.persistence.JobStore;
@@ -192,6 +193,31 @@ class PrintQueueServiceTest {
         assertThat(service.getJobs(null)).hasSize(1);
         service.clearCompleted();
         assertThat(service.getJobs(null)).isEmpty();
+    }
+
+    @Test
+    void cancel_pendingJob_marksCancelledAndRemovesFromQueue() {
+        // No worker started, so the job stays PENDING in the queue.
+        PrintJob job = service.enqueue(sampleRequest());
+
+        PrintJob cancelled = service.cancel(job.getJobId());
+
+        assertThat(cancelled.getStatus()).isEqualTo(PrintJobStatus.CANCELLED);
+        assertThat(service.getJobs(PrintJobStatus.CANCELLED)).hasSize(1);
+    }
+
+    @Test
+    void cancel_nonPendingJob_throws() {
+        PrintJob job = service.enqueue(sampleRequest());
+        job.setStatus(PrintJobStatus.DONE); // simulate already-processed
+
+        assertThatThrownBy(() -> service.cancel(job.getJobId()))
+            .isInstanceOf(JobNotCancellableException.class);
+    }
+
+    @Test
+    void cancel_unknownJob_returnsNull() {
+        assertThat(service.cancel(java.util.UUID.randomUUID())).isNull();
     }
 
     private WristbandPrintRequest sampleRequest() {
