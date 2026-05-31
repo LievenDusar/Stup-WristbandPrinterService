@@ -70,4 +70,19 @@ public class PrintJob {
             error
         );
     }
+
+    public synchronized PrintJobDetailResponse toDetailResponse() {
+        return new PrintJobDetailResponse(
+            jobId,
+            status,
+            request.getEventName(),
+            request.getFirstName(),
+            request.getLastName(),
+            request.getAssociationName(),
+            request.getBarcodeValue(),
+            submittedAt,
+            completedAt,
+            error
+        );
+    }
 }
