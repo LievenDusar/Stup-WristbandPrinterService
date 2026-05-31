@@ -1,14 +1,17 @@
 package com.stup.wristbandprinter.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.stup.wristbandprinter.config.AdminProperties;
 import com.stup.wristbandprinter.config.SecurityConfig;
 import com.stup.wristbandprinter.domain.*;
 import com.stup.wristbandprinter.exception.LabelaryUnavailableException;
 import com.stup.wristbandprinter.security.ApiKeyAuthFilter;
+import com.stup.wristbandprinter.security.AuthCookieService;
 import com.stup.wristbandprinter.service.*;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
@@ -27,8 +30,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(WristbandController.class)
-@Import({SecurityConfig.class, ApiKeyAuthFilter.class})
-@TestPropertySource(properties = {"security.api-key=test-key"})
+@Import({SecurityConfig.class, ApiKeyAuthFilter.class, AuthCookieService.class})
+@EnableConfigurationProperties(AdminProperties.class)
+@TestPropertySource(properties = {"security.api-key=test-key", "security.admin.password=pw"})
 class WristbandControllerTest {
 
     @Autowired MockMvc mockMvc;
