@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>STUP — Admin Login</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="/css/app.css" rel="stylesheet">
+</head>
+<body>
+  <div class="login-wrap">
+    <div class="glass login-card">
+      <h1>STUP Print Queue</h1>
+      <div class="sub">Admin sign in</div>
+      <form id="login-form">
+        <div class="field">
+          <label for="username">Username</label>
+          <input class="input" type="text" id="username" autocomplete="username" value="admin">
+        </div>
+        <div class="field">
+          <label for="password">Password</label>
+          <input class="input" type="password" id="password" autocomplete="current-password">
+        </div>
+        <div id="login-error" class="error-text" style="display:none;margin-bottom:12px;font-size:0.83rem"></div>
+        <button class="btn btn-primary" type="submit" style="width:100%">Sign in</button>
+      </form>
+    </div>
+  </div>
+  <script src="/js/login.js"></script>
+</body>
+</html>
