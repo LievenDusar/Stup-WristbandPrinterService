@@ -7,6 +7,7 @@ import com.stup.wristbandprinter.exception.LabelaryUnavailableException;
 import com.stup.wristbandprinter.security.ApiKeyAuthFilter;
 import com.stup.wristbandprinter.service.*;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
@@ -205,6 +206,26 @@ class WristbandControllerTest {
         mockMvc.perform(get("/api/wristbands/jobs/stream")
                 .accept(MediaType.TEXT_EVENT_STREAM))
             .andExpect(status().isOk());
+    }
+
+    @Test
+    void getJob_returnsFullDetailFields() throws Exception {
+        WristbandPrintRequest r = new WristbandPrintRequest();
+        r.setEventName("Pukkelpop 2026");
+        r.setFirstName("Jan");
+        r.setLastName("Janssens");
+        r.setAssociationName("STUP vzw");
+        r.setBarcodeValue("123456789");
+        UUID id = UUID.randomUUID();
+        PrintJob job = new PrintJob(id, r);
+        Mockito.when(printQueueService.getJob(id)).thenReturn(java.util.Optional.of(job));
+
+        mockMvc.perform(get("/api/wristbands/jobs/" + id)
+                .header("X-API-Key", "test-key"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.firstName").value("Jan"))
+            .andExpect(jsonPath("$.lastName").value("Janssens"))
+            .andExpect(jsonPath("$.barcodeValue").value("123456789"));
     }
 
     private WristbandPrintRequest sampleRequest() {

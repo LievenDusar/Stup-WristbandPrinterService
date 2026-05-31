@@ -71,10 +71,10 @@ public class WristbandController {
     }
 
     @GetMapping("/jobs/{jobId}")
-    @Operation(summary = "Get status of a specific print job")
-    public ResponseEntity<PrintJobResponse> getJob(@PathVariable UUID jobId) {
+    @Operation(summary = "Get full detail of a specific print job")
+    public ResponseEntity<PrintJobDetailResponse> getJob(@PathVariable UUID jobId) {
         return printQueueService.getJob(jobId)
-            .map(job -> ResponseEntity.ok(job.toResponse()))
+            .map(job -> ResponseEntity.ok(job.toDetailResponse()))
             .orElse(ResponseEntity.notFound().build());
     }
 
