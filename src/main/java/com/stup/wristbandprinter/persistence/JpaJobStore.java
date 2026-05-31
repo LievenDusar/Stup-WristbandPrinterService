@@ -51,7 +51,8 @@ public class JpaJobStore implements JobStore {
     @Override
     @Transactional
     public void deleteCompleted() {
-        repository.deleteByStatusIn(List.of(PrintJobStatus.DONE, PrintJobStatus.FAILED));
+        repository.deleteByStatusIn(
+            List.of(PrintJobStatus.DONE, PrintJobStatus.FAILED, PrintJobStatus.CANCELLED));
     }
 
     private static PrintJob toDomain(PrintJobEntity e) {

@@ -220,6 +220,16 @@ class PrintQueueServiceTest {
         assertThat(service.cancel(java.util.UUID.randomUUID())).isNull();
     }
 
+    @Test
+    void clearCompleted_alsoRemovesCancelledJobs() {
+        PrintJob job = service.enqueue(sampleRequest());
+        service.cancel(job.getJobId()); // now CANCELLED
+
+        service.clearCompleted();
+
+        assertThat(service.getJobs(null)).isEmpty();
+    }
+
     private WristbandPrintRequest sampleRequest() {
         WristbandPrintRequest r = new WristbandPrintRequest();
         r.setEventName("Pukkelpop 2026");

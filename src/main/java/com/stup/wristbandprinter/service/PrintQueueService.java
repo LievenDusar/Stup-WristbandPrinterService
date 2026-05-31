@@ -165,7 +165,9 @@ public class PrintQueueService {
 
     public void clearCompleted() {
         jobs.values().removeIf(job ->
-            job.getStatus() == PrintJobStatus.DONE || job.getStatus() == PrintJobStatus.FAILED);
+            job.getStatus() == PrintJobStatus.DONE
+                || job.getStatus() == PrintJobStatus.FAILED
+                || job.getStatus() == PrintJobStatus.CANCELLED);
         jobStore.deleteCompleted();
     }
 
