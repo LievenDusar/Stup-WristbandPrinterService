@@ -148,12 +148,16 @@ user/password `wristbands`).
 
 ## Job management UI
 
-Open **http://localhost:8080/jobs.html** in a browser.
+Open **http://localhost:8080/jobs.html** in a browser (you'll be redirected to
+`/login.html` if not signed in).
 
-- Enter the API key in the input at the top (stored in `sessionStorage` for the session)
-- The job table updates in real-time via Server-Sent Events — no page refresh needed
-- Use the **Reprint** button on any DONE or FAILED job to re-enqueue it
-- Use **Clear completed** to remove DONE and FAILED jobs from the view
+- Sign in with the admin credential (`security.admin.username` / `security.admin.password`).
+  A session is kept in an HttpOnly cookie — no key is stored in the browser.
+- The job table updates in real-time via Server-Sent Events.
+- Each row shows a truncated job ID with a copy-to-clipboard button; status chips give
+  live counts and filter the table; columns are sortable; timestamps are relative.
+- **Details** shows the full wristband data for a job. **Cancel** stops a PENDING job.
+  **Reprint** re-queues a DONE/FAILED job. **Clear completed** removes DONE/FAILED/CANCELLED.
 
 ---
 
