@@ -14,6 +14,11 @@ wristband:
 
 security:
   api-key: local-dev-key
+  admin:
+    password: local-admin
+  cookie:
+    secure: false
+    same-site: Lax
 
 labelary:
   base-url: http://api.labelary.com
