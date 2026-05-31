@@ -43,4 +43,23 @@ class ApiKeyValidatorTest {
         assertThatCode(() -> ApiKeyValidator.validate(false, "changeme"))
             .doesNotThrowAnyException();
     }
+
+    @Test
+    void prodWithBlankAdminPassword_throws() {
+        assertThatThrownBy(() -> ApiKeyValidator.validateAdminPassword(true, "  "))
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("admin");
+    }
+
+    @Test
+    void prodWithRealAdminPassword_passes() {
+        assertThatCode(() -> ApiKeyValidator.validateAdminPassword(true, "a-real-password"))
+            .doesNotThrowAnyException();
+    }
+
+    @Test
+    void nonProdWithBlankAdminPassword_passes() {
+        assertThatCode(() -> ApiKeyValidator.validateAdminPassword(false, ""))
+            .doesNotThrowAnyException();
+    }
 }

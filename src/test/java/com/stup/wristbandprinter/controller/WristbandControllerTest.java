@@ -204,10 +204,18 @@ class WristbandControllerTest {
     }
 
     @Test
-    void streamJobs_isAccessibleWithoutApiKey() throws Exception {
+    void streamJobs_requiresApiKey() throws Exception {
+        mockMvc.perform(get("/api/wristbands/jobs/stream")
+                .accept(MediaType.TEXT_EVENT_STREAM))
+            .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void streamJobs_isAccessibleWithApiKey() throws Exception {
         when(printQueueService.subscribe()).thenReturn(new SseEmitter());
 
         mockMvc.perform(get("/api/wristbands/jobs/stream")
+                .header("X-API-Key", API_KEY)
                 .accept(MediaType.TEXT_EVENT_STREAM))
             .andExpect(status().isOk());
     }
