@@ -183,10 +183,13 @@ Open **http://localhost:8080/jobs.html** in a browser (you'll be redirected to
 - Sign in with the admin credential (`security.admin.username` / `security.admin.password`).
   A session is kept in an HttpOnly cookie — no key is stored in the browser.
 - The job table updates in real-time via Server-Sent Events.
-- Each row shows a truncated job ID with a copy-to-clipboard button; status chips give
-  live counts and filter the table; columns are sortable; timestamps are relative.
-- **Details** shows the full wristband data for a job. **Cancel** stops a PENDING job.
-  **Reprint** re-queues a DONE/FAILED job. **Clear completed** removes DONE/FAILED/CANCELLED.
+- Each row shows the person's **name**, event, status, a truncated job ID (with copy),
+  relative timestamps, and per-job actions. Status chips give live counts and filter; columns sort.
+- Clicking a row opens a **slide-in detail drawer** with the full wristband data
+  (name, association, barcode, timestamps) and a **Show preview** button that renders
+  the wristband image via Labelary on demand.
+- **Cancel** stops a PENDING job; **Reprint** re-queues a DONE/FAILED job;
+  **Clear completed** removes DONE/FAILED/CANCELLED.
 
 ---
 
