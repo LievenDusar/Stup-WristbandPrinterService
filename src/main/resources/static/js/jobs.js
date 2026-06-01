@@ -3,6 +3,9 @@ let statusFilter = '';
 let sortKey = 'submittedAt';
 let sortDir = -1; // newest first
 let eventSource = null;
+let previewUrl = null;        // in-memory object URL of the current job's rendered preview
+let previewVisible = false;
+const DRAWER_BASE_WIDTH = 500; // keep in sync with .drawer width in app.css
 
 const STATUSES = ['PENDING', 'PRINTING', 'DONE', 'FAILED', 'CANCELLED'];
 
@@ -138,40 +141,78 @@ async function showDetail(id) {
         <h2>Job detail</h2>
         ${rows}
         <div class="preview-trigger">
-          <button class="btn btn-sm" onclick="showPreview('${d.jobId}')">Show preview</button>
+          <button class="btn btn-sm" id="preview-btn" onclick="togglePreview('${d.jobId}')">Show preview</button>
         </div>
         <div class="drawer-actions">${actions.join('')}</div>
         <button class="btn drawer-close" onclick="closeDrawer()">Close</button>
       </div>
     </div>`;
 
+  clearPreview();                 // drop any cached preview from a previously opened job
   const drawer = document.getElementById('drawer');
-  drawer.classList.remove('wide');           // start narrow; widens when preview is shown
+  drawer.style.width = '';        // reset to the default width
   drawer.classList.add('open');
   drawer.setAttribute('aria-hidden', 'false');
   document.getElementById('drawer-overlay').classList.add('open');
 }
 
 function closeDrawer() {
+  clearPreview();                 // free the cached preview when the flyin closes
   const drawer = document.getElementById('drawer');
   drawer.classList.remove('open');
-  drawer.classList.remove('wide');
+  drawer.style.width = '';
   drawer.setAttribute('aria-hidden', 'true');
   document.getElementById('drawer-overlay').classList.remove('open');
 }
 
-function showPreview(id) {
-  document.getElementById('drawer').classList.add('wide');   // animate the drawer wider
+// Toggle the rendered preview. First show fetches it once and caches the image in
+// memory (object URL); hiding keeps the cache so re-showing needs no backend call.
+async function togglePreview(id) {
+  const btn = document.getElementById('preview-btn');
   const box = document.getElementById('preview-box');
+
+  if (previewVisible) {                 // hide — keep the cached image, shrink the drawer
+    box.innerHTML = '';
+    document.getElementById('drawer').style.width = '';
+    btn.textContent = 'Show preview';
+    previewVisible = false;
+    return;
+  }
+
+  btn.textContent = 'Hide preview';
+  previewVisible = true;
+
+  if (previewUrl) { renderPreviewImage(previewUrl); return; }  // cached — no backend call
+
   box.innerHTML = '<div class="spinner" role="status" aria-label="Rendering preview"></div>';
+  const res = await guarded(fetch('/api/wristbands/jobs/' + id + '/preview'));
+  if (!res) { previewVisible = false; return; }               // 401 → redirected to login
+  if (!res.ok) {
+    box.innerHTML = '<div class="error-text" style="padding:12px 0">Preview unavailable</div>';
+    return;
+  }
+  previewUrl = URL.createObjectURL(await res.blob());
+  if (previewVisible) renderPreviewImage(previewUrl);         // user may have hidden meanwhile
+}
+
+function renderPreviewImage(url) {
+  const box = document.getElementById('preview-box');
   const img = new Image();
   img.className = 'wristband-preview';
   img.alt = 'Wristband preview';
-  img.onload = () => { box.innerHTML = ''; box.appendChild(img); };
-  img.onerror = () => {
-    box.innerHTML = '<div class="error-text" style="padding:12px 0">Preview unavailable</div>';
+  img.onload = () => {
+    box.innerHTML = '';
+    box.appendChild(img);
+    // Grow the drawer by exactly the rendered wristband's width (animated via CSS).
+    const w = Math.ceil(img.getBoundingClientRect().width);
+    document.getElementById('drawer').style.width = 'min(96vw, ' + (DRAWER_BASE_WIDTH + w) + 'px)';
   };
-  img.src = '/api/wristbands/jobs/' + id + '/preview';
+  img.src = url;
+}
+
+function clearPreview() {
+  if (previewUrl) { URL.revokeObjectURL(previewUrl); previewUrl = null; }
+  previewVisible = false;
 }
 
 async function reprint(id) {

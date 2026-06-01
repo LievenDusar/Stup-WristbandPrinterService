@@ -117,14 +117,14 @@ tbody tr:hover { background: hsla(0, 0%, 100%, 0.03); }
 }
 .drawer-overlay.open { opacity: 1; pointer-events: auto; }
 .drawer {
-  position: fixed; top: 0; right: 0; height: 100dvh; width: 440px; max-width: 96vw;
+  position: fixed; top: 0; right: 0; height: 100dvh; width: 500px; max-width: 96vw;
   background: var(--purple-dark); border-left: 1px solid var(--glass-border);
   box-shadow: var(--shadow-card); transform: translateX(100%);
   transition: transform 0.25s ease, width 0.25s ease; z-index: 91; overflow: hidden; padding: 24px;
 }
 .drawer.open { transform: translateX(0); }
-/* Grow to make room for the rendered wristband once the preview is shown. */
-.drawer.wide { width: 760px; }
+/* When the preview is shown, jobs.js sets an inline width = default + image width,
+   so the drawer grows by exactly the rendered wristband's width (animated). */
 .drawer h2 { margin: 0 0 16px; font-size: 1.15rem; }
 /* Two columns: rendered wristband on the left, job detail on the right. */
 .drawer-body { display: flex; gap: 20px; align-items: flex-start; height: 100%; }
@@ -134,8 +134,8 @@ tbody tr:hover { background: hsla(0, 0%, 100%, 0.03); }
   display: flex; justify-content: space-between; gap: 16px; padding: 8px 0;
   border-bottom: 1px solid hsla(0, 0%, 100%, 0.06);
 }
-.detail-row .k { color: var(--text-muted); }
-.detail-row .v { text-align: right; word-break: break-all; }
+.detail-row .k { color: hsla(0, 0%, 100%, 0.45); font-size: 0.8rem; font-weight: 400; }
+.detail-row .v { text-align: right; word-break: break-all; color: var(--text-body); font-weight: 500; }
 .drawer-actions { display: flex; gap: 8px; margin: 18px 0; }
 .preview-trigger { margin-top: 12px; }
 .spinner {
