@@ -33,6 +33,8 @@ public class PrintJobEntity {
     @Column(length = 2000)
     private String error;
 
+    private boolean deleted;
+
     protected PrintJobEntity() {
     }
 
@@ -61,4 +63,5 @@ public class PrintJobEntity {
     public Instant getSubmittedAt() { return submittedAt; }
     public Instant getCompletedAt() { return completedAt; }
     public String getError() { return error; }
+    public boolean isDeleted() { return deleted; }
 }
