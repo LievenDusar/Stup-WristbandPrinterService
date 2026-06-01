@@ -133,32 +133,37 @@ async function showDetail(id) {
 
   document.getElementById('drawer-content').innerHTML = `
     <div class="drawer-body">
-      <div class="drawer-preview preview-section">
-        <button class="btn btn-sm" onclick="showPreview('${d.jobId}')">Show preview</button>
-        <div id="preview-box"></div>
-      </div>
+      <div class="drawer-preview"><div id="preview-box"></div></div>
       <div class="drawer-details">
         <h2>Job detail</h2>
         ${rows}
+        <div class="preview-trigger">
+          <button class="btn btn-sm" onclick="showPreview('${d.jobId}')">Show preview</button>
+        </div>
         <div class="drawer-actions">${actions.join('')}</div>
         <button class="btn drawer-close" onclick="closeDrawer()">Close</button>
       </div>
     </div>`;
 
-  document.getElementById('drawer').classList.add('open');
-  document.getElementById('drawer').setAttribute('aria-hidden', 'false');
+  const drawer = document.getElementById('drawer');
+  drawer.classList.remove('wide');           // start narrow; widens when preview is shown
+  drawer.classList.add('open');
+  drawer.setAttribute('aria-hidden', 'false');
   document.getElementById('drawer-overlay').classList.add('open');
 }
 
 function closeDrawer() {
-  document.getElementById('drawer').classList.remove('open');
-  document.getElementById('drawer').setAttribute('aria-hidden', 'true');
+  const drawer = document.getElementById('drawer');
+  drawer.classList.remove('open');
+  drawer.classList.remove('wide');
+  drawer.setAttribute('aria-hidden', 'true');
   document.getElementById('drawer-overlay').classList.remove('open');
 }
 
 function showPreview(id) {
+  document.getElementById('drawer').classList.add('wide');   // animate the drawer wider
   const box = document.getElementById('preview-box');
-  box.innerHTML = '<div class="muted" style="padding:12px 0">Rendering…</div>';
+  box.innerHTML = '<div class="spinner" role="status" aria-label="Rendering preview"></div>';
   const img = new Image();
   img.className = 'wristband-preview';
   img.alt = 'Wristband preview';
