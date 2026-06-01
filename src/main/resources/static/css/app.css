@@ -136,6 +136,18 @@ tbody tr:hover { background: hsla(0, 0%, 100%, 0.03); }
 }
 .detail-row .k { color: hsla(0, 0%, 100%, 0.45); font-size: 0.8rem; font-weight: 400; }
 .detail-row .v { text-align: right; word-break: break-all; color: var(--text-body); font-weight: 500; }
+/* Alert-style status box: tinted background + border + colored text per state. */
+.status-box {
+  border-radius: var(--radius-md); padding: 12px 14px; margin-bottom: 16px;
+  border: 1px solid transparent;
+}
+.status-box-title { font-weight: 600; font-size: 0.9rem; }
+.status-box-msg { font-size: 0.85rem; word-break: break-word; margin-top: 2px; }
+.status-box.done      { background: rgba(76, 175, 80, 0.15);  border-color: rgba(76, 175, 80, 0.5);  color: #a5d6a7; }
+.status-box.failed    { background: rgba(244, 67, 54, 0.15);  border-color: rgba(244, 67, 54, 0.5);  color: #ef9a9a; }
+.status-box.printing  { background: rgba(33, 150, 243, 0.15); border-color: rgba(33, 150, 243, 0.5); color: #90caf9; }
+.status-box.pending   { background: hsla(0, 0%, 100%, 0.06);  border-color: var(--glass-border);     color: var(--text-muted); }
+.status-box.cancelled { background: rgba(155, 95, 196, 0.15); border-color: rgba(155, 95, 196, 0.5); color: #ce93d8; }
 .drawer-actions { display: flex; gap: 8px; margin: 18px 0; }
 .preview-trigger { margin-top: 12px; }
 .spinner {

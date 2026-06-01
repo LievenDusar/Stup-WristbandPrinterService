@@ -112,6 +112,25 @@ async function copyId(id) {
   catch (e) { toast('Copy failed', 'err'); }
 }
 
+// Build the alert-style status box shown at the top of the drawer.
+function statusBox(d) {
+  const cls = (d.status || '').toLowerCase();
+  const titles = { PENDING: 'Pending', PRINTING: 'Printing', DONE: 'Done', FAILED: 'Failed', CANCELLED: 'Cancelled' };
+  const msgs = {
+    PENDING: 'Waiting in the queue to be printed.',
+    PRINTING: 'Sending the wristband to the printer…',
+    DONE: 'The wristband was printed successfully.',
+    FAILED: d.error ? d.error : 'Printing failed.',
+    CANCELLED: 'This job was cancelled before printing.'
+  };
+  const title = titles[d.status] || (d.status || 'Unknown');
+  const msg = msgs[d.status] || '';
+  return `<div class="status-box ${cls}">
+    <div class="status-box-title">${esc(title)}</div>
+    ${msg ? `<div class="status-box-msg">${esc(String(msg))}</div>` : ''}
+  </div>`;
+}
+
 async function showDetail(id) {
   const res = await guarded(fetch('/api/wristbands/jobs/' + id));
   if (!res) return;
@@ -119,11 +138,10 @@ async function showDetail(id) {
   const d = await res.json();
 
   const rows = [
-    ['Job ID', d.jobId], ['Status', d.status], ['Event', d.eventName],
+    ['Job ID', d.jobId], ['Event', d.eventName],
     ['First name', d.firstName], ['Last name', d.lastName],
     ['Association', d.associationName], ['Barcode', d.barcodeValue],
-    ['Submitted', fmtDateTime(d.submittedAt)], ['Completed', fmtDateTime(d.completedAt)],
-    ['Error', d.error || '—']
+    ['Submitted', fmtDateTime(d.submittedAt)], ['Completed', fmtDateTime(d.completedAt)]
   ].map(([k, v]) => `<div class="detail-row"><span class="k">${k}</span><span class="v">${esc(String(v))}</span></div>`).join('');
 
   const actions = [];
@@ -139,6 +157,7 @@ async function showDetail(id) {
       <div class="drawer-preview"><div id="preview-box"></div></div>
       <div class="drawer-details">
         <h2>Job detail</h2>
+        ${statusBox(d)}
         ${rows}
         <div class="preview-trigger">
           <button class="btn btn-sm" id="preview-btn" onclick="togglePreview('${d.jobId}')">Show preview</button>
