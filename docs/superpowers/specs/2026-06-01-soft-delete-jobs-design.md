@@ -16,8 +16,8 @@
 - Soft-delete is a **separate `deleted` boolean flag** (option A), not a `DELETED`
   status — so the original outcome (done/failed/cancelled) stays intact and recovery
   is a single-field flip.
-- Confirmation uses a native `confirm()` dialog (simple, reliable). A styled in-app
-  dialog is out of scope unless requested later.
+- Confirmation uses a **styled in-app dialog** matching the STUP dark/glass theme
+  (a small reusable confirm modal), not the browser's native `confirm()`.
 - The `DELETE /api/wristbands/jobs/completed` endpoint path and the frontend's local
   removal behavior are unchanged; only the persistence effect changes (soft vs hard).
 
@@ -55,12 +55,20 @@
 - `recoverJobs()`: load via `jobStore.loadActive()` so soft-deleted jobs are never
   reloaded into the map after a restart (they stay hidden).
 
-## Frontend (`js/jobs.js`)
-- `clearCompleted()` shows `confirm("Hide all completed, failed and cancelled jobs from
-  the queue? This is a soft delete — they stay in the database and can only be restored
-  by an admin.")` and returns early if the user cancels. On OK it calls the existing
+## Frontend (`jobs.html`, `css/app.css`, `js/jobs.js`)
+- **Reusable styled confirm dialog** (on-brand, replaces the native `confirm()`):
+  - `jobs.html`: a `confirm-overlay` containing a glass `confirm-card` with a message
+    element and **Cancel** / confirm (danger-styled) buttons.
+  - `css/app.css`: `.confirm-overlay` (fixed, centered, dimmed, fade in) and
+    `.confirm-card` styles, matching the drawer/modal look.
+  - `js/jobs.js`: a promise-based helper `confirmDialog(message, okLabel)` that shows the
+    overlay, resolves `true` on confirm and `false` on Cancel / overlay click / `Esc`,
+    and cleans up its handlers.
+- `clearCompleted()` becomes: `if (!(await confirmDialog("Hide all completed, failed and
+  cancelled jobs from the queue? This is a soft delete — they stay in the database and can
+  only be restored by an admin.", "Clear"))) return;` then calls the existing
   `DELETE /jobs/completed` and removes DONE/FAILED/CANCELLED from the local `jobs` map as
-  today. No other frontend changes.
+  today. No change to the endpoint or its response.
 
 ## Recovery (operational note)
 To restore a soft-deleted job: `UPDATE print_jobs SET deleted = false WHERE job_id = '…';`
@@ -79,7 +87,6 @@ the running instance's memory it was already removed, so a restart is the reliab
 - Full suite green (`./mvnw test`, Docker required for Testcontainers).
 
 ## Out of scope
-- A styled confirmation dialog (native `confirm()` is used).
 - Any UI to view or restore soft-deleted jobs (restore is DB-only, by design).
 - Changing the API path or response of `DELETE /jobs/completed`.
 
@@ -89,5 +96,7 @@ the running instance's memory it was already removed, so a restart is the reliab
 - `src/main/java/.../persistence/PrintJobRepository.java`
 - `src/main/java/.../persistence/JobStore.java` + `JpaJobStore.java`
 - `src/main/java/.../service/PrintQueueService.java`
-- `src/main/resources/static/js/jobs.js`
+- `src/main/resources/static/jobs.html` (confirm dialog markup)
+- `src/main/resources/static/css/app.css` (confirm dialog styles)
+- `src/main/resources/static/js/jobs.js` (confirmDialog helper + clearCompleted)
 - Tests: `JpaJobStoreTest`, `PrintQueueServiceTest`
