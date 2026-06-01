@@ -82,7 +82,7 @@ public class PrintQueueService {
      * the operator can reprint it deliberately. Completed jobs are restored as-is.
      */
     public void recoverJobs() {
-        for (PrintJob job : jobStore.loadAll()) {
+        for (PrintJob job : jobStore.loadActive()) {
             if (job.getStatus() == PrintJobStatus.PENDING
                 || job.getStatus() == PrintJobStatus.PRINTING) {
                 job.complete(PrintJobStatus.FAILED, "Interrupted by service restart", Instant.now());
@@ -168,7 +168,7 @@ public class PrintQueueService {
             job.getStatus() == PrintJobStatus.DONE
                 || job.getStatus() == PrintJobStatus.FAILED
                 || job.getStatus() == PrintJobStatus.CANCELLED);
-        jobStore.deleteCompleted();
+        jobStore.softDeleteCompleted();
     }
 
     /**
