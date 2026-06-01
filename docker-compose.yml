@@ -1,4 +1,19 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_DB=wristbands
+      - POSTGRES_USER=wristbands
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wristbands -d wristbands"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
   wristband-printer:
     build: .
     ports:
@@ -7,9 +22,12 @@ services:
       - SPRING_PROFILES_ACTIVE=prod
       - SECURITY_API_KEY=${API_KEY}
       - PRINTER_HOST=${PRINTER_HOST}
-    volumes:
-      # Persist the H2 print-job database across container recreation
-      - printjobs-data:/app/data
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/wristbands
+      - SPRING_DATASOURCE_USERNAME=wristbands
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
+    depends_on:
+      postgres:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8080/actuator/health"]
       interval: 30s
@@ -24,4 +42,4 @@ services:
     restart: unless-stopped
 
 volumes:
-  printjobs-data:
+  pgdata:

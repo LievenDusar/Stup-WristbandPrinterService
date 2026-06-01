@@ -54,9 +54,32 @@
             <artifactId>spring-boot-starter-data-jpa</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.h2database</groupId>
-            <artifactId>h2</artifactId>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
             <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-database-postgresql</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-testcontainers</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -82,6 +105,10 @@
                 <configuration>
                     <!-- Ensure the forked test JVM uses the same JDK as the build -->
                     <jvm>${java.home}/bin/java</jvm>
+                    <!-- Pin the Docker Engine API version so Testcontainers' docker-java
+                         client negotiates successfully with modern Docker daemons
+                         (1.44 is broadly supported; bump if your daemon requires higher). -->
+                    <argLine>-Dapi.version=1.44</argLine>
                 </configuration>
             </plugin>
         </plugins>

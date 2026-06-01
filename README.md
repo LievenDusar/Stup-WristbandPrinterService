@@ -27,16 +27,19 @@ Application starts on **http://localhost:8080**
 # Build
 docker build -t stup/wristband-printer .
 
-# Run (single container)
+# Recommended: docker-compose (also starts the PostgreSQL service)
+cp .env.example .env   # fill in API_KEY, PRINTER_HOST and DB_PASSWORD
+docker compose up -d
+
+# Standalone container — requires an external PostgreSQL (provide SPRING_DATASOURCE_*)
 docker run -p 8080:8080 \
   -e SPRING_PROFILES_ACTIVE=prod \
   -e SECURITY_API_KEY=your-key \
   -e PRINTER_HOST=192.168.1.100 \
+  -e SPRING_DATASOURCE_URL=jdbc:postgresql://<db-host>:5432/wristbands \
+  -e SPRING_DATASOURCE_USERNAME=wristbands \
+  -e SPRING_DATASOURCE_PASSWORD=your-db-password \
   stup/wristband-printer
-
-# Run with docker-compose
-cp .env.example .env   # fill in API_KEY and PRINTER_HOST
-docker compose up -d
 ```
 
 > **Printer network access:** The container uses Docker's default bridge network and routes outbound traffic through the host. The Zebra printer must be reachable from the server itself — verify with `ping <PRINTER_HOST>` on the server before deploying.
@@ -130,13 +133,16 @@ Set width to **1**, height to **11**, density to **12dpmm** (300 dpi).
 
 ## Job persistence
 
-Print jobs are persisted to an embedded H2 database (file `./data/printjobs`), so the
-job history survives a restart. On startup, any job left `PENDING` or `PRINTING` by a
-previous run is marked `FAILED` ("Interrupted by service restart") — a half-printed
-wristband is never reprinted automatically; the operator can reprint deliberately.
+Print jobs are persisted to **PostgreSQL**; the schema is managed by **Flyway**
+(`src/main/resources/db/migration`). On startup, any job left `PENDING` or `PRINTING`
+by a previous run is marked `FAILED` ("Interrupted by service restart") — a
+half-printed wristband is never reprinted automatically; the operator can reprint
+deliberately.
 
-Under Docker the database lives on the `printjobs-data` volume (mounted at `/app/data`)
-so it survives container recreation.
+Under Docker Compose a `postgres` service starts automatically and the app connects
+to it via `SPRING_DATASOURCE_*` (see `docker-compose.yml`). For local dev, run the
+`local` profile against a Postgres on `localhost:5432` (database `wristbands`,
+user/password `wristbands`).
 
 ---
 
@@ -181,4 +187,6 @@ job can be correlated.
 mvn test
 ```
 
-No external dependencies required — the printer and Labelary are mocked in tests.
+Tests run the persistence and integration layers against a real PostgreSQL started
+automatically via Testcontainers — a running **Docker** daemon is required. The
+printer and Labelary are still mocked (a fake TCP socket stands in for the printer).
