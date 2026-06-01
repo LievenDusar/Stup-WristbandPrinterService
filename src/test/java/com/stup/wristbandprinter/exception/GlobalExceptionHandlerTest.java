@@ -20,6 +20,7 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -79,6 +80,14 @@ class GlobalExceptionHandlerTest {
                 .content(body))
             .andExpect(status().isTooManyRequests())
             .andExpect(jsonPath("$.status").value(429));
+    }
+
+    @Test
+    void wrongHttpMethod_returns405() throws Exception {
+        mockMvc.perform(get("/api/wristbands/print")
+                .header("X-API-Key", "test-key"))
+            .andExpect(status().isMethodNotAllowed())
+            .andExpect(jsonPath("$.status").value(405));
     }
 
     @Test

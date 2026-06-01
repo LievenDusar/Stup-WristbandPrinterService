@@ -41,10 +41,9 @@ class SecurityConfigTest {
 
     @Test
     void loginEndpoint_isPublic() throws Exception {
-        // permitAll: a GET reaches dispatch (the mapping is POST-only) instead of being
-        // rejected by security with 401. The app's GlobalExceptionHandler maps the resulting
-        // HttpRequestMethodNotSupportedException to 500, so the key assertion is "NOT 401".
+        // permitAll: a GET reaches dispatch (the mapping is POST-only) and yields 405
+        // Method Not Allowed, rather than being rejected by security with 401.
         mockMvc.perform(get("/api/wristbands/login"))
-            .andExpect(status().is(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR.value()));
+            .andExpect(status().isMethodNotAllowed());
     }
 }
