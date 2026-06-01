@@ -249,7 +249,33 @@ async function cancelJob(id) {
   else toast('Cancel failed', 'err');
 }
 
+function confirmDialog(message, okLabel = 'Confirm') {
+  return new Promise(resolve => {
+    const overlay = document.getElementById('confirm-overlay');
+    const okBtn = document.getElementById('confirm-ok');
+    const cancelBtn = document.getElementById('confirm-cancel');
+    document.getElementById('confirm-message').textContent = message;
+    okBtn.textContent = okLabel;
+    overlay.classList.add('open');
+    const done = (result) => {
+      overlay.classList.remove('open');
+      okBtn.onclick = null; cancelBtn.onclick = null; overlay.onclick = null;
+      document.removeEventListener('keydown', onKey);
+      resolve(result);
+    };
+    const onKey = (e) => { if (e.key === 'Escape') done(false); };
+    okBtn.onclick = () => done(true);
+    cancelBtn.onclick = () => done(false);
+    overlay.onclick = (e) => { if (e.target === overlay) done(false); };
+    document.addEventListener('keydown', onKey);
+  });
+}
+
 async function clearCompleted() {
+  const ok = await confirmDialog(
+    'Hide all completed, failed and cancelled jobs from the queue? This is a soft delete — '
+    + 'they stay in the database and can only be restored by an admin.', 'Clear');
+  if (!ok) return;
   const res = await guarded(fetch('/api/wristbands/jobs/completed', { method: 'DELETE' }));
   if (!res) return;
   if (res.ok) {
