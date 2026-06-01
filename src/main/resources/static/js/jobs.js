@@ -87,8 +87,8 @@ function rowHtml(job) {
     <td>${esc(((job.firstName || '') + ' ' + (job.lastName || '')).trim())}</td>
     <td>${esc(job.eventName)}</td>
     <td><span class="badge ${job.status}">${job.status}</span></td>
-    <td title="${job.submittedAt || ''}">${relTime(job.submittedAt)}</td>
-    <td title="${job.completedAt || ''}">${job.completedAt ? relTime(job.completedAt) : '—'}</td>
+    <td title="${fmtDateTime(job.submittedAt)}">${relTime(job.submittedAt)}</td>
+    <td title="${job.completedAt ? fmtDateTime(job.completedAt) : ''}">${job.completedAt ? relTime(job.completedAt) : '—'}</td>
     <td><div style="display:flex;gap:6px">${actions.join('')}</div></td>
   </tr>`;
 }
@@ -119,7 +119,7 @@ async function showDetail(id) {
     ['Job ID', d.jobId], ['Status', d.status], ['Event', d.eventName],
     ['First name', d.firstName], ['Last name', d.lastName],
     ['Association', d.associationName], ['Barcode', d.barcodeValue],
-    ['Submitted', d.submittedAt], ['Completed', d.completedAt || '—'],
+    ['Submitted', fmtDateTime(d.submittedAt)], ['Completed', fmtDateTime(d.completedAt)],
     ['Error', d.error || '—']
   ].map(([k, v]) => `<div class="detail-row"><span class="k">${k}</span><span class="v">${esc(String(v))}</span></div>`).join('');
 
@@ -213,10 +213,18 @@ async function guarded(promise) {
 function relTime(iso) {
   if (!iso) return '—';
   const diff = (Date.now() - new Date(iso).getTime()) / 1000;
+  if (diff < 0) return fmtDateTime(iso);
   if (diff < 60) return Math.floor(diff) + 's ago';
   if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
   if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
-  return new Date(iso).toLocaleString();
+  return fmtDateTime(iso);
+}
+
+// Render an ISO-8601 instant as a readable local date+time (falls back to the raw value).
+function fmtDateTime(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? String(iso) : d.toLocaleString();
 }
 
 function esc(str) {
