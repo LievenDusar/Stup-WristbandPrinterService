@@ -144,10 +144,11 @@ tbody tr:hover { background: hsla(0, 0%, 100%, 0.03); }
   animation: spin 0.8s linear infinite; margin: 28px auto;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
-/* Cap the image to the viewport height minus the drawer's 24px top+bottom padding;
-   width auto keeps the wristband's aspect ratio so it never forces a page scrollbar. */
+/* Cap the image below the viewport height (drawer's 48px top+bottom padding plus a
+   ~48px bottom gap) so it keeps its aspect ratio, leaves margin under the wristband,
+   and never forces a page scrollbar. */
 .wristband-preview {
-  max-height: calc(100dvh - 48px); width: auto; max-width: 100%;
+  max-height: calc(100dvh - 96px); width: auto; max-width: 100%;
   border-radius: var(--radius-md); background: #fff; display: block;
 }
 .drawer-close { width: 100%; margin-top: 18px; }
