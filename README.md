@@ -7,17 +7,46 @@ Used by the STUP Symfony event application to print staff wristbands at events.
 
 ## Running locally
 
-**Prerequisites:** Java 21, Maven 3.9+
+**Prerequisites:** Java 21, Maven 3.9+, Docker (for a local PostgreSQL).
 
-1. Place `stup-logo.png` in `src/main/resources/images/`
-2. Edit `src/main/resources/application-local.yml` — set `printer.host` to your printer's IP
-3. Start:
+1. Place `stup-logo.png` in `src/main/resources/images/`.
+2. **Start a local PostgreSQL** matching the `local` profile (`application-local.yml` uses
+   database `wristbands`, user/password `wristbands`/`wristbands` on `localhost:5432`):
 
-```bash
-mvn spring-boot:run -Dspring-boot.run.profiles=local
-```
+   ```bash
+   docker run --name stup-pg \
+     -e POSTGRES_DB=wristbands \
+     -e POSTGRES_USER=wristbands \
+     -e POSTGRES_PASSWORD=wristbands \
+     -p 5432:5432 -d postgres:16-alpine
+   ```
 
-Application starts on **http://localhost:8080**
+   The schema is created automatically by Flyway on startup.
+
+3. Edit `src/main/resources/application-local.yml` — set `printer.host` to your printer's IP.
+4. Start:
+
+   ```bash
+   mvn spring-boot:run -Dspring-boot.run.profiles=local
+   ```
+
+Application starts on **http://localhost:8080**. The admin jobs page is at
+`/jobs.html`; log in with username `admin` / password `local-admin` (the `local`
+profile default).
+
+> **Port 5432 already in use?** If another project occupies `5432`, run the container
+> on a different port and override the datasource URL — no config change needed:
+>
+> ```bash
+> docker run --name stup-pg -e POSTGRES_DB=wristbands -e POSTGRES_USER=wristbands \
+>   -e POSTGRES_PASSWORD=wristbands -p 5433:5432 -d postgres:16-alpine
+>
+> SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5433/wristbands \
+>   mvn spring-boot:run -Dspring-boot.run.profiles=local
+> ```
+>
+> (PostgreSQL only sets the password when the data volume is first created — if you
+> reused an old `stup-pg` with a different password, `docker rm -f stup-pg` and recreate.)
 
 ---
 
