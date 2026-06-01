@@ -21,6 +21,7 @@ services:
     environment:
       - SPRING_PROFILES_ACTIVE=prod
       - SECURITY_API_KEY=${API_KEY}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
       - PRINTER_HOST=${PRINTER_HOST}
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/wristbands
       - SPRING_DATASOURCE_USERNAME=wristbands
