@@ -156,8 +156,8 @@ async function showDetail(id) {
     <div class="drawer-body">
       <div class="drawer-preview"><div id="preview-box"></div></div>
       <div class="drawer-details">
-        <h2>Job detail</h2>
         ${statusBox(d)}
+        <h2>Job detail</h2>
         ${rows}
         <div class="preview-trigger">
           <button class="btn btn-sm" id="preview-btn" onclick="togglePreview('${d.jobId}')">Show preview</button>
