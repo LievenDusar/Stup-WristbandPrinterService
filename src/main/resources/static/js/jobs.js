@@ -114,6 +114,7 @@ async function showDetail(id) {
   if (!res) return;
   if (!res.ok) { toast('Could not load job', 'err'); return; }
   const d = await res.json();
+
   const rows = [
     ['Job ID', d.jobId], ['Status', d.status], ['Event', d.eventName],
     ['First name', d.firstName], ['Last name', d.lastName],
@@ -121,12 +122,48 @@ async function showDetail(id) {
     ['Submitted', d.submittedAt], ['Completed', d.completedAt || '—'],
     ['Error', d.error || '—']
   ].map(([k, v]) => `<div class="detail-row"><span class="k">${k}</span><span class="v">${esc(String(v))}</span></div>`).join('');
-  document.getElementById('modal-content').innerHTML =
-    `<h2>Job detail</h2>${rows}<button class="btn modal-close" onclick="closeModal()">Close</button>`;
-  document.getElementById('modal-overlay').classList.add('open');
+
+  const actions = [];
+  if (d.status === 'PENDING') {
+    actions.push(`<button class="btn btn-sm" onclick="cancelJob('${d.jobId}'); closeDrawer()">Cancel</button>`);
+  }
+  if (d.status === 'DONE' || d.status === 'FAILED') {
+    actions.push(`<button class="btn btn-sm btn-primary" onclick="reprint('${d.jobId}')">Reprint</button>`);
+  }
+
+  document.getElementById('drawer-content').innerHTML = `
+    <h2>Job detail</h2>
+    ${rows}
+    <div class="drawer-actions">${actions.join('')}</div>
+    <div class="preview-section">
+      <button class="btn btn-sm" onclick="showPreview('${d.jobId}')">Show preview</button>
+      <div id="preview-box"></div>
+    </div>
+    <button class="btn drawer-close" onclick="closeDrawer()">Close</button>`;
+
+  document.getElementById('drawer').classList.add('open');
+  document.getElementById('drawer').setAttribute('aria-hidden', 'false');
+  document.getElementById('drawer-overlay').classList.add('open');
 }
 
-function closeModal() { document.getElementById('modal-overlay').classList.remove('open'); }
+function closeDrawer() {
+  document.getElementById('drawer').classList.remove('open');
+  document.getElementById('drawer').setAttribute('aria-hidden', 'true');
+  document.getElementById('drawer-overlay').classList.remove('open');
+}
+
+function showPreview(id) {
+  const box = document.getElementById('preview-box');
+  box.innerHTML = '<div class="muted" style="padding:12px 0">Rendering…</div>';
+  const img = new Image();
+  img.className = 'wristband-preview';
+  img.alt = 'Wristband preview';
+  img.onload = () => { box.innerHTML = ''; box.appendChild(img); };
+  img.onerror = () => {
+    box.innerHTML = '<div class="error-text" style="padding:12px 0">Preview unavailable</div>';
+  };
+  img.src = '/api/wristbands/jobs/' + id + '/preview';
+}
 
 async function reprint(id) {
   const res = await guarded(fetch('/api/wristbands/jobs/' + id + '/reprint', { method: 'POST' }));
@@ -189,3 +226,5 @@ function toast(msg, kind) {
   document.getElementById('toasts').appendChild(el);
   setTimeout(() => el.remove(), 3000);
 }
+
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDrawer(); });
