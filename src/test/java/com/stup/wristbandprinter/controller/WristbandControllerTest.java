@@ -279,6 +279,39 @@ class WristbandControllerTest {
             .andExpect(status().isNotFound());
     }
 
+    @Test
+    void jobPreview_returnsPng() throws Exception {
+        WristbandPrintRequest r = new WristbandPrintRequest();
+        r.setEventName("Pukkelpop 2026");
+        r.setFirstName("Jan");
+        r.setLastName("Janssens");
+        r.setAssociationName("STUP vzw");
+        r.setBarcodeValue("123456789");
+        UUID id = UUID.randomUUID();
+        Mockito.when(printQueueService.getJob(id))
+            .thenReturn(java.util.Optional.of(new PrintJob(id, r)));
+        Mockito.when(wristbandLayoutService.buildData(Mockito.any()))
+            .thenReturn(new WristbandData("Pukkelpop 2026", "Jan", "Janssens", "STUP vzw", "123456789"));
+        Mockito.when(zplGeneratorService.generate(Mockito.any())).thenReturn("^XA^XZ");
+        Mockito.when(labelaryPreviewService.renderPreview(Mockito.any()))
+            .thenReturn(new byte[]{1, 2, 3});
+
+        mockMvc.perform(get("/api/wristbands/jobs/" + id + "/preview")
+                .header("X-API-Key", "test-key"))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.IMAGE_PNG));
+    }
+
+    @Test
+    void jobPreview_unknownJob_returns404() throws Exception {
+        UUID id = UUID.randomUUID();
+        Mockito.when(printQueueService.getJob(id)).thenReturn(java.util.Optional.empty());
+
+        mockMvc.perform(get("/api/wristbands/jobs/" + id + "/preview")
+                .header("X-API-Key", "test-key"))
+            .andExpect(status().isNotFound());
+    }
+
     private WristbandPrintRequest sampleRequest() {
         WristbandPrintRequest r = new WristbandPrintRequest();
         r.setEventName("Pukkelpop 2026");

@@ -77,6 +77,19 @@ public class WristbandController {
             .orElse(ResponseEntity.notFound().build());
     }
 
+    @GetMapping(value = "/jobs/{jobId}/preview", produces = MediaType.IMAGE_PNG_VALUE)
+    @Operation(summary = "Render a job's wristband as a PNG via Labelary")
+    public ResponseEntity<byte[]> jobPreview(@PathVariable UUID jobId) {
+        return printQueueService.getJob(jobId)
+            .<ResponseEntity<byte[]>>map(job -> {
+                WristbandData data = wristbandLayoutService.buildData(job.getRequest());
+                String zpl = zplGeneratorService.generate(data);
+                byte[] png = labelaryPreviewService.renderPreview(zpl);
+                return ResponseEntity.ok().contentType(MediaType.IMAGE_PNG).body(png);
+            })
+            .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
     @GetMapping(value = "/jobs/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     @Operation(summary = "Subscribe to real-time job status updates via SSE (requires admin cookie or API key)")
     public SseEmitter streamJobs() {
