@@ -36,7 +36,7 @@ wristband:
   margins:
     top-dots: 59
     between-logo-and-text: 30
-    between-text-and-barcode: 40
+    between-text-and-barcode: 30
     between-barcode-and-logo: 70
   text:
     font-size-event: 45

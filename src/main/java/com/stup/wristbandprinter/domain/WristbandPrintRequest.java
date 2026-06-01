@@ -11,19 +11,19 @@ public class WristbandPrintRequest {
     private String eventName;
 
     @NotBlank(message = "firstName must not be blank")
-    @Schema(example = "Jan")
+    @Schema(example = "Annechien")
     private String firstName;
 
     @NotBlank(message = "lastName must not be blank")
-    @Schema(example = "Janssens")
+    @Schema(example = "Van De Wall")
     private String lastName;
 
     @NotBlank(message = "associationName must not be blank")
-    @Schema(example = "STUP vzw")
+    @Schema(example = "Chiro Sint-Christina Brustem")
     private String associationName;
 
     @NotBlank(message = "barcodeValue must not be blank")
-    @Schema(example = "123456789")
+    @Schema(example = "12345654245524789")
     private String barcodeValue;
 
     public String getEventName() { return eventName; }
