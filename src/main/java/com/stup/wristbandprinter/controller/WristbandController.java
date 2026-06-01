@@ -4,7 +4,6 @@ import com.stup.wristbandprinter.domain.*;
 import com.stup.wristbandprinter.service.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
-import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -79,8 +78,7 @@ public class WristbandController {
     }
 
     @GetMapping(value = "/jobs/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    @Operation(summary = "Subscribe to real-time job status updates via SSE (no API key required)")
-    @SecurityRequirements({})
+    @Operation(summary = "Subscribe to real-time job status updates via SSE (requires admin cookie or API key)")
     public SseEmitter streamJobs() {
         return printQueueService.subscribe();
     }
