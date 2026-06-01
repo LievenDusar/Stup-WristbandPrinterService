@@ -132,14 +132,18 @@ async function showDetail(id) {
   }
 
   document.getElementById('drawer-content').innerHTML = `
-    <h2>Job detail</h2>
-    ${rows}
-    <div class="drawer-actions">${actions.join('')}</div>
-    <div class="preview-section">
-      <button class="btn btn-sm" onclick="showPreview('${d.jobId}')">Show preview</button>
-      <div id="preview-box"></div>
-    </div>
-    <button class="btn drawer-close" onclick="closeDrawer()">Close</button>`;
+    <div class="drawer-body">
+      <div class="drawer-preview preview-section">
+        <button class="btn btn-sm" onclick="showPreview('${d.jobId}')">Show preview</button>
+        <div id="preview-box"></div>
+      </div>
+      <div class="drawer-details">
+        <h2>Job detail</h2>
+        ${rows}
+        <div class="drawer-actions">${actions.join('')}</div>
+        <button class="btn drawer-close" onclick="closeDrawer()">Close</button>
+      </div>
+    </div>`;
 
   document.getElementById('drawer').classList.add('open');
   document.getElementById('drawer').setAttribute('aria-hidden', 'false');
