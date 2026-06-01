@@ -1,0 +1,187 @@
+:root {
+  --purple-deep: #0e0118;
+  --purple-dark: #1a0a38;
+  --purple: #4f1574;
+  --purple-mid: #632d87;
+  --purple-light: #9b5fc4;
+  --orange: #f57c00;
+  --orange-deep: #e65100;
+  --text-body: #e8e0f0;
+  --text-muted: #d4c8e8;
+  --glass-bg: hsla(0, 0%, 100%, 0.05);
+  --glass-border: hsla(0, 0%, 100%, 0.1);
+  --shadow-card: 0 8px 40px rgba(0, 0, 0, 0.35);
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --t-fast: 0.2s ease;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: Poppins, system-ui, sans-serif;
+  color: var(--text-body);
+  background: radial-gradient(1200px 800px at 20% -10%, var(--purple-dark), var(--purple-deep));
+  min-height: 100vh;
+}
+
+a { color: var(--purple-light); }
+
+.container { max-width: 1100px; margin: 0 auto; padding: 24px; }
+
+.glass {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  backdrop-filter: blur(8px);
+}
+
+.app-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 20px;
+}
+.app-header h1 { font-size: 1.5rem; font-weight: 600; margin: 0; }
+
+.btn {
+  font-family: inherit; font-size: 0.85rem; cursor: pointer;
+  border-radius: var(--radius-md); padding: 8px 14px;
+  border: 1px solid var(--glass-border); background: var(--glass-bg);
+  color: var(--text-body); transition: background var(--t-fast), transform var(--t-fast);
+}
+.btn:hover { background: hsla(0, 0%, 100%, 0.1); }
+.btn:active { transform: translateY(1px); }
+.btn-primary { background: var(--orange); border-color: var(--orange); color: #fff; }
+.btn-primary:hover { background: var(--orange-deep); }
+.btn-sm { padding: 4px 10px; font-size: 0.78rem; }
+.btn-danger { border-color: #f4433680; }
+
+.controls { display: flex; gap: 10px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+.search { flex: 1; min-width: 200px; }
+.input {
+  font-family: inherit; font-size: 0.9rem; color: var(--text-body);
+  background: var(--glass-bg); border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md); padding: 9px 12px; width: 100%;
+}
+.input:focus { outline: 1px solid var(--purple-light); }
+
+.chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+.chip {
+  cursor: pointer; border-radius: 999px; padding: 6px 14px; font-size: 0.8rem;
+  border: 1px solid var(--glass-border); background: var(--glass-bg); color: var(--text-muted);
+  transition: background var(--t-fast);
+}
+.chip:hover { background: hsla(0, 0%, 100%, 0.1); }
+.chip.active { background: var(--purple); border-color: var(--purple-mid); color: #fff; }
+.chip .count { font-weight: 600; }
+
+table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+thead th {
+  text-align: left; padding: 12px; color: var(--text-muted); font-weight: 600;
+  border-bottom: 1px solid var(--glass-border); cursor: pointer; user-select: none;
+}
+tbody td { padding: 11px 12px; border-bottom: 1px solid hsla(0, 0%, 100%, 0.05); }
+tbody tr:hover { background: hsla(0, 0%, 100%, 0.03); }
+.mono { font-family: ui-monospace, monospace; font-size: 0.82rem; }
+.id-cell { display: flex; align-items: center; gap: 6px; }
+.copy-btn { background: none; border: none; cursor: pointer; color: var(--purple-light); font-size: 0.9rem; padding: 2px; }
+
+.badge { padding: 3px 10px; border-radius: 999px; font-size: 0.72rem; font-weight: 600; color: #fff; }
+.badge.PENDING   { background: #6c757d; }
+.badge.PRINTING  { background: #2196f3; }
+.badge.DONE      { background: #4caf50; }
+.badge.FAILED    { background: #f44336; }
+.badge.CANCELLED { background: var(--purple-light); }
+
+.muted { color: var(--text-muted); }
+.error-text { color: #ff8a80; }
+.empty { text-align: center; padding: 28px; color: var(--text-muted); }
+
+#sse-status { font-size: 0.8rem; }
+.live { color: #6ee7a8; }
+.reconnecting { color: #ffcf6e; }
+
+/* Login */
+.login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+.login-card { width: 340px; padding: 28px; }
+.login-card h1 { font-size: 1.3rem; margin: 0 0 4px; }
+.login-card .sub { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 20px; }
+.field { margin-bottom: 14px; }
+.field label { display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 5px; }
+
+/* Drawer */
+.drawer-overlay {
+  position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5);
+  opacity: 0; pointer-events: none; transition: opacity var(--t-fast); z-index: 90;
+}
+.drawer-overlay.open { opacity: 1; pointer-events: auto; }
+.drawer {
+  position: fixed; top: 0; right: 0; height: 100dvh; width: 500px; max-width: 96vw;
+  background: var(--purple-dark); border-left: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-card); transform: translateX(100%);
+  transition: transform 0.25s ease, width 0.25s ease; z-index: 91; overflow: hidden; padding: 24px;
+}
+.drawer.open { transform: translateX(0); }
+/* When the preview is shown, jobs.js sets an inline width = default + image width,
+   so the drawer grows by exactly the rendered wristband's width (animated). */
+.drawer h2 { margin: 0 0 16px; font-size: 1.15rem; }
+/* Two columns: rendered wristband on the left, job detail on the right. */
+.drawer-body { display: flex; gap: 20px; align-items: flex-start; height: 100%; }
+.drawer-preview { flex: 0 0 auto; }
+.drawer-details { flex: 1 1 auto; min-width: 0; overflow-y: auto; max-height: 100%; }
+.detail-row {
+  display: flex; justify-content: space-between; gap: 16px; padding: 8px 0;
+  border-bottom: 1px solid hsla(0, 0%, 100%, 0.06);
+}
+.detail-row .k { color: hsla(0, 0%, 100%, 0.45); font-size: 0.8rem; font-weight: 400; }
+.detail-row .v { text-align: right; word-break: break-all; color: var(--text-body); font-weight: 500; }
+/* Alert-style status box: tinted background + border + colored text per state. */
+.status-box {
+  border-radius: var(--radius-md); padding: 12px 14px; margin-bottom: 16px;
+  border: 1px solid transparent;
+}
+.status-box-title { font-weight: 600; font-size: 0.9rem; }
+.status-box-msg { font-size: 0.85rem; word-break: break-word; margin-top: 2px; }
+.status-box.done      { background: rgba(76, 175, 80, 0.15);  border-color: rgba(76, 175, 80, 0.5);  color: #a5d6a7; }
+.status-box.failed    { background: rgba(244, 67, 54, 0.15);  border-color: rgba(244, 67, 54, 0.5);  color: #ef9a9a; }
+.status-box.printing  { background: rgba(33, 150, 243, 0.15); border-color: rgba(33, 150, 243, 0.5); color: #90caf9; }
+.status-box.pending   { background: hsla(0, 0%, 100%, 0.06);  border-color: var(--glass-border);     color: var(--text-muted); }
+.status-box.cancelled { background: rgba(155, 95, 196, 0.15); border-color: rgba(155, 95, 196, 0.5); color: #ce93d8; }
+.drawer-actions { display: flex; gap: 8px; margin: 18px 0; }
+.preview-trigger { margin-top: 12px; }
+.spinner {
+  width: 32px; height: 32px; border-radius: 50%;
+  border: 3px solid hsla(0, 0%, 100%, 0.2); border-top-color: var(--orange);
+  animation: spin 0.8s linear infinite; margin: 28px auto;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+/* Cap the image below the viewport height (drawer's 48px top+bottom padding plus a
+   ~48px bottom gap) so it keeps its aspect ratio, leaves margin under the wristband,
+   and never forces a page scrollbar. */
+.wristband-preview {
+  max-height: calc(100dvh - 96px); width: auto; max-width: 100%;
+  border-radius: var(--radius-md); background: #fff; display: block;
+}
+.drawer-close { width: 100%; margin-top: 18px; }
+
+/* Confirmation dialog */
+.confirm-overlay {
+  position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6);
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+  opacity: 0; pointer-events: none; transition: opacity var(--t-fast); z-index: 110;
+}
+.confirm-overlay.open { opacity: 1; pointer-events: auto; }
+.confirm-card { width: 420px; max-width: 100%; padding: 22px; }
+.confirm-card #confirm-message { margin-bottom: 18px; line-height: 1.5; }
+.confirm-actions { display: flex; justify-content: flex-end; gap: 10px; }
+
+/* Toasts */
+#toasts { position: fixed; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 8px; z-index: 100; }
+.toast {
+  padding: 12px 16px; border-radius: var(--radius-md); font-size: 0.85rem; color: #fff;
+  box-shadow: var(--shadow-card); animation: toast-in var(--t-fast);
+}
+.toast.ok { background: #2e7d32; }
+.toast.err { background: #c62828; }
+@keyframes toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }

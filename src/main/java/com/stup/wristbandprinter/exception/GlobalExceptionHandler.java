@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -44,6 +45,12 @@ public class GlobalExceptionHandler {
         return errorResponse(HttpStatus.TOO_MANY_REQUESTS, "Queue full", ex.getMessage());
     }
 
+    @ExceptionHandler(JobNotCancellableException.class)
+    public ResponseEntity<Map<String, Object>> handleNotCancellable(JobNotCancellableException ex) {
+        log.warn("Job not cancellable: {}", ex.getMessage());
+        return errorResponse(HttpStatus.CONFLICT, "Job not cancellable", ex.getMessage());
+    }
+
     @ExceptionHandler(LabelaryUnavailableException.class)
     public ResponseEntity<Map<String, Object>> handleLabelaryUnavailable(LabelaryUnavailableException ex) {
         log.warn("Labelary unavailable: {}", ex.getMessage());
@@ -54,6 +61,12 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, Object>> handleLogoNotFound(LogoNotFoundException ex) {
         log.error("Logo not available: {}", ex.getMessage());
         return errorResponse(HttpStatus.INTERNAL_SERVER_ERROR, "Logo not available", "Logo image could not be loaded — check server configuration");
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<Map<String, Object>> handleMethodNotSupported(HttpRequestMethodNotSupportedException ex) {
+        log.warn("Method not allowed: {}", ex.getMessage());
+        return errorResponse(HttpStatus.METHOD_NOT_ALLOWED, "Method not allowed", ex.getMessage());
     }
 
     @ExceptionHandler(Exception.class)

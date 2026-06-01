@@ -32,13 +32,16 @@ class JpaJobStoreTest {
     @Autowired
     private JpaJobStore store;
 
+    @Autowired
+    private PrintJobRepository repository;
+
     @Test
     void saveAndLoad_roundTripsAllFields() {
         UUID id = UUID.randomUUID();
         Instant submitted = Instant.now();
         store.save(PrintJob.restore(id, request(), PrintJobStatus.DONE, submitted, submitted, null));
 
-        List<PrintJob> loaded = store.loadAll();
+        List<PrintJob> loaded = store.loadActive();
 
         assertThat(loaded).hasSize(1);
         PrintJob job = loaded.get(0);
@@ -49,16 +52,25 @@ class JpaJobStoreTest {
     }
 
     @Test
-    void deleteCompleted_removesDoneAndFailedButKeepsPending() {
+    void softDeleteCompleted_flagsTerminalRowsButKeepsThem() {
         store.save(PrintJob.restore(UUID.randomUUID(), request(), PrintJobStatus.DONE, Instant.now(), Instant.now(), null));
         store.save(PrintJob.restore(UUID.randomUUID(), request(), PrintJobStatus.FAILED, Instant.now(), Instant.now(), "boom"));
         store.save(PrintJob.restore(UUID.randomUUID(), request(), PrintJobStatus.PENDING, Instant.now(), null, null));
 
-        store.deleteCompleted();
+        store.softDeleteCompleted();
 
-        List<PrintJob> remaining = store.loadAll();
-        assertThat(remaining).hasSize(1);
-        assertThat(remaining.get(0).getStatus()).isEqualTo(PrintJobStatus.PENDING);
+        List<PrintJob> active = store.loadActive();
+        assertThat(active).hasSize(1);
+        assertThat(active.get(0).getStatus()).isEqualTo(PrintJobStatus.PENDING);
+        assertThat(repository.count()).isEqualTo(3); // rows still present (soft, not hard, delete)
+    }
+
+    @Test
+    void deleteById_hardRemovesRow() {
+        UUID id = UUID.randomUUID();
+        store.save(PrintJob.restore(id, request(), PrintJobStatus.DONE, Instant.now(), Instant.now(), null));
+        store.deleteById(id);
+        assertThat(repository.count()).isZero();
     }
 
     private WristbandPrintRequest request() {

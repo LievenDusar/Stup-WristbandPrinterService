@@ -9,6 +9,13 @@ spring:
 
 security:
   api-key: changeme  # Override via security.api-key env var or profile YAML in all real environments
+  admin:
+    username: admin
+    # password supplied per-profile / via env (SECURITY_ADMIN_PASSWORD); never defaulted in base
+  cookie:
+    secure: true       # send cookie only over HTTPS (overridden in local)
+    same-site: Strict  # overridden to Lax in local
+  # cookie-secret: optional; if unset the cookie signing key is derived from the admin password
 
 printer:
   host: localhost

@@ -143,7 +143,8 @@ class WristbandIntegrationTest {
         HttpClient client = HttpClient.newHttpClient();
         BlockingQueue<String> lines = new LinkedBlockingQueue<>();
         client.sendAsync(
-                HttpRequest.newBuilder(URI.create(url("/api/wristbands/jobs/stream"))).GET().build(),
+                HttpRequest.newBuilder(URI.create(url("/api/wristbands/jobs/stream")))
+                    .header("X-API-Key", API_KEY).GET().build(),
                 HttpResponse.BodyHandlers.ofLines())
             .thenAccept(resp -> resp.body().forEach(lines::add));
 

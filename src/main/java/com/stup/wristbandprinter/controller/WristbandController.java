@@ -4,7 +4,6 @@ import com.stup.wristbandprinter.domain.*;
 import com.stup.wristbandprinter.service.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
-import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -71,16 +70,28 @@ public class WristbandController {
     }
 
     @GetMapping("/jobs/{jobId}")
-    @Operation(summary = "Get status of a specific print job")
-    public ResponseEntity<PrintJobResponse> getJob(@PathVariable UUID jobId) {
+    @Operation(summary = "Get full detail of a specific print job")
+    public ResponseEntity<PrintJobDetailResponse> getJob(@PathVariable UUID jobId) {
         return printQueueService.getJob(jobId)
-            .map(job -> ResponseEntity.ok(job.toResponse()))
+            .map(job -> ResponseEntity.ok(job.toDetailResponse()))
             .orElse(ResponseEntity.notFound().build());
     }
 
+    @GetMapping(value = "/jobs/{jobId}/preview", produces = MediaType.IMAGE_PNG_VALUE)
+    @Operation(summary = "Render a job's wristband as a PNG via Labelary")
+    public ResponseEntity<byte[]> jobPreview(@PathVariable UUID jobId) {
+        return printQueueService.getJob(jobId)
+            .<ResponseEntity<byte[]>>map(job -> {
+                WristbandData data = wristbandLayoutService.buildData(job.getRequest());
+                String zpl = zplGeneratorService.generate(data);
+                byte[] png = labelaryPreviewService.renderPreview(zpl);
+                return ResponseEntity.ok().contentType(MediaType.IMAGE_PNG).body(png);
+            })
+            .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
     @GetMapping(value = "/jobs/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    @Operation(summary = "Subscribe to real-time job status updates via SSE (no API key required)")
-    @SecurityRequirements({})
+    @Operation(summary = "Subscribe to real-time job status updates via SSE (requires admin cookie or API key)")
     public SseEmitter streamJobs() {
         return printQueueService.subscribe();
     }
@@ -94,6 +105,15 @@ public class WristbandController {
                 return ResponseEntity.status(HttpStatus.ACCEPTED).body(newJob.toResponse());
             })
             .orElse(ResponseEntity.notFound().build());
+    }
+
+    @PostMapping("/jobs/{jobId}/cancel")
+    @Operation(summary = "Cancel a pending print job")
+    public ResponseEntity<PrintJobResponse> cancel(@PathVariable UUID jobId) {
+        PrintJob job = printQueueService.cancel(jobId);
+        return job == null
+            ? ResponseEntity.notFound().build()
+            : ResponseEntity.ok(job.toResponse());
     }
 
     @DeleteMapping("/jobs/completed")

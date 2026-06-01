@@ -7,17 +7,46 @@ Used by the STUP Symfony event application to print staff wristbands at events.
 
 ## Running locally
 
-**Prerequisites:** Java 21, Maven 3.9+
+**Prerequisites:** Java 21, Maven 3.9+, Docker (for a local PostgreSQL).
 
-1. Place `stup-logo.png` in `src/main/resources/images/`
-2. Edit `src/main/resources/application-local.yml` — set `printer.host` to your printer's IP
-3. Start:
+1. Place `stup-logo.png` in `src/main/resources/images/`.
+2. **Start a local PostgreSQL** matching the `local` profile (`application-local.yml` uses
+   database `wristbands`, user/password `wristbands`/`wristbands` on `localhost:5432`):
 
-```bash
-mvn spring-boot:run -Dspring-boot.run.profiles=local
-```
+   ```bash
+   docker run --name stup-pg \
+     -e POSTGRES_DB=wristbands \
+     -e POSTGRES_USER=wristbands \
+     -e POSTGRES_PASSWORD=wristbands \
+     -p 5432:5432 -d postgres:16-alpine
+   ```
 
-Application starts on **http://localhost:8080**
+   The schema is created automatically by Flyway on startup.
+
+3. Edit `src/main/resources/application-local.yml` — set `printer.host` to your printer's IP.
+4. Start:
+
+   ```bash
+   mvn spring-boot:run -Dspring-boot.run.profiles=local
+   ```
+
+Application starts on **http://localhost:8080**. The admin jobs page is at
+`/jobs.html`; log in with username `admin` / password `local-admin` (the `local`
+profile default).
+
+> **Port 5432 already in use?** If another project occupies `5432`, run the container
+> on a different port and override the datasource URL — no config change needed:
+>
+> ```bash
+> docker run --name stup-pg -e POSTGRES_DB=wristbands -e POSTGRES_USER=wristbands \
+>   -e POSTGRES_PASSWORD=wristbands -p 5433:5432 -d postgres:16-alpine
+>
+> SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5433/wristbands \
+>   mvn spring-boot:run -Dspring-boot.run.profiles=local
+> ```
+>
+> (PostgreSQL only sets the password when the data volume is first created — if you
+> reused an old `stup-pg` with a different password, `docker rm -f stup-pg` and recreate.)
 
 ---
 
@@ -148,12 +177,21 @@ user/password `wristbands`).
 
 ## Job management UI
 
-Open **http://localhost:8080/jobs.html** in a browser.
+Open **http://localhost:8080/jobs.html** in a browser (you'll be redirected to
+`/login.html` if not signed in).
 
-- Enter the API key in the input at the top (stored in `sessionStorage` for the session)
-- The job table updates in real-time via Server-Sent Events — no page refresh needed
-- Use the **Reprint** button on any DONE or FAILED job to re-enqueue it
-- Use **Clear completed** to remove DONE and FAILED jobs from the view
+- Sign in with the admin credential (`security.admin.username` / `security.admin.password`).
+  A session is kept in an HttpOnly cookie — no key is stored in the browser.
+- The job table updates in real-time via Server-Sent Events.
+- Each row shows the person's **name**, event, status, a truncated job ID (with copy),
+  relative timestamps, and per-job actions. Status chips give live counts and filter; columns sort.
+- Clicking a row opens a **slide-in detail drawer** with the full wristband data
+  (name, association, barcode, timestamps) and a **Show preview** button that renders
+  the wristband image via Labelary on demand.
+- **Cancel** stops a PENDING job; **Reprint** re-queues a DONE/FAILED job.
+- **Clear completed** asks for confirmation, then **soft-deletes** DONE/FAILED/CANCELLED
+  jobs — they are hidden from the queue but kept in the database (`deleted = true`).
+  Restore one with `UPDATE print_jobs SET deleted = false WHERE job_id = '…';`.
 
 ---
 

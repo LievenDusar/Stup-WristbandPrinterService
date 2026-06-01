@@ -5,6 +5,7 @@ import com.stup.wristbandprinter.domain.PrintJob;
 import com.stup.wristbandprinter.domain.PrintJobStatus;
 import com.stup.wristbandprinter.domain.WristbandData;
 import com.stup.wristbandprinter.domain.WristbandPrintRequest;
+import com.stup.wristbandprinter.exception.JobNotCancellableException;
 import com.stup.wristbandprinter.exception.PrinterUnavailableException;
 import com.stup.wristbandprinter.exception.QueueFullException;
 import com.stup.wristbandprinter.persistence.JobStore;
@@ -19,9 +20,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -123,7 +126,7 @@ class PrintQueueServiceTest {
     @Test
     void enqueue_persistsJobToStore() {
         PrintJob job = service.enqueue(sampleRequest());
-        assertThat(jobStore.loadAll())
+        assertThat(jobStore.loadActive())
             .extracting(PrintJob::getJobId)
             .contains(job.getJobId());
     }
@@ -194,6 +197,41 @@ class PrintQueueServiceTest {
         assertThat(service.getJobs(null)).isEmpty();
     }
 
+    @Test
+    void cancel_pendingJob_marksCancelledAndRemovesFromQueue() {
+        // No worker started, so the job stays PENDING in the queue.
+        PrintJob job = service.enqueue(sampleRequest());
+
+        PrintJob cancelled = service.cancel(job.getJobId());
+
+        assertThat(cancelled.getStatus()).isEqualTo(PrintJobStatus.CANCELLED);
+        assertThat(service.getJobs(PrintJobStatus.CANCELLED)).hasSize(1);
+    }
+
+    @Test
+    void cancel_nonPendingJob_throws() {
+        PrintJob job = service.enqueue(sampleRequest());
+        job.setStatus(PrintJobStatus.DONE); // simulate already-processed
+
+        assertThatThrownBy(() -> service.cancel(job.getJobId()))
+            .isInstanceOf(JobNotCancellableException.class);
+    }
+
+    @Test
+    void cancel_unknownJob_returnsNull() {
+        assertThat(service.cancel(java.util.UUID.randomUUID())).isNull();
+    }
+
+    @Test
+    void clearCompleted_alsoRemovesCancelledJobs() {
+        PrintJob job = service.enqueue(sampleRequest());
+        service.cancel(job.getJobId()); // now CANCELLED
+
+        service.clearCompleted();
+
+        assertThat(service.getJobs(null)).isEmpty();
+    }
+
     private WristbandPrintRequest sampleRequest() {
         WristbandPrintRequest r = new WristbandPrintRequest();
         r.setEventName("Pukkelpop 2026");
@@ -211,6 +249,7 @@ class PrintQueueServiceTest {
     /** Minimal in-memory JobStore so the queue service can be unit-tested without a database. */
     private static class InMemoryJobStore implements JobStore {
         private final Map<UUID, PrintJob> store = new LinkedHashMap<>();
+        private final Set<UUID> deleted = new HashSet<>();
 
         @Override
         public void save(PrintJob job) {
@@ -218,19 +257,27 @@ class PrintQueueServiceTest {
         }
 
         @Override
-        public List<PrintJob> loadAll() {
-            return new ArrayList<>(store.values());
+        public List<PrintJob> loadActive() {
+            List<PrintJob> active = new ArrayList<>();
+            store.forEach((id, job) -> { if (!deleted.contains(id)) active.add(job); });
+            return active;
         }
 
         @Override
         public void deleteById(UUID jobId) {
             store.remove(jobId);
+            deleted.remove(jobId);
         }
 
         @Override
-        public void deleteCompleted() {
-            store.values().removeIf(j ->
-                j.getStatus() == PrintJobStatus.DONE || j.getStatus() == PrintJobStatus.FAILED);
+        public void softDeleteCompleted() {
+            store.forEach((id, job) -> {
+                if (job.getStatus() == PrintJobStatus.DONE
+                    || job.getStatus() == PrintJobStatus.FAILED
+                    || job.getStatus() == PrintJobStatus.CANCELLED) {
+                    deleted.add(id);
+                }
+            });
         }
     }
 }

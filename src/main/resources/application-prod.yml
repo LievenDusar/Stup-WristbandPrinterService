@@ -5,6 +5,8 @@ printer:
 
 security:
   api-key: ${SECURITY_API_KEY}   # set via environment variable
+  admin:
+    password: ${ADMIN_PASSWORD}
 
 labelary:
   base-url: http://api.labelary.com

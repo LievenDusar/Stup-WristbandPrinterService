@@ -1,194 +1,69 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>STUP — Print Queue</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        .badge-PENDING    { background-color: #6c757d; }
-        .badge-PRINTING   { background-color: #0d6efd; }
-        .badge-DONE       { background-color: #198754; }
-        .badge-FAILED     { background-color: #dc3545; }
-        #sse-status { font-size: 0.8rem; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>STUP — Print Queue</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="/css/app.css" rel="stylesheet">
 </head>
-<body class="bg-light">
-<div class="container py-4">
-    <div class="d-flex align-items-center justify-content-between mb-3">
-        <h1 class="h3 mb-0">STUP Print Queue</h1>
-        <span id="sse-status" class="text-muted">Connecting…</span>
+<body>
+  <div class="container">
+    <div class="app-header">
+      <h1>STUP Print Queue</h1>
+      <div style="display:flex;align-items:center;gap:14px">
+        <span id="sse-status" class="reconnecting">Connecting…</span>
+        <button class="btn btn-sm" onclick="logout()">Sign out</button>
+      </div>
     </div>
 
-    <!-- API key input -->
-    <div class="card mb-3" id="api-key-card">
-        <div class="card-body d-flex gap-2 align-items-center">
-            <label class="form-label mb-0 fw-semibold" for="api-key-input">API Key:</label>
-            <input type="password" id="api-key-input" class="form-control form-control-sm w-auto"
-                   placeholder="Enter API key" style="min-width:220px">
-            <button class="btn btn-sm btn-primary" onclick="saveApiKey()">Save</button>
-            <span id="api-key-status" class="text-muted small"></span>
-        </div>
+    <div class="chips" id="chips"></div>
+
+    <div class="controls">
+      <div class="search">
+        <input class="input" id="search" type="text" placeholder="Search by name, job ID or event…" oninput="render()">
+      </div>
+      <button class="btn btn-danger" onclick="clearCompleted()">Clear completed</button>
     </div>
 
-    <!-- Controls -->
-    <div class="d-flex gap-2 mb-3">
-        <select id="status-filter" class="form-select form-select-sm w-auto" onchange="applyFilter()">
-            <option value="">All statuses</option>
-            <option value="PENDING">PENDING</option>
-            <option value="PRINTING">PRINTING</option>
-            <option value="DONE">DONE</option>
-            <option value="FAILED">FAILED</option>
-        </select>
-        <button class="btn btn-sm btn-outline-danger" onclick="clearCompleted()">Clear completed</button>
+    <div class="glass" style="overflow:hidden">
+      <table>
+        <thead>
+          <tr>
+            <th onclick="sortBy('jobId')">Job ID</th>
+            <th onclick="sortBy('firstName')">Name</th>
+            <th onclick="sortBy('eventName')">Event</th>
+            <th onclick="sortBy('status')">Status</th>
+            <th onclick="sortBy('submittedAt')">Submitted</th>
+            <th onclick="sortBy('completedAt')">Completed</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="jobs-body">
+          <tr><td colspan="7" class="empty">Loading…</td></tr>
+        </tbody>
+      </table>
     </div>
+  </div>
 
-    <!-- Job table -->
-    <div class="card">
-        <div class="card-body p-0">
-            <table class="table table-hover mb-0" id="jobs-table">
-                <thead class="table-light">
-                    <tr>
-                        <th>Job ID</th>
-                        <th>Event</th>
-                        <th>Status</th>
-                        <th>Submitted</th>
-                        <th>Completed</th>
-                        <th>Error</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="jobs-body">
-                    <tr id="empty-row"><td colspan="7" class="text-center text-muted py-3">No jobs yet.</td></tr>
-                </tbody>
-            </table>
-        </div>
+  <div class="drawer-overlay" id="drawer-overlay" onclick="closeDrawer()"></div>
+  <aside class="drawer" id="drawer" aria-hidden="true">
+    <div id="drawer-content"></div>
+  </aside>
+
+  <div class="confirm-overlay" id="confirm-overlay">
+    <div class="glass confirm-card">
+      <div id="confirm-message"></div>
+      <div class="confirm-actions">
+        <button class="btn" id="confirm-cancel">Cancel</button>
+        <button class="btn btn-danger" id="confirm-ok">Confirm</button>
+      </div>
     </div>
-</div>
+  </div>
 
-<script>
-    // Jobs stored by jobId for upsert
-    const jobs = {};
-    let eventSource = null;
+  <div id="toasts"></div>
 
-    // --- API key ---
-    function getApiKey() {
-        return sessionStorage.getItem('apiKey') || '';
-    }
-
-    function saveApiKey() {
-        const key = document.getElementById('api-key-input').value.trim();
-        sessionStorage.setItem('apiKey', key);
-        document.getElementById('api-key-status').textContent = key ? '✓ Saved' : 'Cleared';
-    }
-
-    window.addEventListener('load', () => {
-        const stored = getApiKey();
-        if (stored) {
-            document.getElementById('api-key-input').value = stored;
-            document.getElementById('api-key-status').textContent = '✓ Loaded from session';
-        }
-        connectSse();
-    });
-
-    // --- SSE ---
-    function connectSse() {
-        if (eventSource) eventSource.close();
-        eventSource = new EventSource('/api/wristbands/jobs/stream');
-
-        eventSource.onopen = () => {
-            document.getElementById('sse-status').textContent = '● Live';
-            document.getElementById('sse-status').className = 'text-success small';
-        };
-
-        eventSource.onmessage = (event) => {
-            const job = JSON.parse(event.data);
-            jobs[job.jobId] = job;
-            renderTable();
-        };
-
-        eventSource.onerror = () => {
-            document.getElementById('sse-status').textContent = '○ Reconnecting…';
-            document.getElementById('sse-status').className = 'text-warning small';
-        };
-    }
-
-    // --- Rendering ---
-    function applyFilter() {
-        renderTable();
-    }
-
-    function renderTable() {
-        const filter = document.getElementById('status-filter').value;
-        const tbody = document.getElementById('jobs-body');
-        tbody.innerHTML = '';
-
-        const filtered = Object.values(jobs)
-            .filter(j => !filter || j.status === filter)
-            .sort((a, b) => a.submittedAt.localeCompare(b.submittedAt));
-
-        if (filtered.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-3">No jobs.</td></tr>';
-            return;
-        }
-
-        filtered.forEach(job => {
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td><small class="font-monospace">${job.jobId.substring(0, 8)}…</small></td>
-                <td>${escHtml(job.eventName)}</td>
-                <td><span class="badge badge-${job.status}">${job.status}</span></td>
-                <td><small>${formatTs(job.submittedAt)}</small></td>
-                <td><small>${job.completedAt ? formatTs(job.completedAt) : '—'}</small></td>
-                <td><small class="text-danger">${job.error ? escHtml(job.error) : ''}</small></td>
-                <td>
-                    ${(job.status === 'DONE' || job.status === 'FAILED')
-                        ? `<button class="btn btn-sm btn-outline-primary" onclick="reprint('${job.jobId}')">Reprint</button>`
-                        : ''}
-                </td>
-            `;
-            tbody.appendChild(tr);
-        });
-    }
-
-    function formatTs(iso) {
-        return new Date(iso).toLocaleTimeString();
-    }
-
-    function escHtml(str) {
-        return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-    }
-
-    // --- Actions ---
-    async function reprint(jobId) {
-        const key = getApiKey();
-        if (!key) { alert('Enter an API key first.'); return; }
-        const res = await fetch(`/api/wristbands/jobs/${jobId}/reprint`, {
-            method: 'POST',
-            headers: { 'X-API-Key': key }
-        });
-        if (!res.ok) {
-            const body = await res.json();
-            alert('Reprint failed: ' + (body.message || res.status));
-        }
-    }
-
-    async function clearCompleted() {
-        const key = getApiKey();
-        if (!key) { alert('Enter an API key first.'); return; }
-        const res = await fetch('/api/wristbands/jobs/completed', {
-            method: 'DELETE',
-            headers: { 'X-API-Key': key }
-        });
-        if (res.ok) {
-            Object.keys(jobs).forEach(id => {
-                if (jobs[id].status === 'DONE' || jobs[id].status === 'FAILED') delete jobs[id];
-            });
-            renderTable();
-        } else {
-            alert('Clear failed: ' + res.status);
-        }
-    }
-</script>
+  <script src="/js/jobs.js"></script>
 </body>
 </html>

@@ -38,8 +38,8 @@ public class JpaJobStore implements JobStore {
 
     @Override
     @Transactional(readOnly = true)
-    public List<PrintJob> loadAll() {
-        return repository.findAll().stream().map(JpaJobStore::toDomain).toList();
+    public List<PrintJob> loadActive() {
+        return repository.findByDeletedFalse().stream().map(JpaJobStore::toDomain).toList();
     }
 
     @Override
@@ -50,8 +50,9 @@ public class JpaJobStore implements JobStore {
 
     @Override
     @Transactional
-    public void deleteCompleted() {
-        repository.deleteByStatusIn(List.of(PrintJobStatus.DONE, PrintJobStatus.FAILED));
+    public void softDeleteCompleted() {
+        repository.softDeleteByStatusIn(
+            List.of(PrintJobStatus.DONE, PrintJobStatus.FAILED, PrintJobStatus.CANCELLED));
     }
 
     private static PrintJob toDomain(PrintJobEntity e) {

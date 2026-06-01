@@ -13,9 +13,9 @@ public interface JobStore {
 
     void save(PrintJob job);
 
-    List<PrintJob> loadAll();
+    List<PrintJob> loadActive();
 
     void deleteById(UUID jobId);
 
-    void deleteCompleted();
+    void softDeleteCompleted();
 }

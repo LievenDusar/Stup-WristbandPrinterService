@@ -65,6 +65,23 @@ public class PrintJob {
             jobId,
             status,
             request.getEventName(),
+            request.getFirstName(),
+            request.getLastName(),
+            submittedAt,
+            completedAt,
+            error
+        );
+    }
+
+    public synchronized PrintJobDetailResponse toDetailResponse() {
+        return new PrintJobDetailResponse(
+            jobId,
+            status,
+            request.getEventName(),
+            request.getFirstName(),
+            request.getLastName(),
+            request.getAssociationName(),
+            request.getBarcodeValue(),
             submittedAt,
             completedAt,
             error

@@ -36,11 +36,15 @@ public class SecurityConfig {
             .sessionManagement(session ->
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                // Job management page and its SSE stream do not require API key
-                // (browsers cannot set custom headers on EventSource)
+                // Static admin UI shells and the login endpoint are public; all DATA
+                // endpoints (including the SSE stream) require the API key or admin cookie.
                 .requestMatchers(
                     "/jobs.html",
-                    "/api/wristbands/jobs/stream",
+                    "/login.html",
+                    "/css/**",
+                    "/js/**",
+                    "/api/wristbands/login",
+                    "/api/wristbands/logout",
                     "/swagger-ui.html",
                     "/swagger-ui/**",
                     "/v3/api-docs/**",
