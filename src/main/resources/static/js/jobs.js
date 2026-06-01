@@ -55,7 +55,8 @@ function render() {
     .filter(j => !statusFilter || j.status === statusFilter)
     .filter(j => !search
       || j.jobId.toLowerCase().includes(search)
-      || (j.eventName || '').toLowerCase().includes(search));
+      || (j.eventName || '').toLowerCase().includes(search)
+      || ((j.firstName || '') + ' ' + (j.lastName || '')).toLowerCase().includes(search));
 
   list.sort((a, b) => {
     const av = a[sortKey] || '', bv = b[sortKey] || '';
@@ -63,7 +64,7 @@ function render() {
   });
 
   if (list.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="6" class="empty">No jobs.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="empty">No jobs.</td></tr>';
     return;
   }
 
@@ -83,6 +84,7 @@ function rowHtml(job) {
       <span class="mono" title="${job.jobId}">${job.jobId.substring(0, 8)}…</span>
       <button class="copy-btn" title="Copy full ID" onclick="copyId('${job.jobId}')">⧉</button>
     </div></td>
+    <td>${esc(((job.firstName || '') + ' ' + (job.lastName || '')).trim())}</td>
     <td>${esc(job.eventName)}</td>
     <td><span class="badge ${job.status}">${job.status}</span></td>
     <td title="${job.submittedAt || ''}">${relTime(job.submittedAt)}</td>
