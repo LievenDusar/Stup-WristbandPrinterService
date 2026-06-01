@@ -188,8 +188,10 @@ Open **http://localhost:8080/jobs.html** in a browser (you'll be redirected to
 - Clicking a row opens a **slide-in detail drawer** with the full wristband data
   (name, association, barcode, timestamps) and a **Show preview** button that renders
   the wristband image via Labelary on demand.
-- **Cancel** stops a PENDING job; **Reprint** re-queues a DONE/FAILED job;
-  **Clear completed** removes DONE/FAILED/CANCELLED.
+- **Cancel** stops a PENDING job; **Reprint** re-queues a DONE/FAILED job.
+- **Clear completed** asks for confirmation, then **soft-deletes** DONE/FAILED/CANCELLED
+  jobs — they are hidden from the queue but kept in the database (`deleted = true`).
+  Restore one with `UPDATE print_jobs SET deleted = false WHERE job_id = '…';`.
 
 ---
 
