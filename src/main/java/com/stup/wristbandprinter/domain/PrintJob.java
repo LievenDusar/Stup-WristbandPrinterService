@@ -65,6 +65,8 @@ public class PrintJob {
             jobId,
             status,
             request.getEventName(),
+            request.getFirstName(),
+            request.getLastName(),
             submittedAt,
             completedAt,
             error
