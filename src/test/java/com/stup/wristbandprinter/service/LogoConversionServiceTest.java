@@ -38,7 +38,7 @@ class LogoConversionServiceTest {
         WristbandProperties props = defaultProps();
         props.setLogoPath(tmpPng.getAbsolutePath());
 
-        LogoConversionService service = new LogoConversionService(props);
+        LogoConversionService service = new LogoConversionService(props, new com.stup.wristbandprinter.editor.service.GfImageEncoder());
         service.loadAndConvertLogo();
 
         String gf = service.getGfCommand();
@@ -51,7 +51,7 @@ class LogoConversionServiceTest {
         WristbandProperties props = defaultProps();
         props.setLogoPath("/nonexistent/path/logo.png");
 
-        LogoConversionService service = new LogoConversionService(props);
+        LogoConversionService service = new LogoConversionService(props, new com.stup.wristbandprinter.editor.service.GfImageEncoder());
 
         assertThatThrownBy(service::loadAndConvertLogo)
             .isInstanceOf(LogoNotFoundException.class)
