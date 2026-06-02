@@ -34,7 +34,7 @@ public class WristbandTemplateEntity {
     private Instant updatedAt;
     private boolean deleted;
 
-    protected WristbandTemplateEntity() {
+    public WristbandTemplateEntity() {
     }
 
     public UUID getId() { return id; }
