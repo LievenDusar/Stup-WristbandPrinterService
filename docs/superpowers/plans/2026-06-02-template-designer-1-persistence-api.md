@@ -6,11 +6,13 @@
 
 **Architecture:** A `TemplateDefinition` record tree (canvas + elements) is persisted as a `jsonb` column on a `wristband_template` entity via Hibernate's native JSON mapping. `TemplateService` handles create/update/list/get/soft-delete and slug generation; `TemplateController` exposes them under `/api/templates`, reusing the existing API-key / admin-cookie security. ZPL rendering, assets, preview and `/print` integration are deliberately deferred to Plan 2 (the `generated_zpl` column stays null until then).
 
+**Code organization:** All designer/editor code lives in a dedicated **feature package** `com.stup.wristbandprinter.editor`, with layer sub-packages `domain`, `persistence`, `service`, `controller`. Because the app's `@SpringBootApplication` sits at `com.stup.wristbandprinter`, this sub-package is auto-scanned for components, entities and repositories — no extra Spring/JPA configuration needed.
+
 **Tech Stack:** Java 21, Spring Boot 3 (Web, Data JPA, Validation), Hibernate 6 (`@JdbcTypeCode(SqlTypes.JSON)`), Flyway, PostgreSQL 16, JUnit 5 + AssertJ + Mockito, Testcontainers.
 
 **Scope of this plan (Plan 1 of 3):**
 - IN: domain model, DB migration, entity/repository, `TemplateService`, `TemplateController`, tests, README note.
-- OUT (Plan 2): `TemplateZplRenderer`, `TemplateAssetService`, generated-ZPL snapshots, preview PNG endpoints, `/print` `templateId` routing.
+- OUT (Plan 2): `TemplateZplRenderer`, `TemplateAssetService`, `GfImageEncoder`, generated-ZPL snapshots, preview PNG endpoints, `/print` `templateId` routing.
 - OUT (Plan 3): the Konva.js editor page.
 
 **Conventions to follow (verified against the codebase):**
@@ -24,25 +26,25 @@
 
 ## File Structure
 
-**Create:**
-- `src/main/java/com/stup/wristbandprinter/domain/template/Canvas.java` — canvas size + DPI value object
-- `src/main/java/com/stup/wristbandprinter/domain/template/ElementType.java` — element kind enum
-- `src/main/java/com/stup/wristbandprinter/domain/template/DataBinding.java` — data-field binding enum
-- `src/main/java/com/stup/wristbandprinter/domain/template/ShapeType.java` — box/line enum
-- `src/main/java/com/stup/wristbandprinter/domain/template/TemplateElement.java` — one positioned element
-- `src/main/java/com/stup/wristbandprinter/domain/template/TemplateDefinition.java` — canvas + element list
-- `src/main/java/com/stup/wristbandprinter/domain/template/UpsertTemplateRequest.java` — create/update request DTO
-- `src/main/java/com/stup/wristbandprinter/domain/template/TemplateSummaryResponse.java` — catalog list item DTO
-- `src/main/java/com/stup/wristbandprinter/domain/template/TemplateDetailResponse.java` — full template DTO
+**Create (all under the new `editor` feature package):**
+- `src/main/java/com/stup/wristbandprinter/editor/domain/Canvas.java` — canvas size + DPI value object
+- `src/main/java/com/stup/wristbandprinter/editor/domain/ElementType.java` — element kind enum
+- `src/main/java/com/stup/wristbandprinter/editor/domain/DataBinding.java` — data-field binding enum
+- `src/main/java/com/stup/wristbandprinter/editor/domain/ShapeType.java` — box/line enum
+- `src/main/java/com/stup/wristbandprinter/editor/domain/TemplateElement.java` — one positioned element
+- `src/main/java/com/stup/wristbandprinter/editor/domain/TemplateDefinition.java` — canvas + element list
+- `src/main/java/com/stup/wristbandprinter/editor/domain/UpsertTemplateRequest.java` — create/update request DTO
+- `src/main/java/com/stup/wristbandprinter/editor/domain/TemplateSummaryResponse.java` — catalog list item DTO
+- `src/main/java/com/stup/wristbandprinter/editor/domain/TemplateDetailResponse.java` — full template DTO
 - `src/main/resources/db/migration/V3__create_wristband_templates.sql` — schema
-- `src/main/java/com/stup/wristbandprinter/persistence/WristbandTemplateEntity.java` — JPA entity
-- `src/main/java/com/stup/wristbandprinter/persistence/WristbandTemplateRepository.java` — Spring Data repo
-- `src/main/java/com/stup/wristbandprinter/service/TemplateService.java` — CRUD + slug logic
-- `src/main/java/com/stup/wristbandprinter/controller/TemplateController.java` — REST endpoints
-- `src/test/java/com/stup/wristbandprinter/domain/template/TemplateDefinitionJsonTest.java`
-- `src/test/java/com/stup/wristbandprinter/persistence/WristbandTemplateRepositoryTest.java`
-- `src/test/java/com/stup/wristbandprinter/service/TemplateServiceTest.java`
-- `src/test/java/com/stup/wristbandprinter/controller/TemplateControllerTest.java`
+- `src/main/java/com/stup/wristbandprinter/editor/persistence/WristbandTemplateEntity.java` — JPA entity
+- `src/main/java/com/stup/wristbandprinter/editor/persistence/WristbandTemplateRepository.java` — Spring Data repo
+- `src/main/java/com/stup/wristbandprinter/editor/service/TemplateService.java` — CRUD + slug logic
+- `src/main/java/com/stup/wristbandprinter/editor/controller/TemplateController.java` — REST endpoints
+- `src/test/java/com/stup/wristbandprinter/editor/domain/TemplateDefinitionJsonTest.java`
+- `src/test/java/com/stup/wristbandprinter/editor/persistence/WristbandTemplateRepositoryTest.java`
+- `src/test/java/com/stup/wristbandprinter/editor/service/TemplateServiceTest.java`
+- `src/test/java/com/stup/wristbandprinter/editor/controller/TemplateControllerTest.java`
 
 **Modify:**
 - `README.md` — document the new endpoints (Task 6).
@@ -52,15 +54,15 @@
 ## Task 1: Domain model (records + enums) and JSON round-trip test
 
 **Files:**
-- Create: all six files under `domain/template/` listed above except the three DTOs (those are Task 4).
-- Test: `src/test/java/com/stup/wristbandprinter/domain/template/TemplateDefinitionJsonTest.java`
+- Create: the six model files under `editor/domain/` (the three DTOs are Task 3).
+- Test: `src/test/java/com/stup/wristbandprinter/editor/domain/TemplateDefinitionJsonTest.java`
 
 - [ ] **Step 1: Write the failing test**
 
-Create `src/test/java/com/stup/wristbandprinter/domain/template/TemplateDefinitionJsonTest.java`:
+Create `src/test/java/com/stup/wristbandprinter/editor/domain/TemplateDefinitionJsonTest.java`:
 
 ```java
-package com.stup.wristbandprinter.domain.template;
+package com.stup.wristbandprinter.editor.domain;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
@@ -102,54 +104,54 @@ class TemplateDefinitionJsonTest {
 - [ ] **Step 2: Run the test to verify it fails**
 
 Run: `./mvnw -q test -Dtest=TemplateDefinitionJsonTest`
-Expected: FAIL — compilation error, the `domain.template` types do not exist yet.
+Expected: FAIL — compilation error, the `editor.domain` types do not exist yet.
 
 - [ ] **Step 3: Create the enums and records**
 
-`src/main/java/com/stup/wristbandprinter/domain/template/ElementType.java`:
+`src/main/java/com/stup/wristbandprinter/editor/domain/ElementType.java`:
 
 ```java
-package com.stup.wristbandprinter.domain.template;
+package com.stup.wristbandprinter.editor.domain;
 
 public enum ElementType {
     TEXT, STATIC_TEXT, BARCODE, IMAGE, SHAPE
 }
 ```
 
-`src/main/java/com/stup/wristbandprinter/domain/template/DataBinding.java`:
+`src/main/java/com/stup/wristbandprinter/editor/domain/DataBinding.java`:
 
 ```java
-package com.stup.wristbandprinter.domain.template;
+package com.stup.wristbandprinter.editor.domain;
 
 public enum DataBinding {
     EVENT_NAME, FIRST_NAME, LAST_NAME, FULL_NAME, ASSOCIATION_NAME, BARCODE_VALUE
 }
 ```
 
-`src/main/java/com/stup/wristbandprinter/domain/template/ShapeType.java`:
+`src/main/java/com/stup/wristbandprinter/editor/domain/ShapeType.java`:
 
 ```java
-package com.stup.wristbandprinter.domain.template;
+package com.stup.wristbandprinter.editor.domain;
 
 public enum ShapeType {
     BOX, LINE
 }
 ```
 
-`src/main/java/com/stup/wristbandprinter/domain/template/Canvas.java`:
+`src/main/java/com/stup/wristbandprinter/editor/domain/Canvas.java`:
 
 ```java
-package com.stup.wristbandprinter.domain.template;
+package com.stup.wristbandprinter.editor.domain;
 
 /** Wristband print area in printer dots, plus the printer DPI. */
 public record Canvas(int widthDots, int lengthDots, int dpi) {
 }
 ```
 
-`src/main/java/com/stup/wristbandprinter/domain/template/TemplateElement.java`:
+`src/main/java/com/stup/wristbandprinter/editor/domain/TemplateElement.java`:
 
 ```java
-package com.stup.wristbandprinter.domain.template;
+package com.stup.wristbandprinter.editor.domain;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 
@@ -182,10 +184,10 @@ public record TemplateElement(
 }
 ```
 
-`src/main/java/com/stup/wristbandprinter/domain/template/TemplateDefinition.java`:
+`src/main/java/com/stup/wristbandprinter/editor/domain/TemplateDefinition.java`:
 
 ```java
-package com.stup.wristbandprinter.domain.template;
+package com.stup.wristbandprinter.editor.domain;
 
 import java.util.List;
 
@@ -202,7 +204,7 @@ Expected: PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/main/java/com/stup/wristbandprinter/domain/template src/test/java/com/stup/wristbandprinter/domain/template
+git add src/main/java/com/stup/wristbandprinter/editor/domain src/test/java/com/stup/wristbandprinter/editor/domain
 git commit -m "feat: add wristband template domain model"
 ```
 
@@ -212,18 +214,18 @@ git commit -m "feat: add wristband template domain model"
 
 **Files:**
 - Create: `src/main/resources/db/migration/V3__create_wristband_templates.sql`
-- Create: `src/main/java/com/stup/wristbandprinter/persistence/WristbandTemplateEntity.java`
-- Create: `src/main/java/com/stup/wristbandprinter/persistence/WristbandTemplateRepository.java`
-- Test: `src/test/java/com/stup/wristbandprinter/persistence/WristbandTemplateRepositoryTest.java`
+- Create: `src/main/java/com/stup/wristbandprinter/editor/persistence/WristbandTemplateEntity.java`
+- Create: `src/main/java/com/stup/wristbandprinter/editor/persistence/WristbandTemplateRepository.java`
+- Test: `src/test/java/com/stup/wristbandprinter/editor/persistence/WristbandTemplateRepositoryTest.java`
 
 - [ ] **Step 1: Write the failing test**
 
-Create `src/test/java/com/stup/wristbandprinter/persistence/WristbandTemplateRepositoryTest.java`:
+Create `src/test/java/com/stup/wristbandprinter/editor/persistence/WristbandTemplateRepositoryTest.java`:
 
 ```java
-package com.stup.wristbandprinter.persistence;
+package com.stup.wristbandprinter.editor.persistence;
 
-import com.stup.wristbandprinter.domain.template.*;
+import com.stup.wristbandprinter.editor.domain.*;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
@@ -334,12 +336,12 @@ CREATE INDEX idx_wristband_template_project_type
 
 - [ ] **Step 4: Create the entity**
 
-`src/main/java/com/stup/wristbandprinter/persistence/WristbandTemplateEntity.java`:
+`src/main/java/com/stup/wristbandprinter/editor/persistence/WristbandTemplateEntity.java`:
 
 ```java
-package com.stup.wristbandprinter.persistence;
+package com.stup.wristbandprinter.editor.persistence;
 
-import com.stup.wristbandprinter.domain.template.TemplateDefinition;
+import com.stup.wristbandprinter.editor.domain.TemplateDefinition;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -410,10 +412,10 @@ public class WristbandTemplateEntity {
 
 - [ ] **Step 5: Create the repository**
 
-`src/main/java/com/stup/wristbandprinter/persistence/WristbandTemplateRepository.java`:
+`src/main/java/com/stup/wristbandprinter/editor/persistence/WristbandTemplateRepository.java`:
 
 ```java
-package com.stup.wristbandprinter.persistence;
+package com.stup.wristbandprinter.editor.persistence;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -438,15 +440,14 @@ public interface WristbandTemplateRepository extends JpaRepository<WristbandTemp
 - [ ] **Step 6: Run the test to verify it passes**
 
 Run: `./mvnw -q test -Dtest=WristbandTemplateRepositoryTest`
-Expected: PASS (3 tests). This proves the `jsonb` mapping and the Flyway migration validate against Hibernate.
+Expected: PASS (3 tests). This proves the `jsonb` mapping and the Flyway migration validate against Hibernate. (Requires Docker for Testcontainers.)
 
 - [ ] **Step 7: Commit**
 
 ```bash
 git add src/main/resources/db/migration/V3__create_wristband_templates.sql \
-        src/main/java/com/stup/wristbandprinter/persistence/WristbandTemplateEntity.java \
-        src/main/java/com/stup/wristbandprinter/persistence/WristbandTemplateRepository.java \
-        src/test/java/com/stup/wristbandprinter/persistence/WristbandTemplateRepositoryTest.java
+        src/main/java/com/stup/wristbandprinter/editor/persistence \
+        src/test/java/com/stup/wristbandprinter/editor/persistence
 git commit -m "feat: persist wristband templates as jsonb"
 ```
 
@@ -455,18 +456,18 @@ git commit -m "feat: persist wristband templates as jsonb"
 ## Task 3: DTOs
 
 **Files:**
-- Create: `src/main/java/com/stup/wristbandprinter/domain/template/UpsertTemplateRequest.java`
-- Create: `src/main/java/com/stup/wristbandprinter/domain/template/TemplateSummaryResponse.java`
-- Create: `src/main/java/com/stup/wristbandprinter/domain/template/TemplateDetailResponse.java`
+- Create: `src/main/java/com/stup/wristbandprinter/editor/domain/UpsertTemplateRequest.java`
+- Create: `src/main/java/com/stup/wristbandprinter/editor/domain/TemplateSummaryResponse.java`
+- Create: `src/main/java/com/stup/wristbandprinter/editor/domain/TemplateDetailResponse.java`
 
 > No standalone test — these records are exercised by the `TemplateService` and `TemplateController` tests in Tasks 4 and 5.
 
 - [ ] **Step 1: Create the request DTO**
 
-`src/main/java/com/stup/wristbandprinter/domain/template/UpsertTemplateRequest.java`:
+`src/main/java/com/stup/wristbandprinter/editor/domain/UpsertTemplateRequest.java`:
 
 ```java
-package com.stup.wristbandprinter.domain.template;
+package com.stup.wristbandprinter.editor.domain;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
@@ -492,10 +493,10 @@ public record UpsertTemplateRequest(
 
 - [ ] **Step 2: Create the summary DTO**
 
-`src/main/java/com/stup/wristbandprinter/domain/template/TemplateSummaryResponse.java`:
+`src/main/java/com/stup/wristbandprinter/editor/domain/TemplateSummaryResponse.java`:
 
 ```java
-package com.stup.wristbandprinter.domain.template;
+package com.stup.wristbandprinter.editor.domain;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -513,10 +514,10 @@ public record TemplateSummaryResponse(
 
 - [ ] **Step 3: Create the detail DTO**
 
-`src/main/java/com/stup/wristbandprinter/domain/template/TemplateDetailResponse.java`:
+`src/main/java/com/stup/wristbandprinter/editor/domain/TemplateDetailResponse.java`:
 
 ```java
-package com.stup.wristbandprinter.domain.template;
+package com.stup.wristbandprinter.editor.domain;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -538,7 +539,7 @@ public record TemplateDetailResponse(
 - [ ] **Step 4: Commit**
 
 ```bash
-git add src/main/java/com/stup/wristbandprinter/domain/template
+git add src/main/java/com/stup/wristbandprinter/editor/domain
 git commit -m "feat: add template request/response DTOs"
 ```
 
@@ -547,19 +548,19 @@ git commit -m "feat: add template request/response DTOs"
 ## Task 4: TemplateService (CRUD + slug generation)
 
 **Files:**
-- Create: `src/main/java/com/stup/wristbandprinter/service/TemplateService.java`
-- Test: `src/test/java/com/stup/wristbandprinter/service/TemplateServiceTest.java`
+- Create: `src/main/java/com/stup/wristbandprinter/editor/service/TemplateService.java`
+- Test: `src/test/java/com/stup/wristbandprinter/editor/service/TemplateServiceTest.java`
 
 - [ ] **Step 1: Write the failing test**
 
-Create `src/test/java/com/stup/wristbandprinter/service/TemplateServiceTest.java`:
+Create `src/test/java/com/stup/wristbandprinter/editor/service/TemplateServiceTest.java`:
 
 ```java
-package com.stup.wristbandprinter.service;
+package com.stup.wristbandprinter.editor.service;
 
-import com.stup.wristbandprinter.domain.template.*;
-import com.stup.wristbandprinter.persistence.WristbandTemplateEntity;
-import com.stup.wristbandprinter.persistence.WristbandTemplateRepository;
+import com.stup.wristbandprinter.editor.domain.*;
+import com.stup.wristbandprinter.editor.persistence.WristbandTemplateEntity;
+import com.stup.wristbandprinter.editor.persistence.WristbandTemplateRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -712,16 +713,16 @@ Expected: FAIL — `TemplateService` does not exist.
 
 - [ ] **Step 3: Implement TemplateService**
 
-`src/main/java/com/stup/wristbandprinter/service/TemplateService.java`:
+`src/main/java/com/stup/wristbandprinter/editor/service/TemplateService.java`:
 
 ```java
-package com.stup.wristbandprinter.service;
+package com.stup.wristbandprinter.editor.service;
 
-import com.stup.wristbandprinter.domain.template.TemplateDetailResponse;
-import com.stup.wristbandprinter.domain.template.TemplateSummaryResponse;
-import com.stup.wristbandprinter.domain.template.UpsertTemplateRequest;
-import com.stup.wristbandprinter.persistence.WristbandTemplateEntity;
-import com.stup.wristbandprinter.persistence.WristbandTemplateRepository;
+import com.stup.wristbandprinter.editor.domain.TemplateDetailResponse;
+import com.stup.wristbandprinter.editor.domain.TemplateSummaryResponse;
+import com.stup.wristbandprinter.editor.domain.UpsertTemplateRequest;
+import com.stup.wristbandprinter.editor.persistence.WristbandTemplateEntity;
+import com.stup.wristbandprinter.editor.persistence.WristbandTemplateRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -840,8 +841,8 @@ Expected: PASS (9 tests).
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/main/java/com/stup/wristbandprinter/service/TemplateService.java \
-        src/test/java/com/stup/wristbandprinter/service/TemplateServiceTest.java
+git add src/main/java/com/stup/wristbandprinter/editor/service/TemplateService.java \
+        src/test/java/com/stup/wristbandprinter/editor/service/TemplateServiceTest.java
 git commit -m "feat: add TemplateService CRUD with slug generation"
 ```
 
@@ -850,23 +851,23 @@ git commit -m "feat: add TemplateService CRUD with slug generation"
 ## Task 5: TemplateController (CRUD + catalog endpoints)
 
 **Files:**
-- Create: `src/main/java/com/stup/wristbandprinter/controller/TemplateController.java`
-- Test: `src/test/java/com/stup/wristbandprinter/controller/TemplateControllerTest.java`
+- Create: `src/main/java/com/stup/wristbandprinter/editor/controller/TemplateController.java`
+- Test: `src/test/java/com/stup/wristbandprinter/editor/controller/TemplateControllerTest.java`
 
 - [ ] **Step 1: Write the failing test**
 
-Create `src/test/java/com/stup/wristbandprinter/controller/TemplateControllerTest.java`:
+Create `src/test/java/com/stup/wristbandprinter/editor/controller/TemplateControllerTest.java`:
 
 ```java
-package com.stup.wristbandprinter.controller;
+package com.stup.wristbandprinter.editor.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.stup.wristbandprinter.config.AdminProperties;
 import com.stup.wristbandprinter.config.SecurityConfig;
-import com.stup.wristbandprinter.domain.template.*;
+import com.stup.wristbandprinter.editor.domain.*;
+import com.stup.wristbandprinter.editor.service.TemplateService;
 import com.stup.wristbandprinter.security.ApiKeyAuthFilter;
 import com.stup.wristbandprinter.security.AuthCookieService;
-import com.stup.wristbandprinter.service.TemplateService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -1013,15 +1014,15 @@ Expected: FAIL — `TemplateController` does not exist.
 
 - [ ] **Step 3: Implement TemplateController**
 
-`src/main/java/com/stup/wristbandprinter/controller/TemplateController.java`:
+`src/main/java/com/stup/wristbandprinter/editor/controller/TemplateController.java`:
 
 ```java
-package com.stup.wristbandprinter.controller;
+package com.stup.wristbandprinter.editor.controller;
 
-import com.stup.wristbandprinter.domain.template.TemplateDetailResponse;
-import com.stup.wristbandprinter.domain.template.TemplateSummaryResponse;
-import com.stup.wristbandprinter.domain.template.UpsertTemplateRequest;
-import com.stup.wristbandprinter.service.TemplateService;
+import com.stup.wristbandprinter.editor.domain.TemplateDetailResponse;
+import com.stup.wristbandprinter.editor.domain.TemplateSummaryResponse;
+import com.stup.wristbandprinter.editor.domain.UpsertTemplateRequest;
+import com.stup.wristbandprinter.editor.service.TemplateService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -1093,8 +1094,8 @@ Expected: PASS (9 tests).
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/main/java/com/stup/wristbandprinter/controller/TemplateController.java \
-        src/test/java/com/stup/wristbandprinter/controller/TemplateControllerTest.java
+git add src/main/java/com/stup/wristbandprinter/editor/controller/TemplateController.java \
+        src/test/java/com/stup/wristbandprinter/editor/controller/TemplateControllerTest.java
 git commit -m "feat: add /api/templates CRUD and catalog endpoints"
 ```
 
@@ -1120,8 +1121,9 @@ In `README.md`, under the `## API endpoints` table (after the existing wristband
 Also add a short note below the table:
 
 ```markdown
-> **Templates (Plan 1):** Templates are stored as a declarative JSON element model. ZPL
-> rendering, logo assets, PNG previews and `/print` template selection arrive in Plan 2.
+> **Templates (Plan 1):** Templates are stored as a declarative JSON element model under the
+> `editor` feature package. ZPL rendering, logo assets, PNG previews and `/print` template
+> selection arrive in Plan 2.
 ```
 
 - [ ] **Step 2: Run the entire test suite**
@@ -1141,11 +1143,13 @@ git commit -m "docs: document template CRUD/catalog endpoints"
 ## Done — Plan 1 deliverable
 
 Templates can be created, updated, listed (filtered by project type), fetched, and soft-deleted
-via `/api/templates`, persisted as `jsonb` and validated against the Flyway schema. The
-`generated_zpl` column exists but stays null until **Plan 2** adds `TemplateZplRenderer`,
-`TemplateAssetService`, PNG preview endpoints, and the `/print` `templateId` routing.
+via `/api/templates`, persisted as `jsonb` and validated against the Flyway schema. All code lives
+in the isolated `com.stup.wristbandprinter.editor` feature package. The `generated_zpl` column
+exists but stays null until **Plan 2** adds `TemplateZplRenderer`, `TemplateAssetService`,
+`GfImageEncoder`, PNG preview endpoints, and the `/print` `templateId` routing.
 
 **Self-review notes (verified while writing):**
 - Spec coverage: §4 (data model) ✓, §7 catalog/CRUD rows ✓; §5/§6 (renderer, assets) and §8 (editor) intentionally deferred to Plans 2–3.
+- Package consistency: every `package` declaration and import uses `com.stup.wristbandprinter.editor.*`; cross-package imports (`config.SecurityConfig`, `security.ApiKeyAuthFilter/AuthCookieService`) reference their real, unchanged locations.
 - Type consistency: the 16-arg `TemplateElement` canonical constructor is used identically in every test and service method; `findByIdAndDeletedFalse`, `findBySlugAndDeletedFalse`, `existsBySlug` names match between repository, service, and tests.
 - No placeholders: every step contains complete, compilable code.

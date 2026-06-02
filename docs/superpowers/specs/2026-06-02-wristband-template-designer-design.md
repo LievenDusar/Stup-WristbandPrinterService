@@ -28,6 +28,7 @@ project type.
 | Editor stack | **Konva.js + vanilla JS**, no build step, served as a new admin page inside the existing Spring Boot app, behind the existing admin login. |
 | Rotation | **Quantized to 0 / 90 / 180 / 270** — a hard ZPL constraint (orientations N/R/I/B). The editor surfaces only these four. |
 | Legacy layout | **Stays as the default** — `/print` without a `templateId` uses the current `ZplGeneratorService`. Zero breaking change to existing Symfony calls. |
+| Code organization | **Package-by-feature** — all designer/editor code lives under `com.stup.wristbandprinter.editor` (sub-packages `domain`, `persistence`, `service`, `controller`), isolated from the existing layer packages. Editor front-end assets live under `static/` (Plan 3). |
 
 ## 3. Architecture Overview
 
