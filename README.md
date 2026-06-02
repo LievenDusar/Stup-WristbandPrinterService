@@ -123,6 +123,15 @@ X-API-Key: <your-api-key>
 | `GET` | `/api/wristbands/jobs/stream` | SSE stream — real-time job updates |
 | `POST` | `/api/wristbands/jobs/{jobId}/reprint` | Reprint a previous job |
 | `DELETE` | `/api/wristbands/jobs/completed` | Remove DONE and FAILED jobs |
+| `POST` | `/api/templates` | Create a wristband template → `201 + detail` |
+| `PUT` | `/api/templates/{id}` | Update a template → `200` / `404` |
+| `GET` | `/api/templates` | List templates (catalog); `?projectType=` filters |
+| `GET` | `/api/templates/{id}` | Get a template's full definition → `200` / `404` |
+| `DELETE` | `/api/templates/{id}` | Soft-delete a template → `204` / `404` |
+
+> **Templates (Plan 1):** Templates are stored as a declarative JSON element model under the
+> `editor` feature package. ZPL rendering, logo assets, PNG previews and `/print` template
+> selection arrive in Plan 2.
 
 **Example print request:**
 ```bash
