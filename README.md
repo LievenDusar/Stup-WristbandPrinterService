@@ -128,9 +128,15 @@ X-API-Key: <your-api-key>
 | `GET` | `/api/templates` | List templates (catalog); `?projectType=` filters |
 | `GET` | `/api/templates/{id}` | Get a template's full definition → `200` / `404` |
 | `DELETE` | `/api/templates/{id}` | Soft-delete a template → `204` / `404` |
+| `GET` | `/api/templates/{id}/preview` | PNG preview with sample data (`?color=` tints stock) |
+| `POST` | `/api/templates/{id}/preview` | PNG preview with supplied `WristbandData` body |
+| `POST` | `/api/templates/assets` | Upload a logo (multipart `file`) → `201 + assetId` |
+| `GET` | `/api/templates/assets/{id}` | Fetch a stored logo PNG |
 
 > **Wristband Template Designer:** the `/api/templates` endpoints back a visual template
-> designer. Architecture, data model, full API and roadmap are documented in
+> designer. `POST /api/wristbands/print` accepts an optional `templateId` — when set, the
+> wristband is rendered from that template instead of the default fixed layout. Architecture,
+> data model, full API and roadmap are documented in
 > [docs/template-designer.md](docs/template-designer.md).
 
 **Example print request:**

@@ -4,9 +4,9 @@ A visual drag-and-drop designer for creating custom wristband layouts, plus the 
 stores them and renders them to ZPL. This document is the single reference for the whole
 feature — its goals, architecture, data model, API, and roadmap.
 
-> **Status:** Plan 1 (persistence & catalog API) is implemented. Plans 2 (ZPL rendering, logo
-> assets, PNG previews, `/print` integration) and 3 (the Konva.js editor UI) are not yet built.
-> See [Roadmap](#roadmap).
+> **Status:** Plans 1 (persistence & catalog API) and 2 (ZPL rendering, logo assets, PNG
+> previews, `/print` integration) are implemented. Plan 3 (the Konva.js editor UI) is not yet
+> built. See [Roadmap](#roadmap).
 
 ---
 
@@ -94,10 +94,10 @@ Editor endpoints use the **admin cookie**; catalog/preview/print use the existin
 | `GET` | `/api/templates` | Catalog list (`id, slug, name, projectType, updatedAt`); `?projectType=` filters | ✅ Plan 1 |
 | `GET` | `/api/templates/{id}` | Full definition → `200` / `404` | ✅ Plan 1 |
 | `DELETE` | `/api/templates/{id}` | Soft-delete → `204` / `404` | ✅ Plan 1 |
-| `GET` | `/api/templates/{id}/preview?color=white` | PNG with sample data (Symfony thumbnails) | ⏳ Plan 2 |
-| `POST` | `/api/templates/{id}/preview` | PNG with supplied data (editor live preview) | ⏳ Plan 2 |
-| `POST` | `/api/templates/assets`, `GET .../assets/{id}` | Upload / fetch logo | ⏳ Plan 2 |
-| `POST` | `/api/wristbands/print` (+ optional `templateId`) | Print via a template; absent → legacy layout | ⏳ Plan 2 |
+| `GET` | `/api/templates/{id}/preview?color=white` | PNG with sample data (Symfony thumbnails) | ✅ Plan 2 |
+| `POST` | `/api/templates/{id}/preview` | PNG with supplied data (editor live preview) | ✅ Plan 2 |
+| `POST` | `/api/templates/assets`, `GET .../assets/{id}` | Upload / fetch logo | ✅ Plan 2 |
+| `POST` | `/api/wristbands/print` (+ optional `templateId`) | Print via a template; absent → legacy layout | ✅ Plan 2 |
 
 ## Symfony flow
 
@@ -112,7 +112,7 @@ Editor endpoints use the **admin cookie**; catalog/preview/print use the existin
 | Plan | Scope | Status |
 |---|---|---|
 | **1 — Persistence & Catalog/CRUD API** | Domain model, `jsonb` storage, Flyway `V3`, `TemplateService`, `/api/templates`, tests | ✅ Done |
-| **2 — Rendering, assets, preview & print** | `GfImageEncoder`, `TemplateAssetService` (logo→`^GF`), `TemplateZplRenderer`, save-time ZPL snapshot, preview PNG endpoints, `/print` `templateId` routing | ⏳ Planned |
+| **2 — Rendering, assets, preview & print** | `GfImageEncoder`, `TemplateAssetService` (logo→`^GF`), `TemplateZplRenderer`, save-time ZPL snapshot, preview PNG endpoints, `/print` `templateId` routing | ✅ Done |
 | **3 — Editor UI** | Konva.js drag-and-drop page (`template-editor.html`), toolbox, properties panel, colour preview, save/export | ⏳ Planned |
 
 ## References
