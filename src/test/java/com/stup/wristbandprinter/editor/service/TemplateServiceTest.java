@@ -24,13 +24,24 @@ class TemplateServiceTest {
     @Mock
     private WristbandTemplateRepository repository;
 
+    @Mock
+    private TemplateZplRenderer renderer;
+
     private TemplateService service;
 
     @BeforeEach
     void setUp() {
-        service = new TemplateService(repository);
+        service = new TemplateService(repository, renderer);
         lenient().when(repository.save(any(WristbandTemplateEntity.class)))
             .thenAnswer(inv -> inv.getArgument(0));
+        lenient().when(renderer.renderTemplate(any())).thenReturn("^XA^FD${FULL_NAME}^FS^XZ");
+    }
+
+    @Test
+    void create_savesGeneratedZplSnapshot() {
+        when(repository.existsBySlug(any())).thenReturn(false);
+        TemplateDetailResponse result = service.create(request("Festival Band", "festival"));
+        assertThat(result.generatedZpl()).isEqualTo("^XA^FD${FULL_NAME}^FS^XZ");
     }
 
     @Test

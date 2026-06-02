@@ -18,9 +18,11 @@ import java.util.UUID;
 public class TemplateService {
 
     private final WristbandTemplateRepository repository;
+    private final TemplateZplRenderer renderer;
 
-    public TemplateService(WristbandTemplateRepository repository) {
+    public TemplateService(WristbandTemplateRepository repository, TemplateZplRenderer renderer) {
         this.repository = repository;
+        this.renderer = renderer;
     }
 
     @Transactional
@@ -33,7 +35,7 @@ public class TemplateService {
         entity.setProjectType(blankToNull(request.projectType()));
         entity.setDefaultPreviewColor(previewColorOrDefault(request.defaultPreviewColor()));
         entity.setDefinition(request.definition());
-        entity.setGeneratedZpl(null); // populated in Plan 2 once the renderer exists
+        entity.setGeneratedZpl(renderer.renderTemplate(request.definition()));
         entity.setCreatedAt(now);
         entity.setUpdatedAt(now);
         entity.setDeleted(false);
@@ -47,6 +49,7 @@ public class TemplateService {
             entity.setProjectType(blankToNull(request.projectType()));
             entity.setDefaultPreviewColor(previewColorOrDefault(request.defaultPreviewColor()));
             entity.setDefinition(request.definition());
+            entity.setGeneratedZpl(renderer.renderTemplate(request.definition()));
             entity.setUpdatedAt(Instant.now());
             return toDetail(repository.save(entity));
         });
