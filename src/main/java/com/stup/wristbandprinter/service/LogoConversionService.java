@@ -1,6 +1,7 @@
 package com.stup.wristbandprinter.service;
 
 import com.stup.wristbandprinter.config.WristbandProperties;
+import com.stup.wristbandprinter.editor.service.GfImageEncoder;
 import com.stup.wristbandprinter.exception.LogoNotFoundException;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
@@ -21,11 +22,13 @@ public class LogoConversionService {
     private static final Logger log = LoggerFactory.getLogger(LogoConversionService.class);
 
     private final WristbandProperties props;
+    private final GfImageEncoder gfImageEncoder;
     private String cachedGfCommand;
     private int logoHeightDots;
 
-    public LogoConversionService(WristbandProperties props) {
+    public LogoConversionService(WristbandProperties props, GfImageEncoder gfImageEncoder) {
         this.props = props;
+        this.gfImageEncoder = gfImageEncoder;
     }
 
     @PostConstruct
@@ -49,7 +52,7 @@ public class LogoConversionService {
             // Pre-rotate 180° — both logos are printed upside down on the wristband
             BufferedImage rotated = rotate180(scaled);
             this.logoHeightDots = rotated.getHeight();
-            this.cachedGfCommand = encodeAsGf(rotated);
+            this.cachedGfCommand = gfImageEncoder.encode(rotated);
 
             log.info("Logo converted successfully. Dimensions: {}x{} dots", targetWidth, targetHeight);
         } catch (IOException e) {
@@ -83,36 +86,6 @@ public class LogoConversionService {
         g.drawImage(img, 0, 0, null);
         g.dispose();
         return result;
-    }
-
-    private String encodeAsGf(BufferedImage img) {
-        int width = img.getWidth();
-        int height = img.getHeight();
-        int bytesPerRow = (width + 7) / 8;
-        StringBuilder hex = new StringBuilder();
-
-        for (int y = 0; y < height; y++) {
-            for (int bx = 0; bx < bytesPerRow; bx++) {
-                int b = 0;
-                for (int bit = 0; bit < 8; bit++) {
-                    int x = bx * 8 + bit;
-                    if (x < width) {
-                        int rgb = img.getRGB(x, y);
-                        int r = (rgb >> 16) & 0xFF;
-                        int gv = (rgb >> 8) & 0xFF;
-                        int bv = rgb & 0xFF;
-                        int luminance = (int) (0.299 * r + 0.587 * gv + 0.114 * bv);
-                        if (luminance < 128) {  // dark pixel → print
-                            b |= (1 << (7 - bit));
-                        }
-                    }
-                }
-                hex.append(String.format("%02X", b));
-            }
-        }
-
-        int totalBytes = bytesPerRow * height;
-        return String.format("^GFA,%d,%d,%d,%s", totalBytes, totalBytes, bytesPerRow, hex);
     }
 
     private Resource resolveResource(String path) {

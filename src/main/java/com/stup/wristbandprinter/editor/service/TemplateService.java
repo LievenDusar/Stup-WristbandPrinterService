@@ -1,10 +1,14 @@
 package com.stup.wristbandprinter.editor.service;
 
+import com.stup.wristbandprinter.domain.WristbandData;
+import com.stup.wristbandprinter.editor.domain.AssetResponse;
+import com.stup.wristbandprinter.editor.domain.TemplateDefinition;
 import com.stup.wristbandprinter.editor.domain.TemplateDetailResponse;
 import com.stup.wristbandprinter.editor.domain.TemplateSummaryResponse;
 import com.stup.wristbandprinter.editor.domain.UpsertTemplateRequest;
 import com.stup.wristbandprinter.editor.persistence.WristbandTemplateEntity;
 import com.stup.wristbandprinter.editor.persistence.WristbandTemplateRepository;
+import com.stup.wristbandprinter.service.LabelaryPreviewService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,9 +22,21 @@ import java.util.UUID;
 public class TemplateService {
 
     private final WristbandTemplateRepository repository;
+    private final TemplateZplRenderer renderer;
+    private final LabelaryPreviewService labelaryPreviewService;
+    private final PreviewColorService previewColorService;
+    private final TemplateAssetService assetService;
 
-    public TemplateService(WristbandTemplateRepository repository) {
+    public TemplateService(WristbandTemplateRepository repository,
+                           TemplateZplRenderer renderer,
+                           LabelaryPreviewService labelaryPreviewService,
+                           PreviewColorService previewColorService,
+                           TemplateAssetService assetService) {
         this.repository = repository;
+        this.renderer = renderer;
+        this.labelaryPreviewService = labelaryPreviewService;
+        this.previewColorService = previewColorService;
+        this.assetService = assetService;
     }
 
     @Transactional
@@ -33,7 +49,7 @@ public class TemplateService {
         entity.setProjectType(blankToNull(request.projectType()));
         entity.setDefaultPreviewColor(previewColorOrDefault(request.defaultPreviewColor()));
         entity.setDefinition(request.definition());
-        entity.setGeneratedZpl(null); // populated in Plan 2 once the renderer exists
+        entity.setGeneratedZpl(renderer.renderTemplate(request.definition()));
         entity.setCreatedAt(now);
         entity.setUpdatedAt(now);
         entity.setDeleted(false);
@@ -47,6 +63,7 @@ public class TemplateService {
             entity.setProjectType(blankToNull(request.projectType()));
             entity.setDefaultPreviewColor(previewColorOrDefault(request.defaultPreviewColor()));
             entity.setDefinition(request.definition());
+            entity.setGeneratedZpl(renderer.renderTemplate(request.definition()));
             entity.setUpdatedAt(Instant.now());
             return toDetail(repository.save(entity));
         });
@@ -78,6 +95,32 @@ public class TemplateService {
             repository.save(entity);
             return true;
         }).orElse(false);
+    }
+
+    /** Render a PNG preview of a template with the given data (or sample data when null). */
+    @Transactional(readOnly = true)
+    public Optional<byte[]> renderPreview(UUID id, WristbandData data, String color) {
+        return repository.findByIdAndDeletedFalse(id).map(e -> {
+            TemplateDefinition def = e.getDefinition();
+            WristbandData effective = data != null ? data : SampleData.WRISTBAND;
+            String zpl = renderer.render(def, effective);
+            double w = (double) def.canvas().widthDots() / def.canvas().dpi();
+            double h = (double) def.canvas().lengthDots() / def.canvas().dpi();
+            int dpmm = Math.round(def.canvas().dpi() / 25.4f);
+            byte[] png = labelaryPreviewService.renderPreview(zpl, w, h, dpmm);
+            String effectiveColor = (color == null || color.isBlank()) ? e.getDefaultPreviewColor() : color;
+            return previewColorService.tint(png, effectiveColor);
+        });
+    }
+
+    @Transactional
+    public AssetResponse storeAsset(String name, byte[] png) {
+        return assetService.store(name, png);
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<byte[]> rawAsset(UUID id) {
+        return assetService.rawPng(id);
     }
 
     private String uniqueSlug(String name) {

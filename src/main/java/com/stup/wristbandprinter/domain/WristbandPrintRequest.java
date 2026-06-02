@@ -26,6 +26,9 @@ public class WristbandPrintRequest {
     @Schema(example = "12345654245524789")
     private String barcodeValue;
 
+    @Schema(description = "Optional template id; when set the wristband is rendered from that template instead of the default layout")
+    private java.util.UUID templateId;
+
     public String getEventName() { return eventName; }
     public void setEventName(String eventName) { this.eventName = eventName; }
 
@@ -40,4 +43,7 @@ public class WristbandPrintRequest {
 
     public String getBarcodeValue() { return barcodeValue; }
     public void setBarcodeValue(String barcodeValue) { this.barcodeValue = barcodeValue; }
+
+    public java.util.UUID getTemplateId() { return templateId; }
+    public void setTemplateId(java.util.UUID templateId) { this.templateId = templateId; }
 }

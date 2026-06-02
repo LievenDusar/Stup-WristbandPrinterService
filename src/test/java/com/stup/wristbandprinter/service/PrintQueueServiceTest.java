@@ -40,6 +40,8 @@ class PrintQueueServiceTest {
     @Mock private WristbandLayoutService layoutService;
     @Mock private ZplGeneratorService zplGeneratorService;
     @Mock private PrinterService printerService;
+    @Mock private com.stup.wristbandprinter.editor.persistence.WristbandTemplateRepository templateRepository;
+    @Mock private com.stup.wristbandprinter.editor.service.TemplateZplRenderer templateRenderer;
 
     private PrintQueueService service;
     private InMemoryJobStore jobStore;
@@ -58,7 +60,7 @@ class PrintQueueServiceTest {
         jobStore = new InMemoryJobStore();
         meterRegistry = new SimpleMeterRegistry();
         return new PrintQueueService(layoutService, zplGeneratorService, printerService,
-            queueProperties, jobStore, meterRegistry);
+            queueProperties, jobStore, meterRegistry, templateRepository, templateRenderer);
     }
 
     @AfterEach
@@ -102,6 +104,30 @@ class PrintQueueServiceTest {
 
         assertThat(processed).isTrue();
         assertThat(job.getStatus()).isEqualTo(PrintJobStatus.DONE);
+    }
+
+    @Test
+    void worker_rendersViaTemplate_whenTemplateIdPresent() throws InterruptedException {
+        UUID templateId = UUID.randomUUID();
+        WristbandPrintRequest req = sampleRequest();
+        req.setTemplateId(templateId);
+
+        com.stup.wristbandprinter.editor.persistence.WristbandTemplateEntity entity =
+            new com.stup.wristbandprinter.editor.persistence.WristbandTemplateEntity();
+        entity.setDefinition(new com.stup.wristbandprinter.editor.domain.TemplateDefinition(
+            new com.stup.wristbandprinter.editor.domain.Canvas(203, 2233, 300), java.util.List.of()));
+
+        CountDownLatch latch = new CountDownLatch(1);
+        when(layoutService.buildData(any())).thenReturn(sampleData());
+        when(templateRepository.findByIdAndDeletedFalse(templateId)).thenReturn(java.util.Optional.of(entity));
+        when(templateRenderer.render(any(), any())).thenReturn("^XA^XZ-template");
+        doAnswer(inv -> { latch.countDown(); return null; }).when(printerService).send(any());
+
+        service.startWorker();
+        service.enqueue(req);
+
+        assertThat(latch.await(3, TimeUnit.SECONDS)).isTrue();
+        verify(printerService).send("^XA^XZ-template");
     }
 
     @Test
