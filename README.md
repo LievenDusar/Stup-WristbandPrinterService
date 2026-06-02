@@ -129,9 +129,9 @@ X-API-Key: <your-api-key>
 | `GET` | `/api/templates/{id}` | Get a template's full definition → `200` / `404` |
 | `DELETE` | `/api/templates/{id}` | Soft-delete a template → `204` / `404` |
 
-> **Templates (Plan 1):** Templates are stored as a declarative JSON element model under the
-> `editor` feature package. ZPL rendering, logo assets, PNG previews and `/print` template
-> selection arrive in Plan 2.
+> **Wristband Template Designer:** the `/api/templates` endpoints back a visual template
+> designer. Architecture, data model, full API and roadmap are documented in
+> [docs/template-designer.md](docs/template-designer.md).
 
 **Example print request:**
 ```bash
