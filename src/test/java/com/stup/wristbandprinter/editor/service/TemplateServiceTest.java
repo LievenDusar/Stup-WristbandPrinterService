@@ -27,11 +27,21 @@ class TemplateServiceTest {
     @Mock
     private TemplateZplRenderer renderer;
 
+    @Mock
+    private com.stup.wristbandprinter.service.LabelaryPreviewService labelaryPreviewService;
+
+    @Mock
+    private PreviewColorService previewColorService;
+
+    @Mock
+    private TemplateAssetService assetService;
+
     private TemplateService service;
 
     @BeforeEach
     void setUp() {
-        service = new TemplateService(repository, renderer);
+        service = new TemplateService(repository, renderer, labelaryPreviewService,
+            previewColorService, assetService);
         lenient().when(repository.save(any(WristbandTemplateEntity.class)))
             .thenAnswer(inv -> inv.getArgument(0));
         lenient().when(renderer.renderTemplate(any())).thenReturn("^XA^FD${FULL_NAME}^FS^XZ");

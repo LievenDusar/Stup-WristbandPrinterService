@@ -24,6 +24,7 @@ import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -126,6 +127,39 @@ class TemplateControllerTest {
         when(templateService.softDelete(id)).thenReturn(false);
         mockMvc.perform(delete("/api/templates/" + id).header("X-API-Key", API_KEY))
             .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void preview_returnsPngWithSampleData() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(templateService.renderPreview(eq(id), isNull(), eq("red")))
+            .thenReturn(Optional.of(new byte[]{1, 2, 3}));
+
+        mockMvc.perform(get("/api/templates/" + id + "/preview?color=red").header("X-API-Key", API_KEY))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.IMAGE_PNG));
+    }
+
+    @Test
+    void preview_returns404_whenMissing() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(templateService.renderPreview(eq(id), isNull(), any())).thenReturn(Optional.empty());
+        mockMvc.perform(get("/api/templates/" + id + "/preview").header("X-API-Key", API_KEY))
+            .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void uploadAsset_returns201WithAssetId() throws Exception {
+        UUID assetId = UUID.randomUUID();
+        when(templateService.storeAsset(eq("logo.png"), any()))
+            .thenReturn(new com.stup.wristbandprinter.editor.domain.AssetResponse(assetId, "logo.png", 40, 20));
+
+        var file = new org.springframework.mock.web.MockMultipartFile(
+            "file", "logo.png", MediaType.IMAGE_PNG_VALUE, new byte[]{1, 2, 3});
+
+        mockMvc.perform(multipart("/api/templates/assets").file(file).header("X-API-Key", API_KEY))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.id").value(assetId.toString()));
     }
 
     private UpsertTemplateRequest request(String name) {
