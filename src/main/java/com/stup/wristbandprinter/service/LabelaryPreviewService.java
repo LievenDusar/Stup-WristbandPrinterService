@@ -38,17 +38,21 @@ public class LabelaryPreviewService {
     }
 
     public byte[] renderPreview(String zpl) {
+        return renderPreview(zpl, 1.0, 11.0, dpmm);
+    }
+
+    public byte[] renderPreview(String zpl, double widthInches, double heightInches, int dpmm) {
         String url = labelaryProps.getBaseUrl()
             + "/v1/printers/{dpmm}dpmm/labels/{width}x{height}/0/";
 
-        log.info("Requesting Labelary preview at {}dpmm", dpmm);
+        log.info("Requesting Labelary preview at {}dpmm ({}x{} in)", dpmm, widthInches, heightInches);
         try {
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
             HttpEntity<String> entity = new HttpEntity<>(zpl, headers);
 
             byte[] result = restTemplate.postForObject(url, entity, byte[].class,
-                dpmm, "1", "11");
+                dpmm, trim(widthInches), trim(heightInches));
 
             if (result == null) {
                 throw new LabelaryUnavailableException("Labelary returned empty response");
@@ -57,5 +61,16 @@ public class LabelaryPreviewService {
         } catch (RestClientException e) {
             throw new LabelaryUnavailableException("Labelary API unavailable: " + e.getMessage(), e);
         }
+    }
+
+    /** Labelary wants compact inch values: "1" not "1.0", "0.68" not "0.680000". */
+    private static String trim(double inches) {
+        if (inches == Math.rint(inches)) {
+            return Integer.toString((int) inches);
+        }
+        return java.math.BigDecimal.valueOf(inches)
+            .setScale(2, java.math.RoundingMode.HALF_UP)
+            .stripTrailingZeros()
+            .toPlainString();
     }
 }

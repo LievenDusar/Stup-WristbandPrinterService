@@ -46,6 +46,22 @@ class LabelaryPreviewServiceTest {
             .isInstanceOf(LabelaryUnavailableException.class);
     }
 
+    @Test
+    void renderPreview_withDimensions_usesGivenSizeAndDpmm() {
+        RestTemplate template = new RestTemplate();
+        MockRestServiceServer server = MockRestServiceServer.createServer(template);
+
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("/v1/printers/12dpmm/labels/0.68x7.44/0/")))
+            .andExpect(method(HttpMethod.POST))
+            .andRespond(withSuccess(new byte[]{9}, MediaType.IMAGE_PNG));
+
+        LabelaryPreviewService service = buildService(template, "http://fake.labelary.com");
+        byte[] result = service.renderPreview("^XA^XZ", 0.68, 7.44, 12);
+
+        assertThat(result).containsExactly(9);
+        server.verify();
+    }
+
     private LabelaryPreviewService buildService(RestTemplate template, String baseUrl) {
         LabelaryProperties labelaryProps = new LabelaryProperties();
         labelaryProps.setBaseUrl(baseUrl);
