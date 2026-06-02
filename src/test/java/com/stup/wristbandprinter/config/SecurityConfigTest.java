@@ -17,6 +17,7 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -37,6 +38,14 @@ class SecurityConfigTest {
     void sseStream_requiresAuth() throws Exception {
         mockMvc.perform(get("/api/wristbands/jobs/stream"))
             .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void templateEditorPage_isPublic() throws Exception {
+        // permitAll → request passes the security filter (no 401). Whether the static
+        // resource is then served (200) or unmapped in the slice (404), it must not be 401.
+        mockMvc.perform(get("/template-editor.html"))
+            .andExpect(result -> assertNotEquals(401, result.getResponse().getStatus()));
     }
 
     @Test
