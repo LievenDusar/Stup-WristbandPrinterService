@@ -5,6 +5,7 @@ import { initToolbox } from './toolbox.js';
 import { showProperties } from './properties.js';
 import { initToolbar } from './toolbar.js';
 import { listTemplates } from './api.js';
+import { groupSelected, ungroupSelected, centerSelectedOnBand } from './groupops.js';
 
 async function main() {
   // Auth gate: any 401 inside listTemplates redirects to /login.html.
@@ -15,9 +16,13 @@ async function main() {
   await initToolbar();
 
   document.getElementById('btn-delete').addEventListener('click', deleteSelected);
+  document.getElementById('btn-group').addEventListener('click', groupSelected);
+  document.getElementById('btn-ungroup').addEventListener('click', ungroupSelected);
+  document.getElementById('btn-center').addEventListener('click', centerSelectedOnBand);
+
   document.addEventListener('keydown', (e) => {
-    if ((e.key === 'Delete' || e.key === 'Backspace') && document.activeElement.tagName !== 'INPUT'
-        && document.activeElement.tagName !== 'SELECT') {
+    const tag = document.activeElement.tagName;
+    if ((e.key === 'Delete' || e.key === 'Backspace') && tag !== 'INPUT' && tag !== 'SELECT') {
       deleteSelected();
     }
   });
