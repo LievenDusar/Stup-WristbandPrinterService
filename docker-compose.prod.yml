@@ -1,0 +1,67 @@
+# Production stack: one print-service container PER PRINTER, all sharing the remote
+# dedicated `wristbands` database on the Symfony Postgres instance.
+# No Postgres container here — the DB is remote (SPRING_DATASOURCE_URL in .env.prod).
+# Prerequisites:
+#   1. ./build.sh                       (build the base image)
+#   2. cp .env.example .env.prod        (fill in real values)
+#   3. DBA has created an empty `wristbands` database + role on the prod Postgres instance.
+# Run:  docker compose -f docker-compose.prod.yml --env-file .env.prod up --build -d
+#
+# To ADD A PRINTER: copy the `printer-2` template block below, give it a new service
+# name, a unique published port, its PRINTERn_HOST / PRINTERn_HOSTNAME env, and its own
+# certs volume (add the volume name under `volumes:` too).
+
+x-printer-base: &printer-base
+  image: wristband-printer
+  build: .
+  restart: unless-stopped
+  deploy:
+    resources:
+      limits:
+        memory: 512m
+        cpus: "1.0"
+  healthcheck:
+    # Internal container port is always 8443; only the published host port differs.
+    test: ["CMD", "curl", "-fsk", "https://localhost:8443/actuator/health"]
+    interval: 30s
+    timeout: 5s
+    retries: 3
+    start_period: 20s
+
+x-printer-env: &printer-env
+  SPRING_PROFILES_ACTIVE: prod
+  SECURITY_API_KEY: ${API_KEY}
+  ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+  SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
+  SPRING_DATASOURCE_USERNAME: ${DB_USERNAME}
+  SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+  SSL_KEYSTORE_PATH: /certs/keystore.p12
+  SSL_KEYSTORE_PASSWORD: ${SSL_KEYSTORE_PASSWORD}
+
+services:
+  printer-1:
+    <<: *printer-base
+    environment:
+      <<: *printer-env
+      PRINTER_HOST: ${PRINTER1_HOST}
+      SSL_CERT_HOSTNAME: ${PRINTER1_HOSTNAME:-localhost}
+    ports:
+      - "8443:8443"
+    volumes:
+      - certs-printer1:/certs
+
+  # --- Printer template: copy this block to add a printer ---
+  # printer-2:
+  #   <<: *printer-base
+  #   environment:
+  #     <<: *printer-env
+  #     PRINTER_HOST: ${PRINTER2_HOST}
+  #     SSL_CERT_HOSTNAME: ${PRINTER2_HOSTNAME:-localhost}
+  #   ports:
+  #     - "8444:8443"
+  #   volumes:
+  #     - certs-printer2:/certs
+
+volumes:
+  certs-printer1:
+  # certs-printer2:

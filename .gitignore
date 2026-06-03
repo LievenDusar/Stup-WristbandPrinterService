@@ -27,3 +27,4 @@ Thumbs.db
 # Environment / secrets — never commit actual credentials
 .env
 .env.local
+.env.prod

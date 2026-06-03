@@ -7,6 +7,8 @@ Used by the STUP Symfony event application to print staff wristbands at events.
 
 ## Running locally
 
+> **Note:** This section is the native developer workflow and requires a local JDK 21 + Maven. To run the service with only Docker installed (no host Java), use the [Containers](#containers) section instead.
+
 **Prerequisites:** Java 21, Maven 3.9+, Docker (for a local PostgreSQL).
 
 1. Place `stup-logo.png` in `src/main/resources/images/`.
@@ -50,55 +52,78 @@ profile default).
 
 ---
 
-## Docker build and run
+## Containers
+
+The service ships as two images:
+
+- **`wristband-base:21`** — the shared "Java 21 tech stack" base (Temurin 21 JRE + curl).
+- **`wristband-printer`** — the application, built `FROM wristband-base:21`.
+
+Because the JRE lives inside the base image, any host with **only Docker installed** can
+build and run the service — no Java on the host.
+
+Build the base image first (run once, and after changing `docker/base/Dockerfile`):
 
 ```bash
-# Build
-docker build -t stup/wristband-printer .
-
-# Recommended: docker-compose (also starts the PostgreSQL service)
-cp .env.example .env   # fill in ALL values, incl. SSL_KEYSTORE_PASSWORD and SSL_CERT_HOSTNAME
-docker compose up -d
-
-# Standalone container — requires an external PostgreSQL (provide SPRING_DATASOURCE_*).
-# In the prod profile the service is HTTPS-only on 8443 (see "HTTPS (prod)" below):
-# the SSL_* vars are required and /certs must be a persistent volume for the keystore.
-docker run -p 8443:8443 \
-  -v wristband-certs:/certs \
-  -e SPRING_PROFILES_ACTIVE=prod \
-  -e SECURITY_API_KEY=your-key \
-  -e PRINTER_HOST=192.168.1.100 \
-  -e SSL_KEYSTORE_PASSWORD=your-keystore-password \
-  -e SSL_CERT_HOSTNAME=wristband.example.local \
-  -e SPRING_DATASOURCE_URL=jdbc:postgresql://<db-host>:5432/wristbands \
-  -e SPRING_DATASOURCE_USERNAME=wristbands \
-  -e SPRING_DATASOURCE_PASSWORD=your-db-password \
-  stup/wristband-printer
+./build.sh
 ```
+
+### Local (development)
+
+Postgres + the service on plain HTTP, `local` profile:
+
+```bash
+./build.sh
+docker compose up --build
+# http://localhost:8080/actuator/health
+```
+
+> **Upgrading from the old compose?** If you previously ran `docker-compose.yml` with a
+> custom `DB_PASSWORD`, the persisted `pgdata` volume was initialized with that password,
+> so the new hardcoded `wristbands` credentials fail authentication. Run
+> `docker compose down -v` once to drop and recreate the volume.
+
+### Production (one container per printer)
+
+The production stack has **no database container** — it connects to a dedicated
+`wristbands` database on the Symfony site's Postgres instance (remote).
+
+Prerequisites:
+1. A DBA creates an empty `wristbands` database + role on the prod Postgres instance
+   (Flyway creates the tables, not the database).
+2. `cp .env.example .env.prod` and fill in the values.
+
+Run:
+
+```bash
+./build.sh
+docker compose -f docker-compose.prod.yml --env-file .env.prod up --build -d
+# https://<host>:8443/actuator/health   (self-signed cert)
+```
+
+Each printer gets its own container, port, and self-signed certificate; all containers
+share the same database. Flyway runs in each container on startup and is lock-serialized,
+so staggered starts are safe.
+
+### Adding a printer
+
+In `docker-compose.prod.yml`, copy the commented `printer-2` template block, then:
+- give it a unique service name and published host port (`8444`, `8445`, …);
+- set its `PRINTERn_HOST` / `PRINTERn_HOSTNAME` (add them to `.env.prod`);
+- add its own `certs-printerN` volume under `volumes:`.
 
 > **Printer network access:** The container uses Docker's default bridge network and routes outbound traffic through the host. The Zebra printer must be reachable from the server itself — verify with `ping <PRINTER_HOST>` on the server before deploying.
 
----
+### HTTPS and Symfony cert trust
 
-## HTTPS (prod)
+In the `prod` profile each container listens **HTTPS-only on port 8443** (or the port you publish) using a self-signed certificate. The Symfony app calls it at `https://<host>:8443/...`.
 
-In the `prod` profile the service listens **HTTPS-only on port 8443** using a
-self-signed certificate. The Symfony app calls it at `https://<host>:8443/...`.
-
-The keystore is generated automatically on first container start and stored on
-the `certs` Docker volume (`SSL_KEYSTORE_PASSWORD` and `SSL_CERT_HOSTNAME` come
-from `.env`). It is reused on subsequent starts, so the certificate is stable
-across redeploys. `SSL_CERT_HOSTNAME` must be set to the host the Symfony app
-uses to reach the service **before the first start** — it becomes the
-certificate's CN/SAN. If you change it later, delete the `certs` volume
-(`docker compose down -v` or `docker volume rm`) so a new keystore is generated.
-
-### Letting Symfony trust the certificate
+The keystore is generated automatically on first container start and stored in a named `certs-printerN` Docker volume. It is reused on subsequent starts, so the certificate is stable across redeploys. `PRINTER1_HOSTNAME` (in `.env.prod`) becomes the certificate's CN/SAN — set it before the first start; the compose file maps it to the container's `SSL_CERT_HOSTNAME`. To regenerate the certificate, remove the volume: `docker volume rm <certs-volume-name>`.
 
 Export the public certificate from the running container:
 
 ```bash
-docker compose cp wristband-printer:/certs/server.crt ./server.crt
+docker compose -f docker-compose.prod.yml cp printer-1:/certs/server.crt ./server.crt
 ```
 
 Then either (recommended) point the Symfony HTTP client at it as a CA:
@@ -120,8 +145,7 @@ framework:
                 verify_host: false
 ```
 
-`SSL_CERT_HOSTNAME` must match the host the Symfony app connects to, otherwise
-hostname verification fails (use `verify_host: false` or fix the hostname).
+`PRINTER1_HOSTNAME` must match the hostname the Symfony app uses to connect, otherwise hostname verification fails.
 
 ---
 
@@ -233,10 +257,11 @@ by a previous run is marked `FAILED` ("Interrupted by service restart") — a
 half-printed wristband is never reprinted automatically; the operator can reprint
 deliberately.
 
-Under Docker Compose a `postgres` service starts automatically and the app connects
-to it via `SPRING_DATASOURCE_*` (see `docker-compose.yml`). For local dev, run the
-`local` profile against a Postgres on `localhost:5432` (database `wristbands`,
-user/password `wristbands`).
+The local Docker Compose stack (`docker-compose.yml`) starts a `postgres` service
+automatically, wired to the app via fixed credentials. The production stack
+(`docker-compose.prod.yml`) has no DB container — it connects to a remote `wristbands`
+database on the Symfony Postgres instance (configured via `SPRING_DATASOURCE_*` in
+`.env.prod`).
 
 ---
 

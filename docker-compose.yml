@@ -1,13 +1,15 @@
+# Local development stack: Postgres + the print service on HTTP 8080 (profile "local").
+# Production lives in docker-compose.prod.yml.
+# Prerequisite: build the base image first  ->  ./build.sh
 services:
   postgres:
     image: postgres:16-alpine
     environment:
       - POSTGRES_DB=wristbands
       - POSTGRES_USER=wristbands
-      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_PASSWORD=wristbands
     ports:
-      # Expose to the host (loopback only) so a backend run from the IDE can connect.
-      # 5433 avoids clashing with another local Postgres on 5432.
+      # Loopback only, on 5433 to avoid clashing with a local Postgres on 5432.
       - "127.0.0.1:5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
@@ -19,38 +21,26 @@ services:
     restart: unless-stopped
 
   wristband-printer:
+    image: wristband-printer
     build: .
     ports:
-      - "8443:8443"
+      - "8080:8080"
     environment:
-      - SPRING_PROFILES_ACTIVE=prod
-      - SECURITY_API_KEY=${API_KEY}
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
-      - PRINTER_HOST=${PRINTER_HOST}
+      - SPRING_PROFILES_ACTIVE=local
+      # Override application-local.yml's localhost URL to reach the db service.
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/wristbands
       - SPRING_DATASOURCE_USERNAME=wristbands
-      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
-      - SSL_KEYSTORE_PATH=/certs/keystore.p12
-      - SSL_KEYSTORE_PASSWORD=${SSL_KEYSTORE_PASSWORD}
-      - SSL_CERT_HOSTNAME=${SSL_CERT_HOSTNAME}
-    volumes:
-      - certs:/certs
+      - SPRING_DATASOURCE_PASSWORD=wristbands
     depends_on:
       postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-fsk", "https://localhost:8443/actuator/health"]
+      test: ["CMD", "curl", "-fs", "http://localhost:8080/actuator/health"]
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 20s
-    deploy:
-      resources:
-        limits:
-          memory: 512m
-          cpus: '1.0'
     restart: unless-stopped
 
 volumes:
   pgdata:
-  certs:
