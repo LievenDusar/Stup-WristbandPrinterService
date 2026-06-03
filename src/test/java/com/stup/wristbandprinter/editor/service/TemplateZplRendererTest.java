@@ -99,4 +99,63 @@ class TemplateZplRendererTest {
             DataBinding.FULL_NAME, null, 20, "0", null, null, null, null, null);
         assertThat(renderer.render(def(el), dirty)).contains("^FDab cd^FS");
     }
+
+    private TemplateElement staticLeaf(String id, int w, int h) {
+        return new TemplateElement(id, ElementType.STATIC_TEXT, 0, 0, w, h, 0,
+            null, id.toUpperCase(), 20, "0", null, null, null, null, null);
+    }
+
+    @Test
+    void render_lengthStack_placesChildrenWithMarginDownTheBand() {
+        TemplateElement g = TemplateElement.group("g", 0, 0, StackDirection.LENGTH, 10,
+            CrossAlign.START, List.of(staticLeaf("a", 40, 100), staticLeaf("b", 40, 50)));
+        String zpl = renderer.render(def(g), data);
+        assertThat(zpl).contains("^FO0,0");
+        assertThat(zpl).contains("^FO0,110"); // 100 + 10 margin
+    }
+
+    @Test
+    void render_widthStack_placesChildrenAcrossTheBand() {
+        TemplateElement g = TemplateElement.group("g", 0, 0, StackDirection.WIDTH, 5,
+            CrossAlign.START, List.of(staticLeaf("a", 30, 80), staticLeaf("b", 20, 80)));
+        String zpl = renderer.render(def(g), data);
+        assertThat(zpl).contains("^FO0,0");
+        assertThat(zpl).contains("^FO35,0"); // 30 + 5 margin
+    }
+
+    @Test
+    void render_crossAlignCenter_centersNarrowerChildOnCrossAxis() {
+        TemplateElement g = TemplateElement.group("g", 0, 0, StackDirection.LENGTH, 0,
+            CrossAlign.CENTER, List.of(staticLeaf("wide", 40, 50), staticLeaf("narrow", 20, 50)));
+        String zpl = renderer.render(def(g), data);
+        assertThat(zpl).contains("^FO0,0");   // wide, no offset, y=0
+        assertThat(zpl).contains("^FO10,50"); // narrow, +10 cross, y=50
+    }
+
+    @Test
+    void render_groupOrigin_offsetsAllChildren() {
+        TemplateElement g = TemplateElement.group("g", 100, 200, StackDirection.LENGTH, 0,
+            CrossAlign.START, List.of(staticLeaf("a", 40, 50)));
+        assertThat(renderer.render(def(g), data)).contains("^FO100,200");
+    }
+
+    @Test
+    void render_nestedGroup_flattensRecursively() {
+        TemplateElement inner = TemplateElement.group("in", 0, 0, StackDirection.LENGTH, 0,
+            CrossAlign.START, List.of(staticLeaf("a", 40, 50), staticLeaf("b", 40, 50)));
+        TemplateElement outer = TemplateElement.group("out", 0, 0, StackDirection.LENGTH, 0,
+            CrossAlign.START, List.of(inner, staticLeaf("c", 40, 30)));
+        String zpl = renderer.render(def(outer), data);
+        assertThat(zpl).contains("^FO0,0");   // a
+        assertThat(zpl).contains("^FO0,50");  // b
+        assertThat(zpl).contains("^FO0,100"); // c, after inner group's 100-dot height
+    }
+
+    @Test
+    void render_flatDefinition_unchanged_isBackCompatible() {
+        TemplateElement el = new TemplateElement("t", ElementType.TEXT, 40, 120, 28, 600, 90,
+            DataBinding.FULL_NAME, null, 28, "0", null, null, null, null, null);
+        String zpl = renderer.render(def(el), data);
+        assertThat(zpl).contains("^FO40,120^A0R,28,28").contains("^FDJan Janssens^FS");
+    }
 }

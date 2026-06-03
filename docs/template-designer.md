@@ -81,6 +81,11 @@ Element common fields: `id`, `type`, `x`, `y`, `widthDots`, `heightDots`,
 | `BARCODE` | `binding` = BARCODE_VALUE, `symbology` (e.g. CODE128), `showHumanReadable` |
 | `IMAGE` | `assetId` (uploaded logo) |
 | `SHAPE` | `shape` ∈ {BOX, LINE}, `thicknessDots` |
+| `GROUP` | `children` (items or groups), `stackDirection` (LENGTH/WIDTH), `marginDots`, `crossAlign` (START/CENTER/END) |
+
+> Groups stack their children along `stackDirection` with `marginDots` between them, aligned on the
+> cross-axis by `crossAlign`; the renderer flattens groups to absolute positions. Data-bound and
+> static blocks may carry an optional `sampleText` used by the editor canvas and the live preview.
 
 ## API
 
