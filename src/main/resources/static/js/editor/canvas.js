@@ -5,7 +5,7 @@ const Konva = window.Konva;
 const MAX_DISPLAY_HEIGHT = 720;
 let stage, layer, tr, bg;
 let scale = 1;
-let canvasDots = { widthDots: 203, lengthDots: 2233, dpi: 300 };
+let canvasDots = { widthDots: 330, lengthDots: 3300, dpi: 300 };
 let onSelect = () => {};
 let selection = [];
 

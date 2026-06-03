@@ -2,7 +2,7 @@
 // The editor keeps elements as plain objects in dot-space; canvas.js mirrors them as Konva nodes.
 
 export function newDefinition() {
-  return { canvas: { widthDots: 203, lengthDots: 2233, dpi: 300 }, elements: [] };
+  return { canvas: { widthDots: 330, lengthDots: 3300, dpi: 300 }, elements: [] };
 }
 
 // Build the UpsertTemplateRequest body from the toolbar fields + current elements.

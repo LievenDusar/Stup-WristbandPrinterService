@@ -7,8 +7,6 @@ function specFor(add) {
     case 'BARCODE': return { type: 'BARCODE', binding: 'BARCODE_VALUE', symbology: 'CODE128', showHumanReadable: false, widthDots: 120, heightDots: 400 };
     case 'STATIC_TEXT': return { type: 'STATIC_TEXT', value: 'STAFF', fontSize: 24, font: '0', widthDots: 30, heightDots: 300 };
     case 'IMAGE': return { type: 'IMAGE', widthDots: 150, heightDots: 80 };
-    case 'BOX': return { type: 'SHAPE', shape: 'BOX', thicknessDots: 4, widthDots: 150, heightDots: 100 };
-    case 'LINE': return { type: 'SHAPE', shape: 'LINE', thicknessDots: 4, widthDots: 150, heightDots: 6 };
     default: return { type: 'TEXT', binding: add, fontSize: 28, font: '0', widthDots: 30, heightDots: 400 };
   }
 }
