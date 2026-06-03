@@ -75,6 +75,51 @@ docker run -p 8080:8080 \
 
 ---
 
+## HTTPS (prod)
+
+In the `prod` profile the service listens **HTTPS-only on port 8443** using a
+self-signed certificate. The Symfony app calls it at `https://<host>:8443/...`.
+
+The keystore is generated automatically on first container start and stored on
+the `certs` Docker volume (`SSL_KEYSTORE_PASSWORD` and `SSL_CERT_HOSTNAME` come
+from `.env`). It is reused on subsequent starts, so the certificate is stable
+across redeploys. `SSL_CERT_HOSTNAME` must be set to the host the Symfony app
+uses to reach the service **before the first start** — it becomes the
+certificate's CN/SAN. If you change it later, delete the `certs` volume
+(`docker compose down -v` or `docker volume rm`) so a new keystore is generated.
+
+### Letting Symfony trust the certificate
+
+Export the public certificate from the running container:
+
+```bash
+docker compose cp wristband-printer:/certs/server.crt ./server.crt
+```
+
+Then either (recommended) point the Symfony HTTP client at it as a CA:
+
+```yaml
+# config/packages/framework.yaml
+framework:
+    http_client:
+        scoped_clients:
+            wristband.client:
+                base_uri: 'https://<host>:8443'
+                cafile: '%kernel.project_dir%/config/certs/server.crt'
+```
+
+...or, on a trusted private network, disable peer verification instead:
+
+```yaml
+                verify_peer: false
+                verify_host: false
+```
+
+`SSL_CERT_HOSTNAME` must match the host the Symfony app connects to, otherwise
+hostname verification fails (use `verify_host: false` or fix the hostname).
+
+---
+
 ## Configuration
 
 | Property | Default | Description |
