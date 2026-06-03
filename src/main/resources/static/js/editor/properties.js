@@ -22,7 +22,11 @@ export function showProperties(node) {
     rows.push(numberRow('marginDots', node.getAttr('marginDots') || 0));
     rows.push(selectRow('crossAlign', node.getAttr('crossAlign') || 'START', ['START', 'CENTER', 'END']));
   } else {
-    if (!grouped) { rows.push(numberRow('x', p2d(node.x()))); rows.push(numberRow('y', p2d(node.y()))); }
+    if (!grouped) {
+      const r = node.getClientRect({ relativeTo: layer, skipStroke: true });
+      rows.push(numberRow('x', Math.round(r.x / getScale())));
+      rows.push(numberRow('y', Math.round(r.y / getScale())));
+    }
     rows.push(selectRow('rotation', rot, ['0', '90', '180', '270']));
     if (type === 'TEXT') {
       rows.push(numberRow('fontSize', p2d(node.fontSize())));

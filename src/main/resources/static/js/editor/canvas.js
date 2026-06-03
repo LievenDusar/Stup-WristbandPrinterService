@@ -82,6 +82,20 @@ function outermost(node) {
   return n;
 }
 
+// The element's stored position is the top-left of its axis-aligned bounding box (in dots).
+// This matches how ZPL prints every orientation (^FO ≈ bbox top-left), so editor = print
+// even for rotated text. Konva rotates around the node's own origin, so we translate between
+// the two via getClientRect.
+function bboxTLDots(node) {
+  const r = node.getClientRect({ relativeTo: layer, skipStroke: true });
+  return { x: p2d(r.x), y: p2d(r.y) };
+}
+function placeAtBboxTL(node, xDots, yDots) {
+  const r = node.getClientRect({ relativeTo: layer, skipStroke: true });
+  node.x(node.x() + (d2p(xDots) - r.x));
+  node.y(node.y() + (d2p(yDots) - r.y));
+}
+
 function labelFor(binding) {
   return { FULL_NAME: 'First Last', EVENT_NAME: 'Event', ASSOCIATION_NAME: 'Association',
     FIRST_NAME: 'First', LAST_NAME: 'Last', BARCODE_VALUE: '12345' }[binding] || binding || 'Text';
@@ -156,6 +170,7 @@ export function addElement(spec) {
   const s = { id: spec.id || nextId(), rotation: 0, x: 20, y: 20, ...spec };
   const node = makeLeaf(s);
   layer.add(node);
+  placeAtBboxTL(node, s.x, s.y); // stored x/y = bbox top-left
   setSelection([node]);
   layer.draw();
   return node;
@@ -164,7 +179,10 @@ export function addElement(spec) {
 // ---- group layout (mirrors the renderer, in px) --------------------------
 
 function sizePx(node) {
-  if (!isGroup(node)) return { w: node.width(), h: node.height() };
+  if (!isGroup(node)) {
+    const r = node.getClientRect({ relativeTo: layer, skipStroke: true });
+    return { w: r.width, h: r.height }; // rotated bounding box, so layout/centering is rotation-aware
+  }
   const dir = node.getAttr('stackDirection') || 'LENGTH';
   const margin = d2p(node.getAttr('marginDots') || 0);
   const kids = node.getChildren();
@@ -199,7 +217,13 @@ function layoutGroup(group) {
     const axis = dir === 'LENGTH' ? s.h : s.w;
     const cross = dir === 'LENGTH' ? s.w : s.h;
     const off = align === 'START' ? 0 : align === 'CENTER' ? (crossSize - cross) / 2 : (crossSize - cross);
-    if (dir === 'LENGTH') { c.x(off); c.y(cursor); } else { c.x(cursor); c.y(off); }
+    const slotX = dir === 'LENGTH' ? off : cursor;
+    const slotY = dir === 'LENGTH' ? cursor : off;
+    // Position so the child's bounding-box top-left (relative to the group) lands at the slot —
+    // matters for rotated children whose Konva origin != bbox top-left.
+    const rel = c.getClientRect({ relativeTo: group, skipStroke: true });
+    c.x(c.x() + (slotX - rel.x));
+    c.y(c.y() + (slotY - rel.y));
     cursor += axis + margin;
   });
 }
@@ -226,10 +250,11 @@ export function deleteSelected() {
 // Apply an edited property from the panel. Geometry keys write the Konva node directly
 // (in px); non-geometry keys are stored as attrs.
 export function applyProp(node, key, value) {
+  const top = node.getParent() === layer;
   switch (key) {
-    case 'x': if (node.getParent() === layer) node.x(d2p(value)); break;
-    case 'y': if (node.getParent() === layer) node.y(d2p(value)); break;
-    case 'rotation': node.rotation(value); break;
+    case 'x': if (top) placeAtBboxTL(node, value, bboxTLDots(node).y); break;
+    case 'y': if (top) placeAtBboxTL(node, bboxTLDots(node).x, value); break;
+    case 'rotation': { const tl = bboxTLDots(node); node.rotation(value); if (top) placeAtBboxTL(node, tl.x, tl.y); break; }
     case 'fontSize': if (node.className === 'Text') node.fontSize(d2p(value)); break;
     case 'widthDots': if (node.className !== 'Text') node.width(d2p(value)); break;
     case 'heightDots': if (node.className !== 'Text') node.height(d2p(value)); break;
@@ -260,9 +285,10 @@ function nodeToElement(node) {
       children: node.getChildren().map(nodeToElement),
     };
   }
+  const tl = bboxTLDots(node);
   const el = {
     id: node.getAttr('id'), type: node.getAttr('elType'),
-    x: p2d(node.x()), y: p2d(node.y()),
+    x: tl.x, y: tl.y,
     widthDots: Math.max(1, p2d(node.width())), heightDots: Math.max(1, p2d(node.height())),
     rotation: Math.round(node.rotation() / 90) * 90 % 360,
   };
@@ -290,6 +316,7 @@ function buildNode(spec, parent) {
     node = makeLeaf(spec);
     node.draggable(parent === layer);
     parent.add(node);
+    if (parent === layer) placeAtBboxTL(node, spec.x || 0, spec.y || 0);
   }
   return node;
 }

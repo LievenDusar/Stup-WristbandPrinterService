@@ -109,10 +109,13 @@ public class TemplateZplRenderer {
         return parentDir == StackDirection.LENGTH ? wh[0] : wh[1];
     }
 
-    /** {width, height} in dots. Leaves use their stored box; groups compute theirs. */
+    /** {width, height} in dots. Leaves use their stored box (rotation-aware footprint); groups compute theirs. */
     private int[] sizeOf(TemplateElement el) {
         if (el.type() != ElementType.GROUP) {
-            return new int[]{el.widthDots(), el.heightDots()};
+            int rot = ((el.rotation() % 360) + 360) % 360;
+            return (rot == 90 || rot == 270)
+                ? new int[]{el.heightDots(), el.widthDots()}
+                : new int[]{el.widthDots(), el.heightDots()};
         }
         StackDirection dir = el.stackDirection() == null ? StackDirection.LENGTH : el.stackDirection();
         int margin = el.marginDots() == null ? 0 : el.marginDots();

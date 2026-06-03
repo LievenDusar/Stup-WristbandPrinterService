@@ -18,7 +18,7 @@ export function groupSelected() {
   group.setAttr('id', nextId());
   group.setAttr('stackDirection', 'LENGTH');
   group.setAttr('marginDots', 0);
-  group.setAttr('crossAlign', 'START');
+  group.setAttr('crossAlign', 'CENTER'); // wristband text is usually centered
   layer.add(group);
 
   // Preserve visual order (top→bottom for the default LENGTH stack).
