@@ -34,4 +34,36 @@ class TemplateDefinitionJsonTest {
         assertThat(back.elements()).hasSize(3);
         assertThat(back.elements().get(0).binding()).isEqualTo(DataBinding.FULL_NAME);
     }
+
+    @Test
+    void serializesAndDeserializesNestedGroupAndSampleText() throws Exception {
+        TemplateElement first = new TemplateElement(
+            "first", ElementType.TEXT, 0, 0, 28, 200, 90,
+            DataBinding.FIRST_NAME, null, 28, "0", null, null, null, null, null);
+        TemplateElement last = new TemplateElement(
+            "last", ElementType.TEXT, 0, 0, 28, 220, 90,
+            DataBinding.LAST_NAME, null, 28, "0", null, null, null, null, null);
+        TemplateElement free = new TemplateElement(
+            "free", ElementType.STATIC_TEXT, 0, 0, 24, 120, 0,
+            null, "STAFF", 24, "0", null, null, null, null, null,
+            null, null, null, null, "Crew");
+
+        TemplateElement nameGroup = TemplateElement.group(
+            "g-name", 0, 0, StackDirection.LENGTH, 10, CrossAlign.CENTER, java.util.List.of(first, last));
+        TemplateElement outer = TemplateElement.group(
+            "g-outer", 20, 40, StackDirection.LENGTH, 30, CrossAlign.START, java.util.List.of(nameGroup, free));
+
+        TemplateDefinition def = new TemplateDefinition(new Canvas(203, 2233, 300), java.util.List.of(outer));
+
+        String json = mapper.writeValueAsString(def);
+        TemplateDefinition back = mapper.readValue(json, TemplateDefinition.class);
+
+        assertThat(back).isEqualTo(def);
+        TemplateElement o = back.elements().get(0);
+        assertThat(o.type()).isEqualTo(ElementType.GROUP);
+        assertThat(o.children()).hasSize(2);
+        assertThat(o.children().get(0).children()).hasSize(2); // nested group preserved
+        assertThat(o.children().get(1).sampleText()).isEqualTo("Crew");
+        assertThat(o.children().get(0).crossAlign()).isEqualTo(CrossAlign.CENTER);
+    }
 }
