@@ -9,6 +9,9 @@ RUN mvn package -DskipTests -q
 # Stage 2: runtime
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
+RUN apk add --no-cache curl
 COPY --from=build /app/target/wristband-printer-service-*.jar app.jar
-EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "app.jar"]
+COPY docker-entrypoint.sh /app/docker-entrypoint.sh
+RUN chmod +x /app/docker-entrypoint.sh
+EXPOSE 8443
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
