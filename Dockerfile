@@ -6,12 +6,12 @@ RUN mvn dependency:go-offline -q
 COPY src ./src
 RUN mvn package -DskipTests -q
 
-# Stage 2: runtime
-FROM eclipse-temurin:21-jre-alpine
+# Stage 2: runtime (extends the shared Java 21 base image)
+FROM wristband-base:21
 WORKDIR /app
-RUN apk add --no-cache curl
 COPY --from=build /app/target/wristband-printer-service-*.jar app.jar
 COPY docker-entrypoint.sh /app/docker-entrypoint.sh
 RUN chmod +x /app/docker-entrypoint.sh
-EXPOSE 8443
+# 8080 = local HTTP, 8443 = production HTTPS
+EXPOSE 8080 8443
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
