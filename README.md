@@ -7,6 +7,8 @@ Used by the STUP Symfony event application to print staff wristbands at events.
 
 ## Running locally
 
+> **Note:** This section is the native developer workflow and requires a local JDK 21 + Maven. To run the service with only Docker installed (no host Java), use the [Containers](#containers) section instead.
+
 **Prerequisites:** Java 21, Maven 3.9+, Docker (for a local PostgreSQL).
 
 1. Place `stup-logo.png` in `src/main/resources/images/`.
@@ -111,7 +113,7 @@ In `docker-compose.prod.yml`, copy the commented `printer-2` template block, the
 
 In the `prod` profile each container listens **HTTPS-only on port 8443** (or the port you publish) using a self-signed certificate. The Symfony app calls it at `https://<host>:8443/...`.
 
-The keystore is generated automatically on first container start and stored in a named `certs-printerN` Docker volume. It is reused on subsequent starts, so the certificate is stable across redeploys. `SSL_CERT_HOSTNAME` (from `.env.prod`) becomes the certificate's CN/SAN — set it before the first start. To regenerate the certificate, remove the volume: `docker volume rm <certs-volume-name>`.
+The keystore is generated automatically on first container start and stored in a named `certs-printerN` Docker volume. It is reused on subsequent starts, so the certificate is stable across redeploys. `PRINTER1_HOSTNAME` (in `.env.prod`) becomes the certificate's CN/SAN — set it before the first start; the compose file maps it to the container's `SSL_CERT_HOSTNAME`. To regenerate the certificate, remove the volume: `docker volume rm <certs-volume-name>`.
 
 Export the public certificate from the running container:
 
@@ -138,7 +140,7 @@ framework:
                 verify_host: false
 ```
 
-`SSL_CERT_HOSTNAME` must match the hostname the Symfony app uses to connect, otherwise hostname verification fails.
+`PRINTER1_HOSTNAME` must match the hostname the Symfony app uses to connect, otherwise hostname verification fails.
 
 ---
 
