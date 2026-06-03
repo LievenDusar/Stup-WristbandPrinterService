@@ -20,20 +20,26 @@ export function showProperties(node) {
     rows.push(selectRow('crossAlign', node.getAttr('crossAlign') || 'START', ['START', 'CENTER', 'END']));
   } else {
     if (!grouped) { rows.push(numberRow('x', node.getAttr('x'))); rows.push(numberRow('y', node.getAttr('y'))); }
-    rows.push(numberRow('widthDots', node.getAttr('widthDots')));
-    rows.push(numberRow('heightDots', node.getAttr('heightDots')));
     rows.push(selectRow('rotation', node.getAttr('rotation') || 0, ['0', '90', '180', '270']));
     if (type === 'TEXT') {
-      rows.push(selectRow('binding', node.getAttr('binding'), BINDINGS));
+      // Text size is driven by fontSize; its box follows the content (no width/height fields).
       rows.push(numberRow('fontSize', node.getAttr('fontSize')));
+      rows.push(selectRow('binding', node.getAttr('binding'), BINDINGS));
       rows.push(textRow('sampleText', node.getAttr('sampleText')));
     } else if (type === 'STATIC_TEXT') {
-      rows.push(textRow('value', node.getAttr('value')));
       rows.push(numberRow('fontSize', node.getAttr('fontSize')));
+      rows.push(textRow('value', node.getAttr('value')));
     } else if (type === 'BARCODE') {
+      rows.push(numberRow('widthDots', node.getAttr('widthDots')));
+      rows.push(numberRow('heightDots', node.getAttr('heightDots')));
       rows.push(selectRow('symbology', node.getAttr('symbology'), ['CODE128', 'CODE39', 'QR']));
       rows.push(checkboxRow('showHumanReadable', node.getAttr('showHumanReadable')));
+    } else if (type === 'IMAGE') {
+      rows.push(numberRow('widthDots', node.getAttr('widthDots')));
+      rows.push(numberRow('heightDots', node.getAttr('heightDots')));
     } else if (type === 'SHAPE') {
+      rows.push(numberRow('widthDots', node.getAttr('widthDots')));
+      rows.push(numberRow('heightDots', node.getAttr('heightDots')));
       rows.push(numberRow('thicknessDots', node.getAttr('thicknessDots')));
     }
   }

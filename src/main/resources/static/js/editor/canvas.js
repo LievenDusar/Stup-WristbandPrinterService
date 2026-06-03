@@ -88,33 +88,58 @@ function displayText(spec) {
 
 // Create a Konva node for a leaf spec (positions in px applied by caller/layout).
 function makeLeaf(s) {
-  const common = { x: d2p(s.x || 0), y: d2p(s.y || 0), rotation: s.rotation || 0,
-    width: d2p(s.widthDots), height: d2p(s.heightDots), draggable: true };
+  const base = { x: d2p(s.x || 0), y: d2p(s.y || 0), rotation: s.rotation || 0, draggable: true };
+  const box = { width: d2p(s.widthDots || 1), height: d2p(s.heightDots || 1) };
   let node;
   if (s.type === 'TEXT' || s.type === 'STATIC_TEXT') {
-    node = new Konva.Text({ ...common, text: displayText(s), fontSize: d2p(s.fontSize || 24),
+    // Text auto-sizes to its content — no fixed width, so it never wraps into an
+    // invisible sliver. Its box (widthDots/heightDots) is derived from the rendered bounds.
+    node = new Konva.Text({ ...base, text: displayText(s), fontSize: d2p(s.fontSize || 24),
       fontFamily: 'Poppins', fill: '#111' });
   } else if (s.type === 'BARCODE') {
-    node = new Konva.Rect({ ...common, fill: '#d0d0d0', stroke: '#333', strokeWidth: 1 });
+    node = new Konva.Rect({ ...base, ...box, fill: '#d0d0d0', stroke: '#333', strokeWidth: 1 });
   } else if (s.type === 'IMAGE') {
-    node = new Konva.Rect({ ...common, fill: '#e8eefc', stroke: '#88a', dash: [6, 4] });
+    node = new Konva.Rect({ ...base, ...box, fill: '#e8eefc', stroke: '#88a', dash: [6, 4] });
     if (s.assetId) loadImageInto(node, s.assetId);
   } else {
-    node = new Konva.Rect({ ...common, fill: '#111' });
+    node = new Konva.Rect({ ...base, ...box, fill: '#111' });
   }
   Object.entries(s).forEach(([k, v]) => { if (k !== 'children') node.setAttr(k, v); });
+  if (node.className === 'Text') syncTextBox(node);
   wireLeaf(node);
   return node;
 }
 
+// Store a text node's layout box (widthDots/heightDots) from its rendered bounds.
+function syncTextBox(node) {
+  node.setAttr('widthDots', Math.max(1, p2d(node.width())));
+  node.setAttr('heightDots', Math.max(1, p2d(node.height())));
+}
+
 function wireLeaf(node) {
   node.on('transformend dragend', () => {
-    node.setAttr('widthDots', Math.max(1, p2d(node.width() * node.scaleX())));
-    node.setAttr('heightDots', Math.max(1, p2d(node.height() * node.scaleY())));
+    if (node.className === 'Text') {
+      // Resizing text scales the font; apply it, then clear the transform scale.
+      const nf = Math.max(2, node.fontSize() * node.scaleX());
+      node.scaleX(1); node.scaleY(1);
+      node.fontSize(nf);
+      node.setAttr('fontSize', Math.max(6, p2d(nf)));
+      syncTextBox(node);
+    } else {
+      // Apply the scaled size to the node (don't just reset scale, or it snaps back / jumps).
+      const nw = Math.max(1, node.width() * node.scaleX());
+      const nh = Math.max(1, node.height() * node.scaleY());
+      node.scaleX(1); node.scaleY(1);
+      node.width(nw); node.height(nh);
+      node.setAttr('widthDots', Math.max(1, p2d(nw)));
+      node.setAttr('heightDots', Math.max(1, p2d(nh)));
+      if (typeof node.fillPatternImage === 'function' && node.fillPatternImage()) {
+        const img = node.fillPatternImage();
+        node.fillPatternScale({ x: nw / img.width, y: nh / img.height });
+      }
+    }
     node.setAttr('rotation', Math.round(node.rotation() / 90) * 90 % 360);
     if (node.getParent() === layer) { node.setAttr('x', p2d(node.x())); node.setAttr('y', p2d(node.y())); }
-    if (node.className === 'Text') node.setAttr('fontSize', Math.max(6, p2d(node.fontSize() * node.scaleX())));
-    node.scaleX(1); node.scaleY(1);
     if (node.getParent() !== layer) applyLayout();
     onSelect(node);
     layer.draw();
@@ -214,13 +239,16 @@ export function applyProp(node, key, value) {
         : (node.getAttr('sampleText') || labelFor(node.getAttr('binding'))));
     }
     if (key === 'fontSize') node.fontSize(d2p(value));
+    syncTextBox(node); // text box follows content/font
+  } else {
+    if (key === 'widthDots') node.width(d2p(value));
+    if (key === 'heightDots') node.height(d2p(value));
   }
-  if (key === 'widthDots') node.width(d2p(value));
-  if (key === 'heightDots') node.height(d2p(value));
   if (key === 'rotation') node.rotation(value);
   if (key === 'x' && node.getParent() === layer) node.x(d2p(value));
   if (key === 'y' && node.getParent() === layer) node.y(d2p(value));
-  if (['stackDirection', 'marginDots', 'crossAlign', 'widthDots', 'heightDots'].includes(key)) applyLayout();
+  if (['stackDirection', 'marginDots', 'crossAlign', 'widthDots', 'heightDots',
+       'fontSize', 'value', 'sampleText', 'binding'].includes(key)) applyLayout();
   layer.draw();
 }
 
