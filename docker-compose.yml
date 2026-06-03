@@ -21,7 +21,7 @@ services:
   wristband-printer:
     build: .
     ports:
-      - "8080:8080"
+      - "8443:8443"
     environment:
       - SPRING_PROFILES_ACTIVE=prod
       - SECURITY_API_KEY=${API_KEY}
@@ -30,11 +30,16 @@ services:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/wristbands
       - SPRING_DATASOURCE_USERNAME=wristbands
       - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
+      - SSL_KEYSTORE_PATH=/certs/keystore.p12
+      - SSL_KEYSTORE_PASSWORD=${SSL_KEYSTORE_PASSWORD}
+      - SSL_CERT_HOSTNAME=${SSL_CERT_HOSTNAME}
+    volumes:
+      - certs:/certs
     depends_on:
       postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:8080/actuator/health"]
+      test: ["CMD", "curl", "-fsk", "https://localhost:8443/actuator/health"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -48,3 +53,4 @@ services:
 
 volumes:
   pgdata:
+  certs:
