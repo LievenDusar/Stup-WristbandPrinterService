@@ -40,6 +40,15 @@ export async function previewPng(id, color) {
   return URL.createObjectURL(await res.blob());
 }
 
+export async function previewPngWithData(id, color, data) {
+  const url = '/api/templates/' + id + '/preview' + (color ? '?color=' + encodeURIComponent(color) : '');
+  const res = guard(await fetch(url, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data),
+  }));
+  if (!res.ok) throw new Error('preview failed');
+  return URL.createObjectURL(await res.blob());
+}
+
 export async function uploadAsset(file) {
   const fd = new FormData();
   fd.append('file', file);

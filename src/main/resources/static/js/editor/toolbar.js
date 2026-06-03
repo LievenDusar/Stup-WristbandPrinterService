@@ -1,4 +1,4 @@
-import { listTemplates, getTemplate, createTemplate, updateTemplate, previewPng } from './api.js';
+import { listTemplates, getTemplate, createTemplate, updateTemplate, previewPngWithData } from './api.js';
 import { serializeElements, loadElements, getCanvasDots, resize, setBackgroundColor } from './canvas.js';
 import { toUpsertRequest } from './state.js';
 
@@ -39,7 +39,8 @@ export async function initToolbar() {
   $('btn-preview').addEventListener('click', async () => {
     if (!currentId) { alert('Save the template first, then preview.'); return; }
     try {
-      const url = await previewPng(currentId, $('tpl-color').value);
+      const data = sampleDataFromElements(serializeElements());
+      const url = await previewPngWithData(currentId, $('tpl-color').value, data);
       const img = $('preview-img');
       img.src = url; img.style.display = 'block';
       window.open(url, '_blank');
@@ -76,4 +77,26 @@ async function refreshTemplateList() {
   const sel = $('tpl-open');
   sel.innerHTML = '<option value="">Open template…</option>'
     + list.map(t => `<option value="${t.id}">${t.name}${t.projectType ? ' (' + t.projectType + ')' : ''}</option>`).join('');
+}
+
+// Assemble a WristbandData body from each block's sampleText (falling back to sensible defaults).
+function sampleDataFromElements(elements) {
+  const data = { eventName: 'Pukkelpop 2026', firstName: 'Annechien', lastName: 'Van De Wall',
+    associationName: 'Chiro Sint-Christina Brustem', barcodeValue: '12345654245524789' };
+  const visit = (els) => els.forEach(el => {
+    if (el.type === 'GROUP') { visit(el.children || []); return; }
+    const s = el.sampleText;
+    if (!s) return;
+    switch (el.binding) {
+      case 'EVENT_NAME': data.eventName = s; break;
+      case 'FIRST_NAME': data.firstName = s; break;
+      case 'LAST_NAME': data.lastName = s; break;
+      case 'ASSOCIATION_NAME': data.associationName = s; break;
+      case 'BARCODE_VALUE': data.barcodeValue = s; break;
+      case 'FULL_NAME': { const [f, ...r] = s.split(' '); data.firstName = f; data.lastName = r.join(' '); break; }
+      default: break;
+    }
+  });
+  visit(elements);
+  return data;
 }
