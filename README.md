@@ -78,6 +78,11 @@ docker compose up --build
 # http://localhost:8080/actuator/health
 ```
 
+> **Upgrading from the old compose?** If you previously ran `docker-compose.yml` with a
+> custom `DB_PASSWORD`, the persisted `pgdata` volume was initialized with that password,
+> so the new hardcoded `wristbands` credentials fail authentication. Run
+> `docker compose down -v` once to drop and recreate the volume.
+
 ### Production (one container per printer)
 
 The production stack has **no database container** — it connects to a dedicated
