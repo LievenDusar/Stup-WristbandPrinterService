@@ -1,8 +1,8 @@
-import { layer, getSelection, setSelection, applyLayout, getScale, getCanvasDots } from './canvas.js';
+import { layer, getSelection, setSelection, applyLayout, getCanvasDots, getScale } from './canvas.js';
 import { nextId } from './state.js';
 
 const Konva = window.Konva;
-const isGroup = (n) => n.getAttr('type') === 'GROUP';
+const isGroup = (n) => n.getAttr('elType') === 'GROUP';
 
 // Wrap the current top-level selection (>= 2 nodes) into a new group.
 export function groupSelected() {
@@ -14,7 +14,7 @@ export function groupSelected() {
   const originY = Math.min(...sel.map(n => n.y()));
 
   const group = new Konva.Group({ x: originX, y: originY, draggable: true });
-  group.setAttr('type', 'GROUP');
+  group.setAttr('elType', 'GROUP');
   group.setAttr('id', nextId());
   group.setAttr('stackDirection', 'LENGTH');
   group.setAttr('marginDots', 0);
@@ -42,7 +42,6 @@ export function ungroupSelected() {
     child.moveTo(layer);
     child.position({ x: ax, y: ay });
     child.draggable(true);
-    if (!isGroup(child)) { child.setAttr('x', Math.round(ax / getScale())); child.setAttr('y', Math.round(ay / getScale())); }
     freed.push(child);
   });
   group.destroy();
@@ -61,6 +60,5 @@ export function centerSelectedOnBand() {
   const widthPx = getCanvasDots().widthDots * scale;
   const box = node.getClientRect({ relativeTo: layer });
   node.x(node.x() + (widthPx - box.width) / 2 - (box.x - node.x()));
-  if (node.getAttr('type') !== 'GROUP') node.setAttr('x', Math.round(node.x() / scale));
   layer.draw();
 }

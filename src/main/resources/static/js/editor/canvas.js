@@ -12,6 +12,12 @@ let selection = [];
 const d2p = (d) => d * scale;
 const p2d = (p) => Math.round(p / scale);
 
+// Non-geometry model fields stored as Konva attrs. Geometry (x/y/size/fontSize/rotation)
+// lives ONLY on the Konva node (in pixels) and is derived to dots at serialize time —
+// storing dots in Konva's native attrs would corrupt position/size on every edit.
+const NON_GEO = ['binding', 'value', 'font', 'symbology', 'showHumanReadable',
+  'assetId', 'shape', 'thicknessDots', 'sampleText'];
+
 export function initCanvas(containerId, selectHandler) {
   onSelect = selectHandler;
   stage = new Konva.Stage({ container: containerId, width: 10, height: 10 });
@@ -39,8 +45,7 @@ export function initCanvas(containerId, selectHandler) {
 
   stage.on('dblclick dbltap', (e) => {
     if (e.target === bg || e.target === stage) return;
-    // Drill into a group: select the actual clicked leaf for editing.
-    if (e.target.getParent() && e.target.getParent().getAttr('type') === 'GROUP') {
+    if (e.target.getParent() && e.target.getParent().getAttr('elType') === 'GROUP') {
       setSelection([e.target]);
     }
   });
@@ -70,7 +75,7 @@ export { layer, tr };
 function contentNodes() {
   return layer.getChildren(n => n !== bg && n.className !== 'Transformer');
 }
-function isGroup(n) { return n.getAttr('type') === 'GROUP'; }
+function isGroup(n) { return n.getAttr('elType') === 'GROUP'; }
 function outermost(node) {
   let n = node;
   while (n.getParent() && n.getParent() !== layer) n = n.getParent();
@@ -81,65 +86,54 @@ function labelFor(binding) {
   return { FULL_NAME: 'First Last', EVENT_NAME: 'Event', ASSOCIATION_NAME: 'Association',
     FIRST_NAME: 'First', LAST_NAME: 'Last', BARCODE_VALUE: '12345' }[binding] || binding || 'Text';
 }
-function displayText(spec) {
-  if (spec.type === 'STATIC_TEXT') return spec.value || 'Text';
-  return spec.sampleText || labelFor(spec.binding); // TEXT
+function textOf(node) {
+  return node.getAttr('elType') === 'STATIC_TEXT'
+    ? (node.getAttr('value') || 'Text')
+    : (node.getAttr('sampleText') || labelFor(node.getAttr('binding')));
 }
 
-// Create a Konva node for a leaf spec (positions in px applied by caller/layout).
+// Create a Konva node for a leaf spec. Geometry comes from the spec (in dots → px);
+// non-geometry fields are stashed as attrs.
 function makeLeaf(s) {
   const base = { x: d2p(s.x || 0), y: d2p(s.y || 0), rotation: s.rotation || 0, draggable: true };
-  const box = { width: d2p(s.widthDots || 1), height: d2p(s.heightDots || 1) };
   let node;
   if (s.type === 'TEXT' || s.type === 'STATIC_TEXT') {
-    // Text auto-sizes to its content — no fixed width, so it never wraps into an
-    // invisible sliver. Its box (widthDots/heightDots) is derived from the rendered bounds.
-    node = new Konva.Text({ ...base, text: displayText(s), fontSize: d2p(s.fontSize || 24),
-      fontFamily: 'Poppins', fill: '#111' });
+    // Text auto-sizes to its content (no fixed width → no wrapping into an invisible sliver).
+    node = new Konva.Text({ ...base, fontSize: d2p(s.fontSize || 24), fontFamily: 'Poppins', fill: '#111' });
   } else if (s.type === 'BARCODE') {
-    node = new Konva.Rect({ ...base, ...box, fill: '#d0d0d0', stroke: '#333', strokeWidth: 1 });
+    node = new Konva.Rect({ ...base, width: d2p(s.widthDots || 1), height: d2p(s.heightDots || 1), fill: '#d0d0d0', stroke: '#333', strokeWidth: 1 });
   } else if (s.type === 'IMAGE') {
-    node = new Konva.Rect({ ...base, ...box, fill: '#e8eefc', stroke: '#88a', dash: [6, 4] });
+    node = new Konva.Rect({ ...base, width: d2p(s.widthDots || 1), height: d2p(s.heightDots || 1), fill: '#e8eefc', stroke: '#88a', dash: [6, 4] });
     if (s.assetId) loadImageInto(node, s.assetId);
   } else {
-    node = new Konva.Rect({ ...base, ...box, fill: '#111' });
+    node = new Konva.Rect({ ...base, width: d2p(s.widthDots || 1), height: d2p(s.heightDots || 1), fill: '#111' });
   }
-  Object.entries(s).forEach(([k, v]) => { if (k !== 'children') node.setAttr(k, v); });
-  if (node.className === 'Text') syncTextBox(node);
+  node.setAttr('id', s.id);
+  node.setAttr('elType', s.type);
+  NON_GEO.forEach(k => { if (s[k] !== undefined && s[k] !== null) node.setAttr(k, s[k]); });
+  if (node.className === 'Text') node.text(textOf(node));
   wireLeaf(node);
   return node;
-}
-
-// Store a text node's layout box (widthDots/heightDots) from its rendered bounds.
-function syncTextBox(node) {
-  node.setAttr('widthDots', Math.max(1, p2d(node.width())));
-  node.setAttr('heightDots', Math.max(1, p2d(node.height())));
 }
 
 function wireLeaf(node) {
   node.on('transformend dragend', () => {
     if (node.className === 'Text') {
-      // Resizing text scales the font; apply it, then clear the transform scale.
+      // Resizing text scales the font; bake the scale into fontSize, then clear it.
       const nf = Math.max(2, node.fontSize() * node.scaleX());
       node.scaleX(1); node.scaleY(1);
       node.fontSize(nf);
-      node.setAttr('fontSize', Math.max(6, p2d(nf)));
-      syncTextBox(node);
     } else {
-      // Apply the scaled size to the node (don't just reset scale, or it snaps back / jumps).
       const nw = Math.max(1, node.width() * node.scaleX());
       const nh = Math.max(1, node.height() * node.scaleY());
       node.scaleX(1); node.scaleY(1);
       node.width(nw); node.height(nh);
-      node.setAttr('widthDots', Math.max(1, p2d(nw)));
-      node.setAttr('heightDots', Math.max(1, p2d(nh)));
       if (typeof node.fillPatternImage === 'function' && node.fillPatternImage()) {
         const img = node.fillPatternImage();
         node.fillPatternScale({ x: nw / img.width, y: nh / img.height });
       }
     }
-    node.setAttr('rotation', Math.round(node.rotation() / 90) * 90 % 360);
-    if (node.getParent() === layer) { node.setAttr('x', p2d(node.x())); node.setAttr('y', p2d(node.y())); }
+    node.rotation(Math.round(node.rotation() / 90) * 90 % 360);
     if (node.getParent() !== layer) applyLayout();
     onSelect(node);
     layer.draw();
@@ -167,10 +161,10 @@ export function addElement(spec) {
   return node;
 }
 
-// ---- group layout (mirrors the renderer in px) ---------------------------
+// ---- group layout (mirrors the renderer, in px) --------------------------
 
 function sizePx(node) {
-  if (!isGroup(node)) return { w: d2p(node.getAttr('widthDots')), h: d2p(node.getAttr('heightDots')) };
+  if (!isGroup(node)) return { w: node.width(), h: node.height() };
   const dir = node.getAttr('stackDirection') || 'LENGTH';
   const margin = d2p(node.getAttr('marginDots') || 0);
   const kids = node.getChildren();
@@ -229,34 +223,31 @@ export function deleteSelected() {
   layer.draw();
 }
 
-// Apply an edited property from the panel to a node.
+// Apply an edited property from the panel. Geometry keys write the Konva node directly
+// (in px); non-geometry keys are stored as attrs.
 export function applyProp(node, key, value) {
-  node.setAttr(key, value);
-  if (node.className === 'Text') {
-    if (key === 'value' || key === 'sampleText' || key === 'binding') {
-      node.text(node.getAttr('type') === 'STATIC_TEXT'
-        ? (node.getAttr('value') || 'Text')
-        : (node.getAttr('sampleText') || labelFor(node.getAttr('binding'))));
-    }
-    if (key === 'fontSize') node.fontSize(d2p(value));
-    syncTextBox(node); // text box follows content/font
-  } else {
-    if (key === 'widthDots') node.width(d2p(value));
-    if (key === 'heightDots') node.height(d2p(value));
+  switch (key) {
+    case 'x': if (node.getParent() === layer) node.x(d2p(value)); break;
+    case 'y': if (node.getParent() === layer) node.y(d2p(value)); break;
+    case 'rotation': node.rotation(value); break;
+    case 'fontSize': if (node.className === 'Text') node.fontSize(d2p(value)); break;
+    case 'widthDots': if (node.className !== 'Text') node.width(d2p(value)); break;
+    case 'heightDots': if (node.className !== 'Text') node.height(d2p(value)); break;
+    case 'value':
+    case 'sampleText':
+    case 'binding':
+      node.setAttr(key, value);
+      if (node.className === 'Text') node.text(textOf(node));
+      break;
+    default:
+      node.setAttr(key, value); // symbology, showHumanReadable, thicknessDots, group settings
   }
-  if (key === 'rotation') node.rotation(value);
-  if (key === 'x' && node.getParent() === layer) node.x(d2p(value));
-  if (key === 'y' && node.getParent() === layer) node.y(d2p(value));
   if (['stackDirection', 'marginDots', 'crossAlign', 'widthDots', 'heightDots',
-       'fontSize', 'value', 'sampleText', 'binding'].includes(key)) applyLayout();
+       'fontSize', 'value', 'sampleText', 'binding', 'rotation'].includes(key)) applyLayout();
   layer.draw();
 }
 
-// ---- serialization (recursive) ------------------------------------------
-
-const LEAF_KEYS = ['id', 'type', 'x', 'y', 'widthDots', 'heightDots', 'rotation',
-  'binding', 'value', 'fontSize', 'font', 'symbology', 'showHumanReadable',
-  'assetId', 'shape', 'thicknessDots', 'sampleText'];
+// ---- serialization (recursive; geometry derived from the live node) ------
 
 function nodeToElement(node) {
   if (isGroup(node)) {
@@ -269,8 +260,14 @@ function nodeToElement(node) {
       children: node.getChildren().map(nodeToElement),
     };
   }
-  const el = {};
-  LEAF_KEYS.forEach(k => { const v = node.getAttr(k); if (v !== undefined && v !== null) el[k] = v; });
+  const el = {
+    id: node.getAttr('id'), type: node.getAttr('elType'),
+    x: p2d(node.x()), y: p2d(node.y()),
+    widthDots: Math.max(1, p2d(node.width())), heightDots: Math.max(1, p2d(node.height())),
+    rotation: Math.round(node.rotation() / 90) * 90 % 360,
+  };
+  if (node.className === 'Text') el.fontSize = Math.max(1, p2d(node.fontSize()));
+  NON_GEO.forEach(k => { const v = node.getAttr(k); if (v !== undefined && v !== null) el[k] = v; });
   return el;
 }
 
@@ -282,7 +279,7 @@ function buildNode(spec, parent) {
   let node;
   if (spec.type === 'GROUP') {
     node = new Konva.Group({ x: d2p(spec.x || 0), y: d2p(spec.y || 0), draggable: parent === layer });
-    node.setAttr('type', 'GROUP');
+    node.setAttr('elType', 'GROUP');
     node.setAttr('id', spec.id || nextId());
     node.setAttr('stackDirection', spec.stackDirection || 'LENGTH');
     node.setAttr('marginDots', spec.marginDots || 0);

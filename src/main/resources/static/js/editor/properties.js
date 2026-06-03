@@ -1,7 +1,8 @@
-import { applyProp, layer } from './canvas.js';
+import { applyProp, layer, getScale } from './canvas.js';
 
 const BINDINGS = ['EVENT_NAME', 'FIRST_NAME', 'LAST_NAME', 'FULL_NAME', 'ASSOCIATION_NAME', 'BARCODE_VALUE'];
 
+// Geometry is read from the live Konva node (px → dots); only non-geometry fields are attrs.
 export function showProperties(node) {
   const empty = document.getElementById('props-empty');
   const form = document.getElementById('props-form');
@@ -10,8 +11,10 @@ export function showProperties(node) {
   if (!node) { empty.style.display = ''; form.style.display = 'none'; del.style.display = 'none'; return; }
   empty.style.display = 'none'; form.style.display = ''; del.style.display = '';
 
-  const type = node.getAttr('type');
+  const p2d = (p) => Math.round(p / getScale());
+  const type = node.getAttr('elType');
   const grouped = node.getParent() && node.getParent() !== layer;
+  const rot = Math.round(node.rotation() / 90) * 90 % 360;
   const rows = [];
 
   if (type === 'GROUP') {
@@ -19,27 +22,26 @@ export function showProperties(node) {
     rows.push(numberRow('marginDots', node.getAttr('marginDots') || 0));
     rows.push(selectRow('crossAlign', node.getAttr('crossAlign') || 'START', ['START', 'CENTER', 'END']));
   } else {
-    if (!grouped) { rows.push(numberRow('x', node.getAttr('x'))); rows.push(numberRow('y', node.getAttr('y'))); }
-    rows.push(selectRow('rotation', node.getAttr('rotation') || 0, ['0', '90', '180', '270']));
+    if (!grouped) { rows.push(numberRow('x', p2d(node.x()))); rows.push(numberRow('y', p2d(node.y()))); }
+    rows.push(selectRow('rotation', rot, ['0', '90', '180', '270']));
     if (type === 'TEXT') {
-      // Text size is driven by fontSize; its box follows the content (no width/height fields).
-      rows.push(numberRow('fontSize', node.getAttr('fontSize')));
+      rows.push(numberRow('fontSize', p2d(node.fontSize())));
       rows.push(selectRow('binding', node.getAttr('binding'), BINDINGS));
       rows.push(textRow('sampleText', node.getAttr('sampleText')));
     } else if (type === 'STATIC_TEXT') {
-      rows.push(numberRow('fontSize', node.getAttr('fontSize')));
+      rows.push(numberRow('fontSize', p2d(node.fontSize())));
       rows.push(textRow('value', node.getAttr('value')));
     } else if (type === 'BARCODE') {
-      rows.push(numberRow('widthDots', node.getAttr('widthDots')));
-      rows.push(numberRow('heightDots', node.getAttr('heightDots')));
+      rows.push(numberRow('widthDots', p2d(node.width())));
+      rows.push(numberRow('heightDots', p2d(node.height())));
       rows.push(selectRow('symbology', node.getAttr('symbology'), ['CODE128', 'CODE39', 'QR']));
       rows.push(checkboxRow('showHumanReadable', node.getAttr('showHumanReadable')));
     } else if (type === 'IMAGE') {
-      rows.push(numberRow('widthDots', node.getAttr('widthDots')));
-      rows.push(numberRow('heightDots', node.getAttr('heightDots')));
+      rows.push(numberRow('widthDots', p2d(node.width())));
+      rows.push(numberRow('heightDots', p2d(node.height())));
     } else if (type === 'SHAPE') {
-      rows.push(numberRow('widthDots', node.getAttr('widthDots')));
-      rows.push(numberRow('heightDots', node.getAttr('heightDots')));
+      rows.push(numberRow('widthDots', p2d(node.width())));
+      rows.push(numberRow('heightDots', p2d(node.height())));
       rows.push(numberRow('thicknessDots', node.getAttr('thicknessDots')));
     }
   }
