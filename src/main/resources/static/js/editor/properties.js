@@ -1,8 +1,7 @@
-import { applyProp } from './canvas.js';
+import { applyProp, layer } from './canvas.js';
 
 const BINDINGS = ['EVENT_NAME', 'FIRST_NAME', 'LAST_NAME', 'FULL_NAME', 'ASSOCIATION_NAME', 'BARCODE_VALUE'];
 
-// Render the property form for the selected node (or the empty state when null).
 export function showProperties(node) {
   const empty = document.getElementById('props-empty');
   const form = document.getElementById('props-form');
@@ -12,24 +11,31 @@ export function showProperties(node) {
   empty.style.display = 'none'; form.style.display = ''; del.style.display = '';
 
   const type = node.getAttr('type');
+  const grouped = node.getParent() && node.getParent() !== layer;
   const rows = [];
-  rows.push(numberRow('x', node.getAttr('x')));
-  rows.push(numberRow('y', node.getAttr('y')));
-  rows.push(numberRow('widthDots', node.getAttr('widthDots')));
-  rows.push(numberRow('heightDots', node.getAttr('heightDots')));
-  rows.push(selectRow('rotation', node.getAttr('rotation'), ['0', '90', '180', '270']));
 
-  if (type === 'TEXT') {
-    rows.push(selectRow('binding', node.getAttr('binding'), BINDINGS));
-    rows.push(numberRow('fontSize', node.getAttr('fontSize')));
-  } else if (type === 'STATIC_TEXT') {
-    rows.push(textRow('value', node.getAttr('value')));
-    rows.push(numberRow('fontSize', node.getAttr('fontSize')));
-  } else if (type === 'BARCODE') {
-    rows.push(selectRow('symbology', node.getAttr('symbology'), ['CODE128', 'CODE39', 'QR']));
-    rows.push(checkboxRow('showHumanReadable', node.getAttr('showHumanReadable')));
-  } else if (type === 'SHAPE') {
-    rows.push(numberRow('thicknessDots', node.getAttr('thicknessDots')));
+  if (type === 'GROUP') {
+    rows.push(selectRow('stackDirection', node.getAttr('stackDirection') || 'LENGTH', ['LENGTH', 'WIDTH']));
+    rows.push(numberRow('marginDots', node.getAttr('marginDots') || 0));
+    rows.push(selectRow('crossAlign', node.getAttr('crossAlign') || 'START', ['START', 'CENTER', 'END']));
+  } else {
+    if (!grouped) { rows.push(numberRow('x', node.getAttr('x'))); rows.push(numberRow('y', node.getAttr('y'))); }
+    rows.push(numberRow('widthDots', node.getAttr('widthDots')));
+    rows.push(numberRow('heightDots', node.getAttr('heightDots')));
+    rows.push(selectRow('rotation', node.getAttr('rotation') || 0, ['0', '90', '180', '270']));
+    if (type === 'TEXT') {
+      rows.push(selectRow('binding', node.getAttr('binding'), BINDINGS));
+      rows.push(numberRow('fontSize', node.getAttr('fontSize')));
+      rows.push(textRow('sampleText', node.getAttr('sampleText')));
+    } else if (type === 'STATIC_TEXT') {
+      rows.push(textRow('value', node.getAttr('value')));
+      rows.push(numberRow('fontSize', node.getAttr('fontSize')));
+    } else if (type === 'BARCODE') {
+      rows.push(selectRow('symbology', node.getAttr('symbology'), ['CODE128', 'CODE39', 'QR']));
+      rows.push(checkboxRow('showHumanReadable', node.getAttr('showHumanReadable')));
+    } else if (type === 'SHAPE') {
+      rows.push(numberRow('thicknessDots', node.getAttr('thicknessDots')));
+    }
   }
 
   form.innerHTML = rows.join('');
