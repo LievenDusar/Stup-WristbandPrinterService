@@ -4,9 +4,9 @@ A visual drag-and-drop designer for creating custom wristband layouts, plus the 
 stores them and renders them to ZPL. This document is the single reference for the whole
 feature — its goals, architecture, data model, API, and roadmap.
 
-> **Status:** Plans 1 (persistence & catalog API) and 2 (ZPL rendering, logo assets, PNG
-> previews, `/print` integration) are implemented. Plan 3 (the Konva.js editor UI) is not yet
-> built. See [Roadmap](#roadmap).
+> **Status:** All three plans implemented — persistence & catalog API (Plan 1), ZPL rendering /
+> assets / previews / `/print` integration (Plan 2), and the Konva.js drag-and-drop editor UI
+> (Plan 3). See [Roadmap](#roadmap) and [Using the editor](#using-the-editor).
 
 ---
 
@@ -113,7 +113,21 @@ Editor endpoints use the **admin cookie**; catalog/preview/print use the existin
 |---|---|---|
 | **1 — Persistence & Catalog/CRUD API** | Domain model, `jsonb` storage, Flyway `V3`, `TemplateService`, `/api/templates`, tests | ✅ Done |
 | **2 — Rendering, assets, preview & print** | `GfImageEncoder`, `TemplateAssetService` (logo→`^GF`), `TemplateZplRenderer`, save-time ZPL snapshot, preview PNG endpoints, `/print` `templateId` routing | ✅ Done |
-| **3 — Editor UI** | Konva.js drag-and-drop page (`template-editor.html`), toolbox, properties panel, colour preview, save/export | ⏳ Planned |
+| **3 — Editor UI** | Konva.js drag-and-drop page (`template-editor.html`), toolbox, properties panel, colour preview, save/export | ✅ Done |
+
+## Using the editor
+
+Open `/template-editor.html` (linked from the jobs page header; admin login required). Drag blocks
+from the left toolbox onto the wristband canvas, position/resize/rotate them (rotation snaps to
+0/90/180/270), and edit each element in the right-hand properties panel. Set the template name,
+optional project type, stock colour, and canvas size/DPI in the top bar, then **Save**. **Preview**
+opens a colour-tinted PNG (rendered by Labelary); **Export ZPL** downloads the saved snapshot;
+**Open template…** reloads any saved template.
+
+> **Known limitation:** barcodes show as a placeholder rectangle on the editor canvas (the real
+> symbol appears only in the PNG preview and on the printer), and the renderer currently emits
+> Code 128 regardless of the selected symbology — CODE39/QR support is a planned renderer
+> follow-up.
 
 ## References
 

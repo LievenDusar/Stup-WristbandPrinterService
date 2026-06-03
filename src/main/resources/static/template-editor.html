@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>STUP — Wristband Template Editor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="/css/app.css" rel="stylesheet">
+  <link href="/css/editor.css" rel="stylesheet">
+</head>
+<body>
+  <div class="editor-shell">
+    <div class="editor-topbar glass">
+      <strong>Template:</strong>
+      <input class="input" id="tpl-name" placeholder="Template name">
+      <input class="input" id="tpl-project" placeholder="Project type (optional)">
+      <label class="muted">Colour
+        <select id="tpl-color">
+          <option value="white">white</option>
+          <option value="red">red</option>
+          <option value="blue">blue</option>
+          <option value="green">green</option>
+          <option value="yellow">yellow</option>
+          <option value="orange">orange</option>
+          <option value="pink">pink</option>
+        </select>
+      </label>
+      <label class="muted">W
+        <input class="input" id="tpl-width" type="number" value="203" style="width:80px">
+      </label>
+      <label class="muted">L
+        <input class="input" id="tpl-length" type="number" value="2233" style="width:90px">
+      </label>
+      <label class="muted">DPI
+        <input class="input" id="tpl-dpi" type="number" value="300" style="width:80px">
+      </label>
+      <span class="grow"></span>
+      <select class="input" id="tpl-open"><option value="">Open template…</option></select>
+      <button class="btn" id="btn-new">New</button>
+      <button class="btn" id="btn-preview">Preview</button>
+      <button class="btn" id="btn-export">Export ZPL</button>
+      <button class="btn btn-primary" id="btn-save">Save</button>
+    </div>
+
+    <div class="editor-main">
+      <div class="editor-toolbox glass">
+        <h3>Add block</h3>
+        <button class="btn tool-btn" data-add="FULL_NAME">Name</button>
+        <button class="btn tool-btn" data-add="EVENT_NAME">Event</button>
+        <button class="btn tool-btn" data-add="ASSOCIATION_NAME">Association</button>
+        <button class="btn tool-btn" data-add="BARCODE">Barcode</button>
+        <button class="btn tool-btn" data-add="STATIC_TEXT">Static text</button>
+        <button class="btn tool-btn" data-add="IMAGE">Logo</button>
+        <button class="btn tool-btn" data-add="BOX">Box</button>
+        <button class="btn tool-btn" data-add="LINE">Line</button>
+        <h3 style="margin-top:16px">Logo</h3>
+        <input type="file" id="logo-file" accept="image/png,image/jpeg">
+      </div>
+
+      <div class="editor-canvas-host">
+        <div id="stage-container"></div>
+      </div>
+
+      <div class="editor-props glass">
+        <h3 style="margin-top:0">Properties</h3>
+        <div id="props-empty" class="muted">Select an element to edit it.</div>
+        <div id="props-form" style="display:none"></div>
+        <button class="btn" id="btn-delete" style="display:none;margin-top:8px">Delete element</button>
+      </div>
+    </div>
+  </div>
+
+  <img id="preview-img" alt="" style="display:none">
+  <script type="module" src="/js/editor/main.js"></script>
+</body>
+</html>

@@ -40,6 +40,7 @@ public class SecurityConfig {
                 // endpoints (including the SSE stream) require the API key or admin cookie.
                 .requestMatchers(
                     "/jobs.html",
+                    "/template-editor.html",
                     "/login.html",
                     "/css/**",
                     "/js/**",
