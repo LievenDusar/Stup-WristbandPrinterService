@@ -1,3 +1,12 @@
+server:
+  port: 8443
+  ssl:
+    enabled: true
+    key-store: file:${SSL_KEYSTORE_PATH:/certs/keystore.p12}
+    key-store-type: PKCS12
+    key-store-password: ${SSL_KEYSTORE_PASSWORD}
+    key-alias: wristband
+
 printer:
   host: ${PRINTER_HOST}   # set via environment variable
   port: 9100
