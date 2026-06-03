@@ -129,6 +129,11 @@ optional project type, stock colour, and canvas size/DPI in the top bar, then **
 opens a colour-tinted PNG (rendered by Labelary); **Export ZPL** downloads the saved snapshot;
 **Open template…** reloads any saved template.
 
+**Grouping & alignment:** shift-click to multi-select, then **Group** to stack items (set
+direction, margin, and cross-alignment in the properties panel); groups can be nested. **Center on
+band** centers an item/group across the width. Data blocks accept **sample text** that shows on the
+canvas and drives the preview; static blocks take their text in the properties panel.
+
 > **Known limitation:** barcodes show as a placeholder rectangle on the editor canvas (the real
 > symbol appears only in the PNG preview and on the printer), and the renderer currently emits
 > Code 128 regardless of the selected symbology — CODE39/QR support is a planned renderer
