@@ -57,14 +57,19 @@ profile default).
 docker build -t stup/wristband-printer .
 
 # Recommended: docker-compose (also starts the PostgreSQL service)
-cp .env.example .env   # fill in API_KEY, PRINTER_HOST and DB_PASSWORD
+cp .env.example .env   # fill in ALL values, incl. SSL_KEYSTORE_PASSWORD and SSL_CERT_HOSTNAME
 docker compose up -d
 
-# Standalone container — requires an external PostgreSQL (provide SPRING_DATASOURCE_*)
-docker run -p 8080:8080 \
+# Standalone container — requires an external PostgreSQL (provide SPRING_DATASOURCE_*).
+# In the prod profile the service is HTTPS-only on 8443 (see "HTTPS (prod)" below):
+# the SSL_* vars are required and /certs must be a persistent volume for the keystore.
+docker run -p 8443:8443 \
+  -v wristband-certs:/certs \
   -e SPRING_PROFILES_ACTIVE=prod \
   -e SECURITY_API_KEY=your-key \
   -e PRINTER_HOST=192.168.1.100 \
+  -e SSL_KEYSTORE_PASSWORD=your-keystore-password \
+  -e SSL_CERT_HOSTNAME=wristband.example.local \
   -e SPRING_DATASOURCE_URL=jdbc:postgresql://<db-host>:5432/wristbands \
   -e SPRING_DATASOURCE_USERNAME=wristbands \
   -e SPRING_DATASOURCE_PASSWORD=your-db-password \
