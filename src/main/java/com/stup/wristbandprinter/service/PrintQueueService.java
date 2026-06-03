@@ -8,9 +8,6 @@ import com.stup.wristbandprinter.domain.WristbandPrintRequest;
 import com.stup.wristbandprinter.exception.JobNotCancellableException;
 import com.stup.wristbandprinter.exception.PrinterUnavailableException;
 import com.stup.wristbandprinter.exception.QueueFullException;
-import com.stup.wristbandprinter.editor.persistence.WristbandTemplateEntity;
-import com.stup.wristbandprinter.editor.persistence.WristbandTemplateRepository;
-import com.stup.wristbandprinter.editor.service.TemplateZplRenderer;
 import com.stup.wristbandprinter.persistence.JobStore;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Gauge;
@@ -39,12 +36,10 @@ public class PrintQueueService {
     private final CopyOnWriteArrayList<SseEmitter> emitters = new CopyOnWriteArrayList<>();
 
     private final WristbandLayoutService layoutService;
-    private final ZplGeneratorService zplGeneratorService;
+    private final WristbandZplResolver wristbandZplResolver;
     private final PrinterService printerService;
     private final QueueProperties queueProperties;
     private final JobStore jobStore;
-    private final WristbandTemplateRepository templateRepository;
-    private final TemplateZplRenderer templateRenderer;
 
     private final Counter submittedCounter;
     private final Counter doneCounter;
@@ -53,20 +48,16 @@ public class PrintQueueService {
     private ExecutorService worker;
 
     public PrintQueueService(WristbandLayoutService layoutService,
-                              ZplGeneratorService zplGeneratorService,
+                              WristbandZplResolver wristbandZplResolver,
                               PrinterService printerService,
                               QueueProperties queueProperties,
                               JobStore jobStore,
-                              MeterRegistry meterRegistry,
-                              WristbandTemplateRepository templateRepository,
-                              TemplateZplRenderer templateRenderer) {
+                              MeterRegistry meterRegistry) {
         this.layoutService = layoutService;
-        this.zplGeneratorService = zplGeneratorService;
+        this.wristbandZplResolver = wristbandZplResolver;
         this.printerService = printerService;
         this.queueProperties = queueProperties;
         this.jobStore = jobStore;
-        this.templateRepository = templateRepository;
-        this.templateRenderer = templateRenderer;
         this.queue = new LinkedBlockingQueue<>(queueProperties.getMaxDepth());
 
         this.submittedCounter = Counter.builder("wristband.jobs.submitted")
@@ -227,7 +218,7 @@ public class PrintQueueService {
                     broadcastUpdate(job);
                     try {
                         WristbandData data = layoutService.buildData(job.getRequest());
-                        String zpl = resolveZpl(job.getRequest(), data);
+                        String zpl = wristbandZplResolver.resolve(job.getRequest(), data);
                         printerService.send(zpl);
                         job.complete(PrintJobStatus.DONE, null, Instant.now());
                         doneCounter.increment();
@@ -250,17 +241,6 @@ public class PrintQueueService {
                 break;
             }
         }
-    }
-
-    private String resolveZpl(WristbandPrintRequest request, WristbandData data) {
-        if (request.getTemplateId() == null) {
-            return zplGeneratorService.generate(data);
-        }
-        WristbandTemplateEntity template = templateRepository
-            .findByIdAndDeletedFalse(request.getTemplateId())
-            .orElseThrow(() -> new IllegalStateException(
-                "Template not found: " + request.getTemplateId()));
-        return templateRenderer.render(template.getDefinition(), data);
     }
 
     private void broadcastUpdate(PrintJob job) {

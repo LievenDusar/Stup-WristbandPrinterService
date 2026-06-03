@@ -7,7 +7,7 @@ import com.stup.wristbandprinter.security.AuthCookieService;
 import com.stup.wristbandprinter.service.LabelaryPreviewService;
 import com.stup.wristbandprinter.service.PrintQueueService;
 import com.stup.wristbandprinter.service.WristbandLayoutService;
-import com.stup.wristbandprinter.service.ZplGeneratorService;
+import com.stup.wristbandprinter.service.WristbandZplResolver;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -31,7 +31,7 @@ class SecurityConfigTest {
 
     @MockitoBean private PrintQueueService printQueueService;
     @MockitoBean private WristbandLayoutService wristbandLayoutService;
-    @MockitoBean private ZplGeneratorService zplGeneratorService;
+    @MockitoBean private WristbandZplResolver wristbandZplResolver;
     @MockitoBean private LabelaryPreviewService labelaryPreviewService;
 
     @Test

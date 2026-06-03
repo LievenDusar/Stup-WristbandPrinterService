@@ -23,16 +23,16 @@ public class WristbandController {
 
     private final PrintQueueService printQueueService;
     private final WristbandLayoutService wristbandLayoutService;
-    private final ZplGeneratorService zplGeneratorService;
+    private final WristbandZplResolver wristbandZplResolver;
     private final LabelaryPreviewService labelaryPreviewService;
 
     public WristbandController(PrintQueueService printQueueService,
                                WristbandLayoutService wristbandLayoutService,
-                               ZplGeneratorService zplGeneratorService,
+                               WristbandZplResolver wristbandZplResolver,
                                LabelaryPreviewService labelaryPreviewService) {
         this.printQueueService = printQueueService;
         this.wristbandLayoutService = wristbandLayoutService;
-        this.zplGeneratorService = zplGeneratorService;
+        this.wristbandZplResolver = wristbandZplResolver;
         this.labelaryPreviewService = labelaryPreviewService;
     }
 
@@ -47,7 +47,7 @@ public class WristbandController {
     @Operation(summary = "Generate and return ZPL code as plain text")
     public ResponseEntity<String> previewZpl(@Valid @RequestBody WristbandPrintRequest request) {
         WristbandData data = wristbandLayoutService.buildData(request);
-        String zpl = zplGeneratorService.generate(data);
+        String zpl = wristbandZplResolver.resolve(request, data);
         return ResponseEntity.ok(zpl);
     }
 
@@ -55,7 +55,7 @@ public class WristbandController {
     @Operation(summary = "Generate and return a rendered PNG preview via Labelary")
     public ResponseEntity<byte[]> previewImage(@Valid @RequestBody WristbandPrintRequest request) {
         WristbandData data = wristbandLayoutService.buildData(request);
-        String zpl = zplGeneratorService.generate(data);
+        String zpl = wristbandZplResolver.resolve(request, data);
         byte[] png = labelaryPreviewService.renderPreview(zpl);
         return ResponseEntity.ok().contentType(MediaType.IMAGE_PNG).body(png);
     }
@@ -83,7 +83,7 @@ public class WristbandController {
         return printQueueService.getJob(jobId)
             .<ResponseEntity<byte[]>>map(job -> {
                 WristbandData data = wristbandLayoutService.buildData(job.getRequest());
-                String zpl = zplGeneratorService.generate(data);
+                String zpl = wristbandZplResolver.resolve(job.getRequest(), data);
                 byte[] png = labelaryPreviewService.renderPreview(zpl);
                 return ResponseEntity.ok().contentType(MediaType.IMAGE_PNG).body(png);
             })

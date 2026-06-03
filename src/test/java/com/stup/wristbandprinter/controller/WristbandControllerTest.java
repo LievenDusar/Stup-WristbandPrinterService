@@ -40,7 +40,7 @@ class WristbandControllerTest {
 
     @MockitoBean PrintQueueService printQueueService;
     @MockitoBean WristbandLayoutService wristbandLayoutService;
-    @MockitoBean ZplGeneratorService zplGeneratorService;
+    @MockitoBean WristbandZplResolver wristbandZplResolver;
     @MockitoBean LabelaryPreviewService labelaryPreviewService;
 
     private static final String API_KEY = "test-key";
@@ -85,7 +85,7 @@ class WristbandControllerTest {
     void previewZpl_returnsZplString() throws Exception {
         WristbandData data = new WristbandData("Pukkelpop 2026", "Jan", "Janssens", "STUP vzw", "123");
         when(wristbandLayoutService.buildData(any())).thenReturn(data);
-        when(zplGeneratorService.generate(data)).thenReturn("^XA^XZ");
+        when(wristbandZplResolver.resolve(any(), any())).thenReturn("^XA^XZ");
 
         mockMvc.perform(post("/api/wristbands/preview/zpl")
                 .header("X-API-Key", API_KEY)
@@ -100,7 +100,7 @@ class WristbandControllerTest {
     void previewImage_returnsPngBytes() throws Exception {
         WristbandData data = new WristbandData("Pukkelpop 2026", "Jan", "Janssens", "STUP vzw", "123");
         when(wristbandLayoutService.buildData(any())).thenReturn(data);
-        when(zplGeneratorService.generate(data)).thenReturn("^XA^XZ");
+        when(wristbandZplResolver.resolve(any(), any())).thenReturn("^XA^XZ");
         when(labelaryPreviewService.renderPreview("^XA^XZ")).thenReturn(new byte[]{1, 2, 3});
 
         mockMvc.perform(post("/api/wristbands/preview/image")
@@ -115,7 +115,7 @@ class WristbandControllerTest {
     void previewImage_returns503_whenLabelaryUnavailable() throws Exception {
         WristbandData data = new WristbandData("Pukkelpop 2026", "Jan", "Janssens", "STUP vzw", "123");
         when(wristbandLayoutService.buildData(any())).thenReturn(data);
-        when(zplGeneratorService.generate(any())).thenReturn("^XA^XZ");
+        when(wristbandZplResolver.resolve(any(), any())).thenReturn("^XA^XZ");
         when(labelaryPreviewService.renderPreview(any()))
             .thenThrow(new LabelaryUnavailableException("Labelary down"));
 
@@ -292,7 +292,7 @@ class WristbandControllerTest {
             .thenReturn(java.util.Optional.of(new PrintJob(id, r)));
         Mockito.when(wristbandLayoutService.buildData(Mockito.any()))
             .thenReturn(new WristbandData("Pukkelpop 2026", "Jan", "Janssens", "STUP vzw", "123456789"));
-        Mockito.when(zplGeneratorService.generate(Mockito.any())).thenReturn("^XA^XZ");
+        Mockito.when(wristbandZplResolver.resolve(Mockito.any(), Mockito.any())).thenReturn("^XA^XZ");
         Mockito.when(labelaryPreviewService.renderPreview(Mockito.any()))
             .thenReturn(new byte[]{1, 2, 3});
 
@@ -300,6 +300,29 @@ class WristbandControllerTest {
                 .header("X-API-Key", "test-key"))
             .andExpect(status().isOk())
             .andExpect(content().contentType(MediaType.IMAGE_PNG));
+    }
+
+    @Test
+    void previewImage_passesTemplateIdToResolver() throws Exception {
+        when(wristbandLayoutService.buildData(any()))
+            .thenReturn(new WristbandData("E", "F", "L", "A", "B"));
+        when(wristbandZplResolver.resolve(any(), any())).thenReturn("^XA^XZ");
+        when(labelaryPreviewService.renderPreview(any())).thenReturn(new byte[]{1});
+
+        UUID templateId = UUID.randomUUID();
+        WristbandPrintRequest req = sampleRequest();
+        req.setTemplateId(templateId);
+
+        mockMvc.perform(post("/api/wristbands/preview/image")
+                .header("X-API-Key", API_KEY)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(req)))
+            .andExpect(status().isOk());
+
+        org.mockito.ArgumentCaptor<WristbandPrintRequest> captor =
+            org.mockito.ArgumentCaptor.forClass(WristbandPrintRequest.class);
+        verify(wristbandZplResolver).resolve(captor.capture(), any());
+        org.assertj.core.api.Assertions.assertThat(captor.getValue().getTemplateId()).isEqualTo(templateId);
     }
 
     @Test
