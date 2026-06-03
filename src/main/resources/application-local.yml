@@ -3,6 +3,13 @@ spring:
     url: jdbc:postgresql://localhost:5432/wristbands
     username: wristbands
     password: wristbands
+  # Local-only: never let the browser cache the editor's HTML/JS/CSS, so a restart
+  # always serves the latest code (prevents "I'm running old JS" confusion in dev).
+  web:
+    resources:
+      cache:
+        cachecontrol:
+          no-cache: true
 
 printer:
   host: localhost # replace with your printer IP for local testing
