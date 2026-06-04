@@ -25,7 +25,7 @@ printer:
   retry-backoff-ms: 500   # pause between retries
 
 queue:
-  max-depth: 100          # max pending jobs before new submissions are rejected with 429
+  max-depth: 100          # max pending jobs PER PRINTER before new submissions are rejected with 429
 
 cluster:
   # Registry of printer-workers this management service can route to. Each printer

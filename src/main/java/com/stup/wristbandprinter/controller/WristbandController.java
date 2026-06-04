@@ -1,6 +1,5 @@
 package com.stup.wristbandprinter.controller;
 
-import com.stup.wristbandprinter.cluster.Printer;
 import com.stup.wristbandprinter.cluster.PrinterRegistry;
 import com.stup.wristbandprinter.domain.*;
 import com.stup.wristbandprinter.service.*;

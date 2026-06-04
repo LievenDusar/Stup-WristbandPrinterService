@@ -84,6 +84,31 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    void unknownPrinter_returns400() throws Exception {
+        Mockito.when(printQueueService.enqueue(Mockito.any()))
+            .thenThrow(new UnknownPrinterException("Unknown printer id: nope"));
+
+        String body = """
+            {
+              "eventName": "Pukkelpop 2026",
+              "firstName": "Jan",
+              "lastName": "Janssens",
+              "associationName": "STUP vzw",
+              "barcodeValue": "123",
+              "printerId": "nope"
+            }
+            """;
+
+        mockMvc.perform(post("/api/wristbands/print")
+                .header("X-API-Key", "test-key")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.status").value(400))
+            .andExpect(jsonPath("$.error").value("Unknown printer"));
+    }
+
+    @Test
     void wrongHttpMethod_returns405() throws Exception {
         mockMvc.perform(get("/api/wristbands/print")
                 .header("X-API-Key", "test-key"))

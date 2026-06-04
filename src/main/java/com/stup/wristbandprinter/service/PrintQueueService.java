@@ -250,7 +250,8 @@ public class PrintQueueService {
             if (isTerminal(job.getStatus())) {
                 emitter.complete();
             }
-        } catch (IOException e) {
+        } catch (IOException | IllegalStateException e) {
+            // IllegalStateException: a concurrent terminal broadcast already completed this emitter.
             removeJobEmitter(jobId, emitter);
         }
         return emitter;
@@ -277,6 +278,7 @@ public class PrintQueueService {
             try {
                 PrintJob job = q.take();
                 MDC.put("jobId", job.getJobId().toString());
+                MDC.put("printerId", String.valueOf(job.getPrinterId()));
                 try {
                     job.setStatus(PrintJobStatus.PRINTING);
                     jobStore.save(job);
@@ -301,6 +303,7 @@ public class PrintQueueService {
                     broadcastUpdate(job);
                 } finally {
                     MDC.remove("jobId");
+                    MDC.remove("printerId");
                 }
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
@@ -329,7 +332,7 @@ public class PrintQueueService {
                     if (terminal) {
                         emitter.complete();
                     }
-                } catch (IOException e) {
+                } catch (IOException | IllegalStateException e) {
                     removeJobEmitter(job.getJobId(), emitter);
                 }
             }
