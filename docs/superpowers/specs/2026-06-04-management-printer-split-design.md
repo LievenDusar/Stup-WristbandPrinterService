@@ -5,6 +5,40 @@
 **Supersedes:** `2026-06-04-printer-name-on-jobs-design.md` (the per-printer
 labeling feature is folded into this design)
 
+## Amendments (2026-06-04, during implementation)
+
+Two decisions refine the original design without changing its intent:
+
+1. **Coordination is a synchronous forward, not an async callback.** Management
+   keeps its queue (one worker thread per printer), sets the job to `PRINTING`,
+   and forwards the rendered ZPL to the worker over HTTP, deriving the outcome
+   from the response: `2xx` → `DONE`, error/timeout → `FAILED`. The worker stays
+   the thin synchronous service built in sub-plan 1 (returns `200`/`503`). This
+   removes the worker-side queue, the callback API, the stuck-`PRINTING`
+   reconciliation, and cancel-forwarding (a job waits in management's queue while
+   `PENDING`, so cancel works unchanged). The observable status lifecycle
+   (`PENDING → PRINTING → DONE/FAILED`) and the SSE stream are identical to the
+   original local-printing behavior, and printing across multiple printers is
+   still parallel (one thread per printer in phase 2). The async callback model
+   remains a future option if very high throughput ever makes a blocked
+   per-printer thread during printing a bottleneck.
+
+2. **External (Symfony) status tracking via a per-job SSE endpoint (phase 2).**
+   `POST /api/wristbands/print` already returns the `jobId` (HTTP 202); phase 2
+   adds `printerId` + `printerName` to that response. To let Symfony follow one
+   job's status, phase 2 adds `GET /api/wristbands/jobs/{jobId}/stream`: it emits
+   the job's current status on connect, streams only that job's updates, and
+   completes the SSE when the job reaches a terminal state
+   (`DONE`/`FAILED`/`CANCELLED`). `GET /api/wristbands/jobs/{jobId}` remains as a
+   polling fallback. Recommended consumption: Symfony's backend subscribes/polls
+   and relays to its own UI so the API key stays server-side; a browser
+   connecting directly would require a scoped token + CORS.
+
+The phase-1 internal forward uses plain HTTP between containers on the private
+Docker network (the worker's internal endpoint need not be HTTPS); only
+management's public UI terminates TLS. Sub-plan 2 targets local correctness over
+HTTP; production compose/TLS wiring for workers is a deploy task.
+
 ## Problem
 
 Multiple printers are supported today by running one full print-service
