@@ -12,10 +12,13 @@ public class ZplGeneratorService {
     // Gap between text lines in dots (across band width, with ^A0B rotation)
     private static final int INTER_LINE_GAP = 12;
 
-    // ^A0 is a proportional font: actual Y advance per character is ~0.40 × font_size,
-    // not the full font_size. Without this correction the block height is ~2.5× too large,
-    // pushing shorter lines far away from the anchor line in center-alignment.
-    private static final double CHAR_ADVANCE_RATIO = 0.40;
+    // ^A0 is a proportional font: the actual Y advance per character is a fraction of font_size.
+    // Calibrated against Labelary (ZP font 0, 12 dpmm): 33.5 dots/char at font 74 ⇒ ≈0.453.
+    // This value sets the reserved text-block length. The text origin sits at the top of the
+    // block and renders downward, so the *top* gap to the barcode is exact while the *bottom*
+    // gap to the logo absorbs any error here — an accurate ratio keeps the two gaps equal.
+    // Package-private so layout tests can assert against the same constant.
+    static final double CHAR_ADVANCE_RATIO = 0.46;
 
     private final WristbandProperties props;
     private final LogoConversionService logoConversionService;
@@ -35,19 +38,25 @@ public class ZplGeneratorService {
         int barcodeLen = estimateBarcodeYLength(data.barcodeValue());
         int textLen    = textBlockYLength(data, textBlock);
 
+        // The barcode's quiet zone is blank space inside its footprint, on the text-facing side.
+        // Mirror it onto the bottom gap so equal margins yield equal *visible* whitespace and the
+        // text block sits centered between the barcode and the bottom logo.
+        int quietZone  = barcodeQuietZoneDots();
+
         // Layout: logo → barcode → text → logo
         // Center the entire block vertically on the band
         int totalHeight = logoH
-            + margins.getBetweenLogoAndText()    // logo → barcode
+            + margins.getBetweenLogoAndBarcode()
             + barcodeLen
-            + margins.getBetweenTextAndBarcode() // barcode → text
+            + margins.getBetweenBarcodeAndText()
             + textLen
-            + margins.getBetweenBarcodeAndLogo() // text → logo
+            + margins.getBetweenTextAndLogo()
+            + quietZone                          // mirror of the barcode quiet zone
             + logoH;
         int topLogoY    = (props.getLengthDots() - totalHeight) / 2;
-        int barcodeY    = topLogoY + logoH + margins.getBetweenLogoAndText();
-        int textBlockY  = barcodeY + barcodeLen + margins.getBetweenTextAndBarcode();
-        int bottomLogoY = textBlockY + textLen + margins.getBetweenBarcodeAndLogo();
+        int barcodeY    = topLogoY + logoH + margins.getBetweenLogoAndBarcode();
+        int textBlockY  = barcodeY + barcodeLen + margins.getBetweenBarcodeAndText();
+        int bottomLogoY = textBlockY + textLen + margins.getBetweenTextAndLogo() + quietZone;
 
         StringBuilder zpl = new StringBuilder();
 
@@ -91,9 +100,9 @@ public class ZplGeneratorService {
 
         int blockHeight = textBlockYLength(data, t);
         int centerY = startY + blockHeight / 2;
-        int eventY  = centerY - (int) (eventText.length() * h1 * CHAR_ADVANCE_RATIO) / 2;
-        int nameY   = centerY - (int) (nameText.length()  * h2 * CHAR_ADVANCE_RATIO) / 2;
-        int assocY  = centerY - (int) (assocText.length() * h3 * CHAR_ADVANCE_RATIO) / 2;
+        int eventY  = centerY - lineExtent(eventText.length(), h1) / 2;
+        int nameY   = centerY - lineExtent(nameText.length(),  h2) / 2;
+        int assocY  = centerY - lineExtent(assocText.length(), h3) / 2;
 
         // Event name
         zpl.append(String.format("^FO%d,%d", groupX, eventY));
@@ -117,6 +126,9 @@ public class ZplGeneratorService {
         int x = centerX(b.getHeightDots());
         String hri = b.isShowHumanReadable() ? "Y" : "N";
         zpl.append(String.format("^FO%d,%d", x, y));
+        // ^BY<moduleWidth> — widen the narrow bar; lengthens the rotated barcode along the band
+        // and improves scanner readability.
+        zpl.append(String.format("^BY%d", b.getModuleWidthDots()));
         // ^BCB,height,hri,line,lineAbove — B = bottom-up (90° CCW)
         zpl.append(String.format("^BCB,%d,%s,N,N", b.getHeightDots(), hri));
         zpl.append(String.format("^FD%s^FS", sanitize(value)));
@@ -130,21 +142,37 @@ public class ZplGeneratorService {
         return (props.getWidthDots() - fieldHeight) / 2;
     }
 
-    // Conservative Y extent for block placement — uses full font_size per character to ensure
-    // subsequent elements (barcode, logo) never overlap the text block.
+    // Y extent (along band) of the text block: the longest line's rendered length. Uses the same
+    // CHAR_ADVANCE_RATIO as line positioning so the reserved block matches the actual text extent —
+    // otherwise the block is ~2.5× too long and the surplus becomes fixed padding that swamps the
+    // configurable barcode/logo margins.
     private int textBlockYLength(WristbandData data, WristbandProperties.Text t) {
-        int eventLen = sanitize(data.eventName()).length() * t.getFontSizeEvent();
-        int nameLen  = (sanitize(data.firstName()) + " " + sanitize(data.lastName())).length() * t.getFontSizeName();
-        int assocLen = sanitize(data.associationName()).length() * t.getFontSizeAssociation();
+        int eventLen = lineExtent(sanitize(data.eventName()).length(), t.getFontSizeEvent());
+        int nameLen  = lineExtent((sanitize(data.firstName()) + " " + sanitize(data.lastName())).length(), t.getFontSizeName());
+        int assocLen = lineExtent(sanitize(data.associationName()).length(), t.getFontSizeAssociation());
         return Math.max(eventLen, Math.max(nameLen, assocLen));
     }
 
-    // Estimate the Y extent (along band) of a 90°-rotated Code 128 barcode at default module width (2 dots).
-    // Code 128: start(11) + n×11 data + check(11) + stop(13) + quiet zones(20) modules × 2 dots/module.
+    // Rendered length (along band) of a single ^A0B text line of the given character count.
+    private int lineExtent(int charCount, int fontSize) {
+        return (int) (charCount * fontSize * CHAR_ADVANCE_RATIO);
+    }
+
+    // Code 128 module budget. Ink (printed bars): start(11) + check(11) + stop(13) + n×11 data.
+    // Quiet zone (blank): 20 modules. Footprint = ink + quiet.
+    private static final int BARCODE_FIXED_INK_MODULES = 35; // start + check + stop
+    private static final int BARCODE_QUIET_MODULES = 20;     // blank quiet zone
+
+    // Estimate the full Y footprint (along band) of a 90°-rotated Code 128 barcode, in dots.
     private int estimateBarcodeYLength(String value) {
-        int modules = 55 + value.length() * 11; // 55 = start(11) + check(11) + stop(13) + quiet zones(20)
+        int modules = BARCODE_FIXED_INK_MODULES + value.length() * 11 + BARCODE_QUIET_MODULES;
         int hri = props.getBarcode().isShowHumanReadable() ? 59 : 0;
-        return modules * 2 + hri;
+        return modules * props.getBarcode().getModuleWidthDots() + hri;
+    }
+
+    // Blank quiet-zone portion of the barcode footprint, in dots.
+    private int barcodeQuietZoneDots() {
+        return BARCODE_QUIET_MODULES * props.getBarcode().getModuleWidthDots();
     }
 
     /** Removes ZPL control characters from user-supplied text. */

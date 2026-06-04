@@ -34,10 +34,9 @@ wristband:
   logo-path: classpath:images/stup-logo.png
   logo-side-margin-dots: 75
   margins:
-    top-dots: 59
-    between-logo-and-text: 30
-    between-text-and-barcode: 30
-    between-barcode-and-logo: 70
+    between-logo-and-barcode: 30   # top logo -> barcode
+    between-barcode-and-text: 120   # barcode -> text
+    between-text-and-logo: 120      # text -> bottom logo (kept equal to barcode->text for centered text)
   text:
     font-size-event: 45
     font-size-name: 74
@@ -45,6 +44,7 @@ wristband:
   barcode:
     type: CODE128
     height-dots: 270
+    module-width-dots: 3   # wider narrow-bar -> longer along the band & reliably scannable
     show-human-readable: false
 
 labelary:
