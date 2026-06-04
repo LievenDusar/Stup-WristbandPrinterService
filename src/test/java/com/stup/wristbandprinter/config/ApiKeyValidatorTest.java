@@ -1,11 +1,32 @@
 package com.stup.wristbandprinter.config;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.core.env.StandardEnvironment;
 
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class ApiKeyValidatorTest {
+
+    @Test
+    void prodWorkerWithBlankAdminPassword_passes() {
+        // A printer-worker (prod,worker) has no admin UI, so a missing admin password must not block startup.
+        StandardEnvironment env = new StandardEnvironment();
+        env.setActiveProfiles("prod", "worker");
+        ApiKeyValidator validator = new ApiKeyValidator(env, "a-real-secret-key", new AdminProperties());
+        assertThatCode(validator::afterPropertiesSet).doesNotThrowAnyException();
+    }
+
+    @Test
+    void prodNonWorkerWithBlankAdminPassword_throws() {
+        // The management service (prod, no worker) still requires an admin password.
+        StandardEnvironment env = new StandardEnvironment();
+        env.setActiveProfiles("prod");
+        ApiKeyValidator validator = new ApiKeyValidator(env, "a-real-secret-key", new AdminProperties());
+        assertThatThrownBy(validator::afterPropertiesSet)
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("admin");
+    }
 
     @Test
     void prodWithDefaultKey_throws() {

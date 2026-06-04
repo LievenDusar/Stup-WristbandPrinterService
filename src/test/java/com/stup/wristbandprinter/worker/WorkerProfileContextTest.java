@@ -10,6 +10,8 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 
+import javax.sql.DataSource;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
@@ -27,5 +29,8 @@ class WorkerProfileContextTest {
 
         assertThat(ctx.getBeanNamesForType(JobStore.class)).isEmpty();
         assertThat(ctx.getBeanNamesForType(WristbandController.class)).isEmpty();
+
+        // The worker has no database: the DataSource autoconfig is excluded in application-worker.yml.
+        assertThat(ctx.getBeanNamesForType(DataSource.class)).isEmpty();
     }
 }
