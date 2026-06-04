@@ -1,5 +1,8 @@
 package com.stup.wristbandprinter.service;
 
+import com.stup.wristbandprinter.cluster.Printer;
+import com.stup.wristbandprinter.cluster.PrinterRegistry;
+import com.stup.wristbandprinter.cluster.WorkerClient;
 import com.stup.wristbandprinter.config.QueueProperties;
 import com.stup.wristbandprinter.domain.PrintJob;
 import com.stup.wristbandprinter.domain.PrintJobStatus;
@@ -39,7 +42,8 @@ public class PrintQueueService {
 
     private final WristbandLayoutService layoutService;
     private final WristbandZplResolver wristbandZplResolver;
-    private final PrinterService printerService;
+    private final PrinterRegistry printerRegistry;
+    private final WorkerClient workerClient;
     private final QueueProperties queueProperties;
     private final JobStore jobStore;
 
@@ -51,13 +55,15 @@ public class PrintQueueService {
 
     public PrintQueueService(WristbandLayoutService layoutService,
                               WristbandZplResolver wristbandZplResolver,
-                              PrinterService printerService,
+                              PrinterRegistry printerRegistry,
+                              WorkerClient workerClient,
                               QueueProperties queueProperties,
                               JobStore jobStore,
                               MeterRegistry meterRegistry) {
         this.layoutService = layoutService;
         this.wristbandZplResolver = wristbandZplResolver;
-        this.printerService = printerService;
+        this.printerRegistry = printerRegistry;
+        this.workerClient = workerClient;
         this.queueProperties = queueProperties;
         this.jobStore = jobStore;
         this.queue = new LinkedBlockingQueue<>(queueProperties.getMaxDepth());
@@ -126,7 +132,8 @@ public class PrintQueueService {
             throw queueFull(request);
         }
 
-        PrintJob job = new PrintJob(UUID.randomUUID(), request);
+        Printer printer = printerRegistry.getDefault();
+        PrintJob job = new PrintJob(UUID.randomUUID(), request, printer.id(), printer.displayName());
         // Persist before exposing the job to the worker: otherwise the worker thread can
         // dequeue and save it concurrently with this thread's save, causing duplicate inserts.
         jobStore.save(job);
@@ -141,8 +148,9 @@ public class PrintQueueService {
 
         submittedCounter.increment();
         broadcastUpdate(job);
-        log.info("Job {} enqueued for event: {}, barcode: {}",
-            job.getJobId(), request.getEventName(), request.getBarcodeValue());
+        log.info("Job {} enqueued for printer {} ({}), event: {}, barcode: {}",
+            job.getJobId(), printer.id(), printer.displayName(),
+            request.getEventName(), request.getBarcodeValue());
         return job;
     }
 
@@ -221,7 +229,8 @@ public class PrintQueueService {
                     try {
                         WristbandData data = layoutService.buildData(job.getRequest());
                         String zpl = wristbandZplResolver.resolve(job.getRequest(), data);
-                        printerService.send(zpl);
+                        Printer printer = printerRegistry.get(job.getPrinterId());
+                        workerClient.print(printer.baseUrl(), job.getJobId(), zpl);
                         job.complete(PrintJobStatus.DONE, null, Instant.now());
                         doneCounter.increment();
                     } catch (PrinterUnavailableException e) {

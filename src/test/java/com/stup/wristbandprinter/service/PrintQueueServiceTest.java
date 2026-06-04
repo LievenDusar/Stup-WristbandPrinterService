@@ -39,7 +39,8 @@ class PrintQueueServiceTest {
 
     @Mock private WristbandLayoutService layoutService;
     @Mock private WristbandZplResolver wristbandZplResolver;
-    @Mock private PrinterService printerService;
+    @Mock private com.stup.wristbandprinter.cluster.PrinterRegistry printerRegistry;
+    @Mock private com.stup.wristbandprinter.cluster.WorkerClient workerClient;
 
     private PrintQueueService service;
     private InMemoryJobStore jobStore;
@@ -50,6 +51,10 @@ class PrintQueueServiceTest {
         // Worker is started per-test: tests that observe the PENDING state leave it
         // unstarted so jobs are never picked up; tests that exercise processing start it.
         service = newService(100);
+        org.mockito.Mockito.lenient().when(printerRegistry.getDefault())
+            .thenReturn(new com.stup.wristbandprinter.cluster.Printer("printer-1", "Test Printer", "http://worker:8080"));
+        org.mockito.Mockito.lenient().when(printerRegistry.get("printer-1"))
+            .thenReturn(new com.stup.wristbandprinter.cluster.Printer("printer-1", "Test Printer", "http://worker:8080"));
     }
 
     private PrintQueueService newService(int maxDepth) {
@@ -57,7 +62,7 @@ class PrintQueueServiceTest {
         queueProperties.setMaxDepth(maxDepth);
         jobStore = new InMemoryJobStore();
         meterRegistry = new SimpleMeterRegistry();
-        return new PrintQueueService(layoutService, wristbandZplResolver, printerService,
+        return new PrintQueueService(layoutService, wristbandZplResolver, printerRegistry, workerClient,
             queueProperties, jobStore, meterRegistry);
     }
 
@@ -82,6 +87,9 @@ class PrintQueueServiceTest {
     void enqueue_throwsWhenQueueFull() {
         // No worker started, so nothing drains the queue.
         service = newService(2);
+        // Re-stub for the new service instance
+        org.mockito.Mockito.lenient().when(printerRegistry.getDefault())
+            .thenReturn(new com.stup.wristbandprinter.cluster.Printer("printer-1", "Test Printer", "http://worker:8080"));
         service.enqueue(sampleRequest());
         service.enqueue(sampleRequest());
 
@@ -94,7 +102,7 @@ class PrintQueueServiceTest {
         CountDownLatch latch = new CountDownLatch(1);
         when(layoutService.buildData(any())).thenReturn(sampleData());
         when(wristbandZplResolver.resolve(any(), any())).thenReturn("^XA^XZ");
-        doAnswer(inv -> { latch.countDown(); return null; }).when(printerService).send(any());
+        doAnswer(inv -> { latch.countDown(); return null; }).when(workerClient).print(any(), any(), any());
 
         service.startWorker();
         PrintJob job = service.enqueue(sampleRequest());
@@ -109,13 +117,13 @@ class PrintQueueServiceTest {
         CountDownLatch latch = new CountDownLatch(1);
         when(layoutService.buildData(any())).thenReturn(sampleData());
         when(wristbandZplResolver.resolve(any(), any())).thenReturn("^XA^XZ-resolved");
-        doAnswer(inv -> { latch.countDown(); return null; }).when(printerService).send(any());
+        doAnswer(inv -> { latch.countDown(); return null; }).when(workerClient).print(any(), any(), any());
 
         service.startWorker();
-        service.enqueue(sampleRequest());
+        PrintJob job = service.enqueue(sampleRequest());
 
         assertThat(latch.await(3, TimeUnit.SECONDS)).isTrue();
-        verify(printerService).send("^XA^XZ-resolved");
+        verify(workerClient).print("http://worker:8080", job.getJobId(), "^XA^XZ-resolved");
     }
 
     @Test
@@ -126,7 +134,7 @@ class PrintQueueServiceTest {
         doAnswer(inv -> {
             latch.countDown();
             throw new PrinterUnavailableException("Printer down");
-        }).when(printerService).send(any());
+        }).when(workerClient).print(any(), any(), any());
 
         service.startWorker();
         PrintJob job = service.enqueue(sampleRequest());
@@ -199,7 +207,7 @@ class PrintQueueServiceTest {
         CountDownLatch latch = new CountDownLatch(1);
         when(layoutService.buildData(any())).thenReturn(sampleData());
         when(wristbandZplResolver.resolve(any(), any())).thenReturn("^XA^XZ");
-        doAnswer(inv -> { latch.countDown(); return null; }).when(printerService).send(any());
+        doAnswer(inv -> { latch.countDown(); return null; }).when(workerClient).print(any(), any(), any());
 
         service.startWorker();
         PrintJob job = service.enqueue(sampleRequest());
@@ -244,6 +252,13 @@ class PrintQueueServiceTest {
         service.clearCompleted();
 
         assertThat(service.getJobs(null)).isEmpty();
+    }
+
+    @Test
+    void enqueue_stampsDefaultPrinter() {
+        PrintJob job = service.enqueue(sampleRequest());
+        assertThat(job.getPrinterId()).isEqualTo("printer-1");
+        assertThat(job.getPrinterName()).isEqualTo("Test Printer");
     }
 
     private WristbandPrintRequest sampleRequest() {
