@@ -1,0 +1,92 @@
+# Local end-to-end simulation of the management + multi-worker split, WITHOUT real
+# printers. One management service routes to two printer-workers; each worker writes
+# ZPL to a fake printer (socat TCP listener) that logs what it receives.
+#
+# Run:   docker compose -f docker-compose.local-cluster.yml up --build
+# UI:    http://localhost:8080/jobs.html   (login admin / local-admin)
+# See ZPL arriving:   docker compose -f docker-compose.local-cluster.yml logs -f fakeprinter-1 fakeprinter-2
+#
+# Submit to a specific printer by adding "printerId":"printer-2" to the /print body.
+
+x-worker-base: &worker-base
+  image: wristband-printer
+  restart: unless-stopped
+  healthcheck:
+    test: ["CMD", "curl", "-fs", "http://localhost:8080/actuator/health"]
+    interval: 15s
+    timeout: 5s
+    retries: 5
+    start_period: 30s
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_DB=wristbands
+      - POSTGRES_USER=wristbands
+      - POSTGRES_PASSWORD=wristbands
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wristbands -d wristbands"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # --- Fake printers: TCP listeners that log the ZPL bytes they receive ---
+  fakeprinter-1:
+    image: alpine/socat
+    command: -u TCP-LISTEN:9100,fork,reuseaddr OPEN:/dev/stdout
+    restart: unless-stopped
+  fakeprinter-2:
+    image: alpine/socat
+    command: -u TCP-LISTEN:9100,fork,reuseaddr OPEN:/dev/stdout
+    restart: unless-stopped
+
+  # --- One printer-worker per fake printer (no DB, no UI) ---
+  worker-1:
+    <<: *worker-base
+    build: .
+    environment:
+      - SPRING_PROFILES_ACTIVE=worker
+      - SECURITY_API_KEY=local-dev-key
+      - PRINTER_HOST=fakeprinter-1
+      - PRINTER_PORT=9100
+    depends_on:
+      - fakeprinter-1
+  worker-2:
+    <<: *worker-base
+    environment:
+      - SPRING_PROFILES_ACTIVE=worker
+      - SECURITY_API_KEY=local-dev-key
+      - PRINTER_HOST=fakeprinter-2
+      - PRINTER_PORT=9100
+    depends_on:
+      - fakeprinter-2
+
+  # --- Management: UI + DB + routing. Registry points at the two workers. ---
+  management:
+    image: wristband-printer
+    environment:
+      - SPRING_PROFILES_ACTIVE=local
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/wristbands
+      - SPRING_DATASOURCE_USERNAME=wristbands
+      - SPRING_DATASOURCE_PASSWORD=wristbands
+      - SECURITY_API_KEY=local-dev-key
+      # Override cluster.printers with the in-network worker URLs (one line of JSON).
+      - SPRING_APPLICATION_JSON={"cluster":{"printers":[{"id":"printer-1","display-name":"Inkom links","base-url":"http://worker-1:8080"},{"id":"printer-2","display-name":"Inkom rechts","base-url":"http://worker-2:8080"}]}}
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      worker-1:
+        condition: service_started
+      worker-2:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
