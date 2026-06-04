@@ -258,6 +258,17 @@ class PrintQueueServiceTest {
     }
 
     @Test
+    void subscribeToJob_unknownJob_returnsNull() {
+        assertThat(service.subscribeToJob(java.util.UUID.randomUUID())).isNull();
+    }
+
+    @Test
+    void subscribeToJob_knownJob_returnsEmitter() {
+        PrintJob job = service.enqueue(sampleRequest());  // no worker started -> stays PENDING
+        assertThat(service.subscribeToJob(job.getJobId())).isNotNull();
+    }
+
+    @Test
     void enqueue_stampsDefaultPrinter() {
         PrintJob job = service.enqueue(sampleRequest());
         assertThat(job.getPrinterId()).isEqualTo("printer-1");

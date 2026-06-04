@@ -103,6 +103,13 @@ public class WristbandController {
         return printQueueService.subscribe();
     }
 
+    @GetMapping(value = "/jobs/{jobId}/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @Operation(summary = "Subscribe to a single job's status updates via SSE")
+    public ResponseEntity<SseEmitter> streamJob(@PathVariable UUID jobId) {
+        SseEmitter emitter = printQueueService.subscribeToJob(jobId);
+        return emitter == null ? ResponseEntity.notFound().build() : ResponseEntity.ok(emitter);
+    }
+
     @PostMapping("/jobs/{jobId}/reprint")
     @Operation(summary = "Reprint a previous job using the same data")
     public ResponseEntity<PrintJobResponse> reprint(@PathVariable UUID jobId) {

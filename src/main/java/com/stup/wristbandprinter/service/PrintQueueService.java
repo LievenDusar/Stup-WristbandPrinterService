@@ -40,6 +40,8 @@ public class PrintQueueService {
         = new java.util.concurrent.ConcurrentHashMap<>();
     private final ConcurrentHashMap<UUID, PrintJob> jobs = new ConcurrentHashMap<>();
     private final CopyOnWriteArrayList<SseEmitter> emitters = new CopyOnWriteArrayList<>();
+    private final java.util.concurrent.ConcurrentHashMap<UUID, java.util.List<SseEmitter>> jobEmitters
+        = new java.util.concurrent.ConcurrentHashMap<>();
 
     private final WristbandLayoutService layoutService;
     private final WristbandZplResolver wristbandZplResolver;
@@ -232,6 +234,44 @@ public class PrintQueueService {
         return emitter;
     }
 
+    /** Subscribe to one job's updates; null if the job is unknown. Completes on a terminal status. */
+    public SseEmitter subscribeToJob(UUID jobId) {
+        PrintJob job = jobs.get(jobId);
+        if (job == null) {
+            return null;
+        }
+        SseEmitter emitter = new SseEmitter(Long.MAX_VALUE);
+        jobEmitters.computeIfAbsent(jobId, id -> new java.util.concurrent.CopyOnWriteArrayList<>()).add(emitter);
+        emitter.onCompletion(() -> removeJobEmitter(jobId, emitter));
+        emitter.onTimeout(() -> removeJobEmitter(jobId, emitter));
+        emitter.onError(e -> removeJobEmitter(jobId, emitter));
+        try {
+            emitter.send(SseEmitter.event().data(job.toResponse()));   // current snapshot
+            if (isTerminal(job.getStatus())) {
+                emitter.complete();
+            }
+        } catch (IOException e) {
+            removeJobEmitter(jobId, emitter);
+        }
+        return emitter;
+    }
+
+    private void removeJobEmitter(UUID jobId, SseEmitter emitter) {
+        java.util.List<SseEmitter> list = jobEmitters.get(jobId);
+        if (list != null) {
+            list.remove(emitter);
+            if (list.isEmpty()) {
+                jobEmitters.remove(jobId);
+            }
+        }
+    }
+
+    private static boolean isTerminal(PrintJobStatus status) {
+        return status == PrintJobStatus.DONE
+            || status == PrintJobStatus.FAILED
+            || status == PrintJobStatus.CANCELLED;
+    }
+
     private void processQueue(java.util.concurrent.BlockingQueue<PrintJob> q) {
         while (!Thread.currentThread().isInterrupted()) {
             try {
@@ -279,5 +319,20 @@ public class PrintQueueService {
             }
         }
         emitters.removeAll(dead);
+
+        java.util.List<SseEmitter> perJob = jobEmitters.get(job.getJobId());
+        if (perJob != null) {
+            boolean terminal = isTerminal(job.getStatus());
+            for (SseEmitter emitter : perJob) {
+                try {
+                    emitter.send(SseEmitter.event().data(job.toResponse()));
+                    if (terminal) {
+                        emitter.complete();
+                    }
+                } catch (IOException e) {
+                    removeJobEmitter(job.getJobId(), emitter);
+                }
+            }
+        }
     }
 }
