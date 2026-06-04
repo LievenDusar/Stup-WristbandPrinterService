@@ -1,5 +1,7 @@
 const jobs = {};
 let statusFilter = '';
+let printerFilter = '';
+let printers = [];
 let sortKey = 'submittedAt';
 let sortDir = -1; // newest first
 let eventSource = null;
@@ -18,6 +20,10 @@ async function init() {
     if (res.status === 401) { redirectToLogin(); return; }
     (await res.json()).forEach(j => { jobs[j.jobId] = j; });
   } catch (e) { /* SSE will retry */ }
+  try {
+    const pr = await fetch('/api/wristbands/printers');
+    if (pr.ok) printers = await pr.json();
+  } catch (e) { /* chips just won't render */ }
   render();
   connectSse();
 }
@@ -49,13 +55,17 @@ function sortBy(key) {
 
 function setFilter(status) { statusFilter = (statusFilter === status) ? '' : status; render(); }
 
+function setPrinterFilter(id) { printerFilter = (printerFilter === id) ? '' : id; render(); }
+
 function render() {
   renderChips();
+  renderPrinterChips();
   const search = document.getElementById('search').value.trim().toLowerCase();
   const tbody = document.getElementById('jobs-body');
 
   let list = Object.values(jobs)
     .filter(j => !statusFilter || j.status === statusFilter)
+    .filter(j => !printerFilter || j.printerId === printerFilter)
     .filter(j => !search
       || j.jobId.toLowerCase().includes(search)
       || (j.eventName || '').toLowerCase().includes(search)
@@ -67,7 +77,7 @@ function render() {
   });
 
   if (list.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="7" class="empty">No jobs.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="empty">No jobs.</td></tr>';
     return;
   }
 
@@ -89,6 +99,7 @@ function rowHtml(job) {
     </div></td>
     <td>${esc(((job.firstName || '') + ' ' + (job.lastName || '')).trim())}</td>
     <td>${esc(job.eventName)}</td>
+    <td>${esc(job.printerName || '—')}</td>
     <td><span class="badge ${job.status}">${job.status}</span></td>
     <td title="${fmtDateTime(job.submittedAt)}">${relTime(job.submittedAt)}</td>
     <td title="${job.completedAt ? fmtDateTime(job.completedAt) : ''}">${job.completedAt ? relTime(job.completedAt) : '—'}</td>
@@ -105,6 +116,18 @@ function renderChips() {
     chips.push(`<span class="chip ${statusFilter === s ? 'active' : ''}" onclick="setFilter('${s}')">${s} <span class="count">${counts[s]}</span></span>`);
   });
   document.getElementById('chips').innerHTML = chips.join('');
+}
+
+function renderPrinterChips() {
+  const el = document.getElementById('printer-chips');
+  if (!printers || printers.length < 2) { el.innerHTML = ''; return; }  // no point with one printer
+  const counts = {};
+  Object.values(jobs).forEach(j => { if (j.printerId) counts[j.printerId] = (counts[j.printerId] || 0) + 1; });
+  const chips = [`<span class="chip ${printerFilter === '' ? 'active' : ''}" onclick="setPrinterFilter('')">All printers</span>`];
+  printers.forEach(p => {
+    chips.push(`<span class="chip ${printerFilter === p.id ? 'active' : ''}" onclick="setPrinterFilter('${p.id}')">${esc(p.displayName)} <span class="count">${counts[p.id] || 0}</span></span>`);
+  });
+  el.innerHTML = chips.join('');
 }
 
 async function copyId(id) {
@@ -139,6 +162,7 @@ async function showDetail(id) {
 
   const rows = [
     ['Job ID', d.jobId], ['Event', d.eventName],
+    ['Printer', d.printerName || '—'],
     ['First name', d.firstName], ['Last name', d.lastName],
     ['Association', d.associationName], ['Barcode', d.barcodeValue],
     ['Submitted', fmtDateTime(d.submittedAt)], ['Completed', fmtDateTime(d.completedAt)]
@@ -236,9 +260,38 @@ function clearPreview() {
 }
 
 async function reprint(id) {
-  const res = await guarded(fetch('/api/wristbands/jobs/' + id + '/reprint', { method: 'POST' }));
+  let printerId = null;
+  if (printers && printers.length > 1) {
+    printerId = await choosePrinter();
+    if (printerId === null) return;        // cancelled
+  }
+  const url = '/api/wristbands/jobs/' + id + '/reprint'
+    + (printerId ? ('?printerId=' + encodeURIComponent(printerId)) : '');
+  const res = await guarded(fetch(url, { method: 'POST' }));
   if (!res) return;
   toast(res.ok ? 'Reprint queued' : 'Reprint failed', res.ok ? 'ok' : 'err');
+}
+
+// Ask which printer to reprint on, reusing the confirm overlay. Resolves to a printer id, or null if cancelled.
+function choosePrinter() {
+  return new Promise(resolve => {
+    const overlay = document.getElementById('confirm-overlay');
+    const card = overlay.querySelector('.confirm-card');
+    const prevHtml = card.innerHTML;
+    const buttons = printers.map(p =>
+      `<button class="btn btn-sm" data-printer="${p.id}">${esc(p.displayName)}</button>`).join('');
+    card.innerHTML = `<div id="confirm-message">Reprint on which printer?</div>
+      <div class="confirm-actions" style="flex-wrap:wrap">${buttons}
+      <button class="btn" data-printer="">Cancel</button></div>`;
+    overlay.classList.add('open');
+    const done = (printerId) => {
+      overlay.classList.remove('open');
+      card.innerHTML = prevHtml;   // restore the original confirm markup
+      resolve(printerId);
+    };
+    card.querySelectorAll('button[data-printer]').forEach(b =>
+      b.onclick = () => done(b.getAttribute('data-printer') || null));
+  });
 }
 
 async function cancelJob(id) {
