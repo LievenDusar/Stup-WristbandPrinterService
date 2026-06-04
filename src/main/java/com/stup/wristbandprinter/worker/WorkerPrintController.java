@@ -27,7 +27,7 @@ public class WorkerPrintController {
 
     @PostMapping("/print")
     public ResponseEntity<Void> print(@RequestBody PrintForwardRequest request) {
-        log.info("Worker received print for job {}", request.jobId());
+        log.info("Worker processing print for job {}", request.jobId());
         printerService.send(request.zpl());
         log.info("Worker completed print for job {}", request.jobId());
         return ResponseEntity.ok().build();

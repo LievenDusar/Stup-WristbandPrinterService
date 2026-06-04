@@ -27,6 +27,8 @@ import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+// TODO: the excludeFilters below can be removed once SecurityConfig / ApiKeyAuthFilter /
+// AuthCookieService are gated with @Profile("!worker") — they won't load under "worker" then.
 @WebMvcTest(
     value = WorkerPrintController.class,
     excludeFilters = @ComponentScan.Filter(
