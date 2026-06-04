@@ -33,6 +33,7 @@ class SecurityConfigTest {
     @MockitoBean private WristbandLayoutService wristbandLayoutService;
     @MockitoBean private WristbandZplResolver wristbandZplResolver;
     @MockitoBean private LabelaryPreviewService labelaryPreviewService;
+    @MockitoBean private com.stup.wristbandprinter.cluster.PrinterRegistry printerRegistry;
 
     @Test
     void sseStream_requiresAuth() throws Exception {

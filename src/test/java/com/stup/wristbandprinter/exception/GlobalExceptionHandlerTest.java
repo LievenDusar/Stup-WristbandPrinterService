@@ -37,6 +37,7 @@ class GlobalExceptionHandlerTest {
     @MockitoBean private WristbandLayoutService wristbandLayoutService;
     @MockitoBean private WristbandZplResolver wristbandZplResolver;
     @MockitoBean private LabelaryPreviewService labelaryPreviewService;
+    @MockitoBean private com.stup.wristbandprinter.cluster.PrinterRegistry printerRegistry;
 
     @Test
     void missingRequiredField_returns400WithFieldDetails() throws Exception {
