@@ -25,6 +25,7 @@
     <div class="controls">
       <div class="search">
         <input class="input" id="search" type="text" placeholder="Search by name, job ID or event…" oninput="render()">
+        <button type="button" class="search-clear" id="search-clear" onclick="clearSearch()" aria-label="Clear search" title="Clear">×</button>
       </div>
       <button class="btn btn-danger" onclick="clearCompleted()">Clear completed</button>
     </div>

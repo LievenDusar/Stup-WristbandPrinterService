@@ -55,6 +55,14 @@ function sortBy(key) {
 
 function setFilter(status) { statusFilter = (statusFilter === status) ? '' : status; render(); }
 
+// Empty the search box (the clear button hides itself again via CSS once the field is empty).
+function clearSearch() {
+  const el = document.getElementById('search');
+  el.value = '';
+  el.focus();
+  render();
+}
+
 function setPrinterFilter(id) { printerFilter = (printerFilter === id) ? '' : id; render(); }
 
 function render() {
