@@ -27,6 +27,8 @@ public class JpaJobStore implements JobStore {
         repository.save(new PrintJobEntity(
             job.getJobId(),
             job.getStatus(),
+            job.getPrinterId(),
+            job.getPrinterName(),
             r.getEventName(),
             r.getFirstName(),
             r.getLastName(),
@@ -67,6 +69,8 @@ public class JpaJobStore implements JobStore {
         return PrintJob.restore(
             e.getJobId(),
             request,
+            e.getPrinterId(),
+            e.getPrinterName(),
             e.getStatus(),
             e.getSubmittedAt(),
             e.getCompletedAt(),

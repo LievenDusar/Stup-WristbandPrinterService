@@ -73,6 +73,18 @@ class JpaJobStoreTest {
         assertThat(repository.count()).isZero();
     }
 
+    @Test
+    void save_persistsPrinterIdentity() {
+        UUID id = UUID.randomUUID();
+        store.save(PrintJob.restore(id, request(), "printer-1", "Inkom links",
+            PrintJobStatus.DONE, Instant.now(), Instant.now(), null));
+
+        PrintJob loaded = store.loadActive().stream()
+            .filter(j -> j.getJobId().equals(id)).findFirst().orElseThrow();
+        assertThat(loaded.getPrinterId()).isEqualTo("printer-1");
+        assertThat(loaded.getPrinterName()).isEqualTo("Inkom links");
+    }
+
     private WristbandPrintRequest request() {
         WristbandPrintRequest r = new WristbandPrintRequest();
         r.setEventName("Pukkelpop 2026");
