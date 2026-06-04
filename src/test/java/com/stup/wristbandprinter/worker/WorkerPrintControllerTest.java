@@ -2,19 +2,14 @@ package com.stup.wristbandprinter.worker;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.stup.wristbandprinter.cluster.dto.PrintForwardRequest;
-import com.stup.wristbandprinter.config.SecurityConfig;
 import com.stup.wristbandprinter.exception.GlobalExceptionHandler;
 import com.stup.wristbandprinter.exception.PrinterUnavailableException;
-import com.stup.wristbandprinter.security.ApiKeyAuthFilter;
-import com.stup.wristbandprinter.security.AuthCookieService;
 import com.stup.wristbandprinter.service.PrinterService;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.context.annotation.ComponentScan;
-import org.springframework.context.annotation.FilterType;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
@@ -27,15 +22,7 @@ import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-// TODO: the excludeFilters below can be removed once SecurityConfig / ApiKeyAuthFilter /
-// AuthCookieService are gated with @Profile("!worker") — they won't load under "worker" then.
-@WebMvcTest(
-    value = WorkerPrintController.class,
-    excludeFilters = @ComponentScan.Filter(
-        type = FilterType.ASSIGNABLE_TYPE,
-        classes = {SecurityConfig.class, ApiKeyAuthFilter.class, AuthCookieService.class}
-    )
-)
+@WebMvcTest(WorkerPrintController.class)
 @Import({WorkerSecurityConfig.class, WorkerApiKeyFilter.class, GlobalExceptionHandler.class})
 @ActiveProfiles("worker")
 @TestPropertySource(properties = "security.api-key=test-key")

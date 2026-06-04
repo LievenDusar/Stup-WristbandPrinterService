@@ -2,8 +2,10 @@ package com.stup.wristbandprinter.service;
 
 import com.stup.wristbandprinter.domain.WristbandData;
 import com.stup.wristbandprinter.domain.WristbandPrintRequest;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 
+@Profile("!worker")
 @Service
 public class WristbandLayoutService {
 

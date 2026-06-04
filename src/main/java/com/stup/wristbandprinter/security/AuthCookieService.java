@@ -2,6 +2,7 @@ package com.stup.wristbandprinter.security;
 
 import com.stup.wristbandprinter.config.AdminProperties;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.Mac;
@@ -11,6 +12,7 @@ import java.security.MessageDigest;
 import java.time.Duration;
 import java.util.Base64;
 
+@Profile("!worker")
 @Component
 public class AuthCookieService {
 

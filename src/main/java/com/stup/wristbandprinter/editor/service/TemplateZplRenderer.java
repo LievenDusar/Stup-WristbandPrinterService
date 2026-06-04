@@ -7,6 +7,7 @@ import com.stup.wristbandprinter.editor.domain.ElementType;
 import com.stup.wristbandprinter.editor.domain.StackDirection;
 import com.stup.wristbandprinter.editor.domain.TemplateDefinition;
 import com.stup.wristbandprinter.editor.domain.TemplateElement;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 
 import java.util.EnumMap;
@@ -18,6 +19,7 @@ import java.util.Map;
  * carry real values; with {@link #renderTemplate} they carry {@code ${BINDING}} placeholders.
  * Groups are flattened recursively to absolute positions using each child's stored bounding box.
  */
+@Profile("!worker")
 @Service
 public class TemplateZplRenderer {
 

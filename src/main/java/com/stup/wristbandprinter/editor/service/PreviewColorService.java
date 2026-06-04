@@ -1,5 +1,6 @@
 package com.stup.wristbandprinter.editor.service;
 
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 
 import javax.imageio.ImageIO;
@@ -16,6 +17,7 @@ import java.util.Map;
  * physical wristband stock colour. White content blends to the chosen colour; dark content
  * stays dark. White/blank/null is a no-op (Labelary already renders on white).
  */
+@Profile("!worker")
 @Service
 public class PreviewColorService {
 

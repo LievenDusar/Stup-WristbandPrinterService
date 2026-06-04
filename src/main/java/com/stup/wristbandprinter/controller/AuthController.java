@@ -17,6 +17,9 @@ import org.springframework.web.bind.annotation.RestController;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 
+import org.springframework.context.annotation.Profile;
+
+@Profile("!worker")
 @RestController
 @RequestMapping("/api/wristbands")
 @Tag(name = "Authentication", description = "Admin login for the jobs page")
