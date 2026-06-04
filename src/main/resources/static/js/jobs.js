@@ -125,7 +125,7 @@ function renderPrinterChips() {
   Object.values(jobs).forEach(j => { if (j.printerId) counts[j.printerId] = (counts[j.printerId] || 0) + 1; });
   const chips = [`<span class="chip ${printerFilter === '' ? 'active' : ''}" onclick="setPrinterFilter('')">All printers</span>`];
   printers.forEach(p => {
-    chips.push(`<span class="chip ${printerFilter === p.id ? 'active' : ''}" onclick="setPrinterFilter('${p.id}')">${esc(p.displayName)} <span class="count">${counts[p.id] || 0}</span></span>`);
+    chips.push(`<span class="chip ${printerFilter === p.id ? 'active' : ''}" onclick="setPrinterFilter('${esc(p.id)}')">${esc(p.displayName)} <span class="count">${counts[p.id] || 0}</span></span>`);
   });
   el.innerHTML = chips.join('');
 }
@@ -279,8 +279,8 @@ function choosePrinter() {
     const card = overlay.querySelector('.confirm-card');
     const prevHtml = card.innerHTML;
     const buttons = printers.map(p =>
-      `<button class="btn btn-sm" data-printer="${p.id}">${esc(p.displayName)}</button>`).join('');
-    card.innerHTML = `<div id="confirm-message">Reprint on which printer?</div>
+      `<button class="btn btn-sm" data-printer="${esc(p.id)}">${esc(p.displayName)}</button>`).join('');
+    card.innerHTML = `<div>Reprint on which printer?</div>
       <div class="confirm-actions" style="flex-wrap:wrap">${buttons}
       <button class="btn" data-printer="">Cancel</button></div>`;
     overlay.classList.add('open');
