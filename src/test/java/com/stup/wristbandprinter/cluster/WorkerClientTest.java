@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.ResourceAccessException;
 
 import java.util.UUID;
 
@@ -52,5 +53,14 @@ class WorkerClientTest {
         assertThatThrownBy(() -> client.print("http://worker:8080", jobId, "^XA^XZ"))
             .isInstanceOf(PrinterUnavailableException.class)
             .hasMessageContaining("http://worker:8080");
+    }
+
+    @Test
+    void print_throwsPrinterUnavailable_onConnectionFailure() {
+        server.expect(requestTo("http://worker:8080/api/internal/print"))
+            .andRespond(request -> { throw new ResourceAccessException("Connection refused"); });
+
+        assertThatThrownBy(() -> client.print("http://worker:8080", UUID.randomUUID(), "^XA^XZ"))
+            .isInstanceOf(PrinterUnavailableException.class);
     }
 }

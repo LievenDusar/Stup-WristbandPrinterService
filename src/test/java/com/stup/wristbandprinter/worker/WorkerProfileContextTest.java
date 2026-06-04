@@ -29,6 +29,9 @@ class WorkerProfileContextTest {
 
         assertThat(ctx.getBeanNamesForType(JobStore.class)).isEmpty();
         assertThat(ctx.getBeanNamesForType(WristbandController.class)).isEmpty();
+        // Routing beans are management-only; a worker must never try to forward to itself.
+        assertThat(ctx.getBeanNamesForType(com.stup.wristbandprinter.cluster.PrinterRegistry.class)).isEmpty();
+        assertThat(ctx.getBeanNamesForType(com.stup.wristbandprinter.cluster.WorkerClient.class)).isEmpty();
 
         // The worker has no database: the DataSource autoconfig is excluded in application-worker.yml.
         assertThat(ctx.getBeanNamesForType(DataSource.class)).isEmpty();

@@ -104,6 +104,7 @@ class WristbandIntegrationTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.ACCEPTED);
         assertThat(response.getBody().printerId()).isEqualTo("printer-1");
+        assertThat(response.getBody().printerName()).isEqualTo("Integration printer");
         String jobId = response.getBody().jobId().toString();
 
         await().atMost(Duration.ofSeconds(10)).untilAsserted(() ->

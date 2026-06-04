@@ -29,11 +29,13 @@ queue:
 
 cluster:
   # Registry of printer-workers this management service can route to. Each printer
-  # is one worker container. Override base-url per environment / per printer.
+  # is one worker container. The base-url below is a sentinel that MUST be overridden
+  # per environment (application-local.yml for dev, env/compose for prod): a job sent
+  # to it fails loudly with the bad URL rather than silently misrouting.
   printers:
     - id: printer-1
       display-name: Printer 1
-      base-url: http://localhost:8089
+      base-url: http://printer-worker-not-configured:8080
 
 wristband:
   width-dots: 300
