@@ -1,0 +1,18 @@
+# Worker profile: a thin print-only service. No database, no UI, no templates.
+# Activate alongside an environment profile, e.g. SPRING_PROFILES_ACTIVE=prod,worker
+# (prod) or local,worker (dev). Reuses printer.* and security.api-key from
+# application.yml; PRINTER_HOST/PRINTER_PORT point at this worker's physical printer.
+spring:
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceTransactionManagerAutoConfiguration
+      - org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
+      - org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.jpa.JpaRepositoriesAutoConfiguration
+
+springdoc:
+  swagger-ui:
+    enabled: false
+  api-docs:
+    enabled: false
