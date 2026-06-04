@@ -1,5 +1,7 @@
 package com.stup.wristbandprinter.controller;
 
+import com.stup.wristbandprinter.cluster.Printer;
+import com.stup.wristbandprinter.cluster.PrinterRegistry;
 import com.stup.wristbandprinter.domain.*;
 import com.stup.wristbandprinter.service.*;
 import io.swagger.v3.oas.annotations.Operation;
@@ -27,15 +29,18 @@ public class WristbandController {
     private final WristbandLayoutService wristbandLayoutService;
     private final WristbandZplResolver wristbandZplResolver;
     private final LabelaryPreviewService labelaryPreviewService;
+    private final PrinterRegistry printerRegistry;
 
     public WristbandController(PrintQueueService printQueueService,
                                WristbandLayoutService wristbandLayoutService,
                                WristbandZplResolver wristbandZplResolver,
-                               LabelaryPreviewService labelaryPreviewService) {
+                               LabelaryPreviewService labelaryPreviewService,
+                               PrinterRegistry printerRegistry) {
         this.printQueueService = printQueueService;
         this.wristbandLayoutService = wristbandLayoutService;
         this.wristbandZplResolver = wristbandZplResolver;
         this.labelaryPreviewService = labelaryPreviewService;
+        this.printerRegistry = printerRegistry;
     }
 
     @PostMapping("/print")
@@ -123,5 +128,14 @@ public class WristbandController {
     public ResponseEntity<Void> clearCompleted() {
         printQueueService.clearCompleted();
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/printers")
+    @Operation(summary = "List the printers this service can route to")
+    public ResponseEntity<List<PrinterSummaryResponse>> printers() {
+        List<PrinterSummaryResponse> list = printerRegistry.all().stream()
+            .map(p -> new PrinterSummaryResponse(p.id(), p.displayName()))
+            .toList();
+        return ResponseEntity.ok(list);
     }
 }
