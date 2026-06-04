@@ -88,6 +88,10 @@ class WristbandIntegrationTest {
         registry.add("cluster.printers[0].display-name", () -> "Integration printer");
         registry.add("cluster.printers[0].base-url",
             () -> "http://localhost:" + workerServer.getAddress().getPort());
+        registry.add("cluster.printers[1].id", () -> "printer-2");
+        registry.add("cluster.printers[1].display-name", () -> "Second printer");
+        registry.add("cluster.printers[1].base-url",
+            () -> "http://localhost:" + workerServer.getAddress().getPort());
     }
 
     @LocalServerPort
@@ -166,6 +170,55 @@ class WristbandIntegrationTest {
             }
         }
         assertThat(dataLine).as("expected at least one SSE data line").isNotNull();
+    }
+
+    @Test
+    void printJob_routesToRequestedPrinter() {
+        String body = """
+            {
+              "eventName": "Pukkelpop 2026",
+              "firstName": "Jan",
+              "lastName": "Janssens",
+              "associationName": "STUP vzw",
+              "barcodeValue": "987654321",
+              "printerId": "printer-2"
+            }
+            """;
+        ResponseEntity<PrintJobResponse> response = rest.exchange(
+            url("/api/wristbands/print"), org.springframework.http.HttpMethod.POST,
+            jsonRequest(body), PrintJobResponse.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.ACCEPTED);
+        assertThat(response.getBody().printerId()).isEqualTo("printer-2");
+        assertThat(response.getBody().printerName()).isEqualTo("Second printer");
+
+        String jobId = response.getBody().jobId().toString();
+        await().atMost(Duration.ofSeconds(10)).untilAsserted(() ->
+            assertThat(jobStatus(jobId)).isEqualTo(PrintJobStatus.DONE));
+    }
+
+    @Test
+    void perJobStream_emitsStatusForThatJob() throws Exception {
+        ResponseEntity<PrintJobResponse> submit = rest.exchange(
+            url("/api/wristbands/print"), org.springframework.http.HttpMethod.POST,
+            jsonRequest(sampleBody()), PrintJobResponse.class);
+        String jobId = submit.getBody().jobId().toString();
+
+        HttpClient client = HttpClient.newHttpClient();
+        java.util.concurrent.BlockingQueue<String> lines = new java.util.concurrent.LinkedBlockingQueue<>();
+        client.sendAsync(
+                HttpRequest.newBuilder(URI.create(url("/api/wristbands/jobs/" + jobId + "/stream")))
+                    .header("X-API-Key", API_KEY).GET().build(),
+                HttpResponse.BodyHandlers.ofLines())
+            .thenAccept(resp -> resp.body().forEach(lines::add));
+
+        String dataLine = null;
+        long deadline = System.currentTimeMillis() + 5000;
+        while (System.currentTimeMillis() < deadline) {
+            String line = lines.poll(500, java.util.concurrent.TimeUnit.MILLISECONDS);
+            if (line != null && line.startsWith("data:")) { dataLine = line; break; }
+        }
+        assertThat(dataLine).as("expected at least one SSE data line for the job").isNotNull();
     }
 
     private PrintJobStatus jobStatus(String jobId) {
