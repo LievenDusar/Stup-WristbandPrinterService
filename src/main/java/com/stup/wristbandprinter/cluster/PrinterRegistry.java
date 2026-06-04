@@ -35,7 +35,7 @@ public class PrinterRegistry {
     public Printer get(String id) {
         Printer printer = byId.get(id);
         if (printer == null) {
-            throw new IllegalArgumentException("Unknown printer id: " + id);
+            throw new com.stup.wristbandprinter.exception.UnknownPrinterException("Unknown printer id: " + id);
         }
         return printer;
     }

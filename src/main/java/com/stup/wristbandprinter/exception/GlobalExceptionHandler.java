@@ -63,6 +63,12 @@ public class GlobalExceptionHandler {
         return errorResponse(HttpStatus.INTERNAL_SERVER_ERROR, "Logo not available", "Logo image could not be loaded — check server configuration");
     }
 
+    @ExceptionHandler(UnknownPrinterException.class)
+    public ResponseEntity<Map<String, Object>> handleUnknownPrinter(UnknownPrinterException ex) {
+        log.warn("Unknown printer: {}", ex.getMessage());
+        return errorResponse(HttpStatus.BAD_REQUEST, "Unknown printer", ex.getMessage());
+    }
+
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
     public ResponseEntity<Map<String, Object>> handleMethodNotSupported(HttpRequestMethodNotSupportedException ex) {
         log.warn("Method not allowed: {}", ex.getMessage());

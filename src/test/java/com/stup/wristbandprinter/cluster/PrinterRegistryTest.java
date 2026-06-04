@@ -1,5 +1,6 @@
 package com.stup.wristbandprinter.cluster;
 
+import com.stup.wristbandprinter.exception.UnknownPrinterException;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -44,7 +45,7 @@ class PrinterRegistryTest {
         PrinterRegistry registry = new PrinterRegistry(
             props(entry("printer-1", "Inkom links", "http://printer-1:8080")));
         assertThatThrownBy(() -> registry.get("nope"))
-            .isInstanceOf(IllegalArgumentException.class)
+            .isInstanceOf(UnknownPrinterException.class)
             .hasMessageContaining("nope");
     }
 
