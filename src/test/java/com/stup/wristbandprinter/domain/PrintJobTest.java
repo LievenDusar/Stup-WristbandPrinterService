@@ -46,4 +46,16 @@ class PrintJobTest {
         assertThat(resp.lastName()).isEqualTo("Janssens");
         assertThat(resp.eventName()).isEqualTo("Pukkelpop 2026");
     }
+
+    @Test
+    void toResponse_and_toDetailResponse_carryPrinterIdentity() {
+        WristbandPrintRequest r = new WristbandPrintRequest();
+        r.setEventName("E"); r.setFirstName("F"); r.setLastName("L");
+        r.setAssociationName("A"); r.setBarcodeValue("B");
+        PrintJob job = new PrintJob(java.util.UUID.randomUUID(), r, "printer-1", "Inkom links");
+        assertThat(job.toResponse().printerId()).isEqualTo("printer-1");
+        assertThat(job.toResponse().printerName()).isEqualTo("Inkom links");
+        assertThat(job.toDetailResponse().printerId()).isEqualTo("printer-1");
+        assertThat(job.toDetailResponse().printerName()).isEqualTo("Inkom links");
+    }
 }
