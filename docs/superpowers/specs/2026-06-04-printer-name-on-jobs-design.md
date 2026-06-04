@@ -1,7 +1,9 @@
 # Per-printer name on the jobs page
 
 **Date:** 2026-06-04
-**Status:** Approved
+**Status:** Superseded by `2026-06-04-management-printer-split-design.md`
+(the per-printer labeling is folded into that larger design; this spec is kept
+for history only)
 
 ## Problem
 
