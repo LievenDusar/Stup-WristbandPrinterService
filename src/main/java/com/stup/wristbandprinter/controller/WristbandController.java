@@ -110,14 +110,32 @@ public class WristbandController {
     }
 
     @PostMapping("/jobs/{jobId}/reprint")
-    @Operation(summary = "Reprint a previous job using the same data")
-    public ResponseEntity<PrintJobResponse> reprint(@PathVariable UUID jobId) {
+    @Operation(summary = "Reprint a previous job using the same data, optionally on a chosen printer")
+    public ResponseEntity<PrintJobResponse> reprint(@PathVariable UUID jobId,
+                                                    @RequestParam(required = false) String printerId) {
         return printQueueService.getJob(jobId)
             .map(original -> {
-                PrintJob newJob = printQueueService.enqueue(original.getRequest());
+                WristbandPrintRequest req = original.getRequest();
+                if (printerId != null && !printerId.isBlank()) {
+                    req = copyWithPrinter(req, printerId);
+                }
+                PrintJob newJob = printQueueService.enqueue(req);
                 return ResponseEntity.status(HttpStatus.ACCEPTED).body(newJob.toResponse());
             })
             .orElse(ResponseEntity.notFound().build());
+    }
+
+    /** Copy a request, overriding only the target printer (leaves the original job's request untouched). */
+    private static WristbandPrintRequest copyWithPrinter(WristbandPrintRequest src, String printerId) {
+        WristbandPrintRequest copy = new WristbandPrintRequest();
+        copy.setEventName(src.getEventName());
+        copy.setFirstName(src.getFirstName());
+        copy.setLastName(src.getLastName());
+        copy.setAssociationName(src.getAssociationName());
+        copy.setBarcodeValue(src.getBarcodeValue());
+        copy.setTemplateId(src.getTemplateId());
+        copy.setPrinterId(printerId);
+        return copy;
     }
 
     @PostMapping("/jobs/{jobId}/cancel")

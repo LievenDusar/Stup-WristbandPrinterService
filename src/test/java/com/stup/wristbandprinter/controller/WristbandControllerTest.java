@@ -353,6 +353,49 @@ class WristbandControllerTest {
             .andExpect(jsonPath("$[1].displayName").value("Inkom rechts"));
     }
 
+    @Test
+    void reprint_withPrinterId_targetsThatPrinter() throws Exception {
+        UUID originalId = UUID.randomUUID();
+        WristbandPrintRequest originalReq = sampleRequest();
+        PrintJob originalJob = new PrintJob(originalId, originalReq);
+        UUID newId = UUID.randomUUID();
+        PrintJob newJob = new PrintJob(newId, sampleRequest(), "printer-2", "Second");
+
+        when(printQueueService.getJob(originalId)).thenReturn(Optional.of(originalJob));
+        when(printQueueService.enqueue(any())).thenReturn(newJob);
+
+        mockMvc.perform(post("/api/wristbands/jobs/" + originalId + "/reprint?printerId=printer-2")
+                .header("X-API-Key", API_KEY))
+            .andExpect(status().isAccepted());
+
+        org.mockito.ArgumentCaptor<WristbandPrintRequest> captor =
+            org.mockito.ArgumentCaptor.forClass(WristbandPrintRequest.class);
+        verify(printQueueService).enqueue(captor.capture());
+        org.assertj.core.api.Assertions.assertThat(captor.getValue().getPrinterId()).isEqualTo("printer-2");
+    }
+
+    @Test
+    void reprint_withoutPrinterId_reusesOriginalRequest() throws Exception {
+        UUID originalId = UUID.randomUUID();
+        WristbandPrintRequest originalReq = sampleRequest();
+        originalReq.setPrinterId("printer-1");
+        PrintJob originalJob = new PrintJob(originalId, originalReq);
+        UUID newId = UUID.randomUUID();
+        PrintJob newJob = new PrintJob(newId, sampleRequest());
+
+        when(printQueueService.getJob(originalId)).thenReturn(Optional.of(originalJob));
+        when(printQueueService.enqueue(any())).thenReturn(newJob);
+
+        mockMvc.perform(post("/api/wristbands/jobs/" + originalId + "/reprint")
+                .header("X-API-Key", API_KEY))
+            .andExpect(status().isAccepted());
+
+        org.mockito.ArgumentCaptor<WristbandPrintRequest> captor =
+            org.mockito.ArgumentCaptor.forClass(WristbandPrintRequest.class);
+        verify(printQueueService).enqueue(captor.capture());
+        org.assertj.core.api.Assertions.assertThat(captor.getValue()).isSameAs(originalReq);
+    }
+
     private WristbandPrintRequest sampleRequest() {
         WristbandPrintRequest r = new WristbandPrintRequest();
         r.setEventName("Pukkelpop 2026");
