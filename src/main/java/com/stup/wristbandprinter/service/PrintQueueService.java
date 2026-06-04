@@ -36,7 +36,8 @@ public class PrintQueueService {
 
     private static final Logger log = LoggerFactory.getLogger(PrintQueueService.class);
 
-    private final LinkedBlockingQueue<PrintJob> queue;
+    private final java.util.concurrent.ConcurrentHashMap<String, java.util.concurrent.BlockingQueue<PrintJob>> queues
+        = new java.util.concurrent.ConcurrentHashMap<>();
     private final ConcurrentHashMap<UUID, PrintJob> jobs = new ConcurrentHashMap<>();
     private final CopyOnWriteArrayList<SseEmitter> emitters = new CopyOnWriteArrayList<>();
 
@@ -66,7 +67,6 @@ public class PrintQueueService {
         this.workerClient = workerClient;
         this.queueProperties = queueProperties;
         this.jobStore = jobStore;
-        this.queue = new LinkedBlockingQueue<>(queueProperties.getMaxDepth());
 
         this.submittedCounter = Counter.builder("wristband.jobs.submitted")
             .description("Total print jobs accepted into the queue").register(meterRegistry);
@@ -74,8 +74,14 @@ public class PrintQueueService {
             .tag("status", "done").register(meterRegistry);
         this.failedCounter = Counter.builder("wristband.jobs.completed")
             .tag("status", "failed").register(meterRegistry);
-        Gauge.builder("wristband.queue.depth", queue, Collection::size)
+        Gauge.builder("wristband.queue.depth", queues,
+                q -> q.values().stream().mapToInt(java.util.Collection::size).sum())
             .description("Pending print jobs waiting to be processed").register(meterRegistry);
+    }
+
+    private java.util.concurrent.BlockingQueue<PrintJob> queueFor(String printerId) {
+        return queues.computeIfAbsent(printerId,
+            id -> new java.util.concurrent.LinkedBlockingQueue<>(queueProperties.getMaxDepth()));
     }
 
     @PostConstruct
@@ -102,13 +108,17 @@ public class PrintQueueService {
     }
 
     public void startWorker() {
-        worker = Executors.newSingleThreadExecutor(r -> {
+        java.util.List<Printer> printers = printerRegistry.all();
+        worker = Executors.newFixedThreadPool(Math.max(1, printers.size()), r -> {
             Thread t = new Thread(r, "print-queue-worker");
             t.setDaemon(true);
             return t;
         });
-        worker.submit(this::processQueue);
-        log.info("Print queue worker started");
+        for (Printer p : printers) {
+            java.util.concurrent.BlockingQueue<PrintJob> q = queueFor(p.id());
+            worker.submit(() -> processQueue(q));
+        }
+        log.info("Started {} print-queue worker(s)", printers.size());
     }
 
     @PreDestroy
@@ -128,18 +138,22 @@ public class PrintQueueService {
     }
 
     public PrintJob enqueue(WristbandPrintRequest request) {
-        if (queue.size() >= queueProperties.getMaxDepth()) {
+        Printer printer = (request.getPrinterId() == null || request.getPrinterId().isBlank())
+            ? printerRegistry.getDefault()
+            : printerRegistry.get(request.getPrinterId());   // throws UnknownPrinterException -> 400
+
+        java.util.concurrent.BlockingQueue<PrintJob> q = queueFor(printer.id());
+        if (q.size() >= queueProperties.getMaxDepth()) {
             throw queueFull(request);
         }
 
-        Printer printer = printerRegistry.getDefault();
         PrintJob job = new PrintJob(UUID.randomUUID(), request, printer.id(), printer.displayName());
         // Persist before exposing the job to the worker: otherwise the worker thread can
         // dequeue and save it concurrently with this thread's save, causing duplicate inserts.
         jobStore.save(job);
         jobs.put(job.getJobId(), job);
 
-        if (!queue.offer(job)) {
+        if (!q.offer(job)) {
             // Lost a capacity race against another submitter; undo the persisted row.
             jobs.remove(job.getJobId());
             jobStore.deleteById(job.getJobId());
@@ -196,7 +210,8 @@ public class PrintQueueService {
             throw new JobNotCancellableException(
                 "Job " + jobId + " is " + job.getStatus() + " and cannot be cancelled");
         }
-        if (!queue.remove(job)) {
+        java.util.concurrent.BlockingQueue<PrintJob> q = queueFor(job.getPrinterId());
+        if (!q.remove(job)) {
             // The worker dequeued it between the status check and now.
             throw new JobNotCancellableException(
                 "Job " + jobId + " has already started printing");
@@ -217,10 +232,10 @@ public class PrintQueueService {
         return emitter;
     }
 
-    private void processQueue() {
+    private void processQueue(java.util.concurrent.BlockingQueue<PrintJob> q) {
         while (!Thread.currentThread().isInterrupted()) {
             try {
-                PrintJob job = queue.take();
+                PrintJob job = q.take();
                 MDC.put("jobId", job.getJobId().toString());
                 try {
                     job.setStatus(PrintJobStatus.PRINTING);

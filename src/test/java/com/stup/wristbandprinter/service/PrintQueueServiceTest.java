@@ -55,6 +55,9 @@ class PrintQueueServiceTest {
             .thenReturn(new com.stup.wristbandprinter.cluster.Printer("printer-1", "Test Printer", "http://worker:8080"));
         org.mockito.Mockito.lenient().when(printerRegistry.get("printer-1"))
             .thenReturn(new com.stup.wristbandprinter.cluster.Printer("printer-1", "Test Printer", "http://worker:8080"));
+        org.mockito.Mockito.lenient().when(printerRegistry.all())
+            .thenReturn(java.util.List.of(
+                new com.stup.wristbandprinter.cluster.Printer("printer-1", "Test Printer", "http://worker:8080")));
     }
 
     private PrintQueueService newService(int maxDepth) {
@@ -259,6 +262,17 @@ class PrintQueueServiceTest {
         PrintJob job = service.enqueue(sampleRequest());
         assertThat(job.getPrinterId()).isEqualTo("printer-1");
         assertThat(job.getPrinterName()).isEqualTo("Test Printer");
+    }
+
+    @Test
+    void enqueue_routesToRequestedPrinter() {
+        org.mockito.Mockito.when(printerRegistry.get("printer-2"))
+            .thenReturn(new com.stup.wristbandprinter.cluster.Printer("printer-2", "Second", "http://worker2:8080"));
+        WristbandPrintRequest r = sampleRequest();
+        r.setPrinterId("printer-2");
+        PrintJob job = service.enqueue(r);
+        assertThat(job.getPrinterId()).isEqualTo("printer-2");
+        assertThat(job.getPrinterName()).isEqualTo("Second");
     }
 
     private WristbandPrintRequest sampleRequest() {
