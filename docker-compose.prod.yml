@@ -80,7 +80,12 @@ services:
       SSL_KEYSTORE_PASSWORD: ${SSL_KEYSTORE_PASSWORD}
       SSL_CERT_HOSTNAME: ${MANAGEMENT_HOSTNAME:-localhost}
       # Printer registry — one entry per worker. ADD a line here when you add a printer.
-      SPRING_APPLICATION_JSON: '{"cluster":{"printers":[{"id":"printer-1","display-name":"Printer 1","base-url":"http://printer-worker-1:8080"}]}}'
+      SPRING_APPLICATION_JSON: '{
+        "cluster":
+          {"printers":[
+            {"id":"printer-1", "display-name":"Secretariaat", "base-url":"http://printer-worker-1:8080"}
+          ]}
+        }'
     ports:
       - "8443:8443"
     volumes:
