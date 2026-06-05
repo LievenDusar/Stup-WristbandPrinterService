@@ -6,7 +6,7 @@ built-in admin UI, a visual template designer, and support for multiple printers
 
 ## Contents
 
-- [Installation](#installation)
+- [Getting started](#getting-started)
 - [Architecture](#architecture)
 - [Running locally](#running-locally)
   - [Native (management only)](#native-management-only)
@@ -26,7 +26,7 @@ built-in admin UI, a visual template designer, and support for multiple printers
 
 ---
 
-## Installation
+## Getting started
 
 ### Prerequisites
 
