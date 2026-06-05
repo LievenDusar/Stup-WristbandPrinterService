@@ -41,11 +41,12 @@
     <rect x="500" y="247" width="3" height="136"/>
   </g>
 
-  <!-- text block (3 lines) -->
+  <!-- text block: 3 lines rotated 90° (^A0B), read bottom-to-top, side by side across the band -->
   <rect class="text" x="395" y="450" width="130" height="205" rx="4"/>
-  <text class="lbl" x="460" y="492" text-anchor="middle">Event name</text>
-  <text class="lbl" x="460" y="560" text-anchor="middle" font-size="17" font-weight="600">First + Last</text>
-  <text class="lbl" x="460" y="628" text-anchor="middle">Association</text>
+  <text class="cap" x="460" y="467" text-anchor="middle">(rotated 90°)</text>
+  <text class="lbl" x="428" y="557" text-anchor="middle" transform="rotate(-90 428 557)">Event name</text>
+  <text class="lbl" x="460" y="557" text-anchor="middle" font-size="17" font-weight="600" transform="rotate(-90 460 557)">First + Last</text>
+  <text class="lbl" x="492" y="557" text-anchor="middle" transform="rotate(-90 492 557)">Association</text>
 
   <!-- bottom logo -->
   <rect class="logo" x="395" y="715" width="130" height="95" rx="4"/>
@@ -84,12 +85,12 @@
   <text class="code lbl" x="590" y="339">barcode.module-width-dots</text>
   <text class="code lbl" x="590" y="357">barcode.show-human-readable</text>
 
-  <!-- text lines -->
-  <line class="lead" x1="525" y1="487" x2="584" y2="487"/>
+  <!-- text columns (each lead points to the top of one rotated line) -->
+  <line class="lead" x1="428" y1="500" x2="584" y2="487"/>
   <text class="code lbl" x="590" y="491">text.font-size-event</text>
-  <line class="lead" x1="525" y1="558" x2="584" y2="558"/>
+  <line class="lead" x1="460" y1="500" x2="584" y2="558"/>
   <text class="code lbl" x="590" y="562">text.font-size-name</text>
-  <line class="lead" x1="525" y1="625" x2="584" y2="625"/>
+  <line class="lead" x1="492" y1="500" x2="584" y2="625"/>
   <text class="code lbl" x="590" y="629">text.font-size-association</text>
 
   <!-- ===== overall dimensions ===== -->
