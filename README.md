@@ -8,12 +8,8 @@ built-in admin UI, a visual template designer, and support for multiple printers
 
 - [Getting started](#getting-started)
 - [Architecture](#architecture)
-- [Running locally](#running-locally)
-  - [In IntelliJ](#in-intellij)
-  - [Via Docker](#via-docker)
-- [Production deployment](#production-deployment)
-  - [Adding a printer](#adding-a-printer)
-  - [HTTPS and Symfony cert trust](#https-and-symfony-cert-trust)
+- [Running locally](#running-locally) → [docs/running-locally.md](docs/running-locally.md)
+- [Production deployment](#production-deployment) → [docs/production-deployment.md](docs/production-deployment.md)
 - [Configuration](#configuration) → [docs/configuration.md](docs/configuration.md)
 - [API endpoints](#api-endpoints) → [docs/api.md](docs/api.md)
 - [Job management UI](#job-management-ui)
@@ -51,7 +47,7 @@ docker compose -f docker-compose.local-cluster.yml up --build -d
 ```
 
 Open **http://localhost:8080/jobs.html** and sign in with `admin` / `local-admin`. Send a test
-print with the curl examples under [Via Docker](#via-docker).
+print with the curl examples in [docs/running-locally.md](docs/running-locally.md#via-docker).
 
 ### Production quick start (real printers)
 
@@ -118,257 +114,25 @@ Build the base image once (and after changing `docker/base/Dockerfile`):
 
 ## Running locally
 
-Two ways to run the stack on your machine: from **IntelliJ** (JDK + Maven, fastest inner loop) or
-entirely with **Docker** (no host Java; closest to production).
+Run the stack from **IntelliJ** (JDK + Maven, fastest inner loop) or entirely with **Docker** (no
+host Java; a virtual cluster with fake printers that mirrors production). The [Local quick
+start](#local-quick-start-virtual-printers) above gets you printing fast.
 
-### In IntelliJ
-
-Runs the **management** service from the IDE. On its own it serves the UI/API but does not print —
-add a worker (step 5) for end-to-end printing.
-
-**Prerequisites:** JDK 21, IntelliJ IDEA, Docker (for a local PostgreSQL).
-
-1. **Add the logo** — place `stup-logo.png` in `src/main/resources/images/`.
-2. **Start PostgreSQL** — the `local` profile expects database `wristbands`, user/password
-   `wristbands`/`wristbands` on `localhost:5432`:
-
-   ```bash
-   docker run --name stup-pg \
-     -e POSTGRES_DB=wristbands -e POSTGRES_USER=wristbands -e POSTGRES_PASSWORD=wristbands \
-     -p 5432:5432 -d postgres:16-alpine
-   ```
-
-   Flyway creates the schema on first start.
-3. **Open the project** — `File ▸ Open` and select the `pom.xml`; import it as a Maven project and
-   let IntelliJ download the dependencies.
-4. **Run management with the `local` profile** — open `WristbandPrinterApplication` and run it once
-   to generate a Spring Boot run configuration, then edit that configuration and set **Active
-   profiles** to `local` (equivalent to `--spring.profiles.active=local`). Run again. Management
-   starts on **http://localhost:8080** → `/jobs.html` (admin / `local-admin`).
-5. **(Optional) Run a worker so prints land somewhere** — start a fake printer in a terminal:
-
-   ```bash
-   while true; do nc -l 9100; done
-   ```
-
-   Then duplicate the run configuration and set these **Environment variables**:
-
-   ```
-   SPRING_PROFILES_ACTIVE=worker;SECURITY_API_KEY=local-dev-key;PRINTER_HOST=localhost;PRINTER_PORT=9100;SERVER_PORT=8089
-   ```
-
-   `application-local.yml` already registers `printer-1` at `http://localhost:8089`, so jobs flow
-   management → worker → fake printer.
-
-> **Port 5432 already in use?** Start the container with `-p 5433:5432` and set
-> `SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5433/wristbands` in the run configuration's
-> environment. (PostgreSQL only sets the password when the data volume is first created — if you
-> reused an old `stup-pg`, `docker rm -f stup-pg` and recreate.)
-
-### Via Docker
-
-No host Java needed. Build the shared base image once (and after changing `docker/base/Dockerfile`):
-
-```bash
-./build.sh
-```
-
-The **full virtual cluster** (`docker-compose.local-cluster.yml`) mirrors the production topology
-**without real printers**: Postgres + management + two workers + two fake printers (`socat` TCP
-listeners that log the ZPL they receive).
-
-1. **Start the stack:**
-
-   ```bash
-   docker compose -f docker-compose.local-cluster.yml up --build -d
-   ```
-
-2. **Open the UI** — **http://localhost:8080/jobs.html** (admin / `local-admin`). Two printers are
-   registered (`printer-1`, `printer-2`), each wired to its own fake printer.
-3. **Send test prints** — omit `printerId` for the default printer, or set it to target one:
-
-   ```bash
-   curl -s -X POST http://localhost:8080/api/wristbands/print \
-     -H "Content-Type: application/json" -H "X-API-Key: local-dev-key" \
-     -d '{"eventName":"Test","firstName":"Jan","lastName":"Janssen","associationName":"STUP","barcodeValue":"111"}'
-
-   curl -s -X POST http://localhost:8080/api/wristbands/print \
-     -H "Content-Type: application/json" -H "X-API-Key: local-dev-key" \
-     -d '{"eventName":"Test","firstName":"An","lastName":"Peeters","associationName":"STUP","barcodeValue":"222","printerId":"printer-2"}'
-   ```
-
-4. **Watch the ZPL arrive** at each fake printer:
-
-   ```bash
-   docker compose -f docker-compose.local-cluster.yml logs -f fakeprinter-1 fakeprinter-2
-   ```
-
-5. **Stop:** `docker compose -f docker-compose.local-cluster.yml down`.
-
-The jobs page shows the **Printer** column, per-printer **filter chips**, parallel printing and the
-**reprint printer picker**.
-
-> **Add a virtual printer:** add a `fakeprinter-3` (copy a socat service) and a `worker-3`
-> (`PRINTER_HOST=fakeprinter-3`) to `docker-compose.local-cluster.yml`, then add a third entry to the
-> management `SPRING_APPLICATION_JSON` registry pointing at `http://worker-3:8080`.
-
-**Management only** — for pure UI/template work without printers, `docker compose up --build` runs
-just Postgres + management on HTTP 8080; printing fails until a worker exists.
-
-> **Upgrading from an older compose?** If `docker-compose.yml` previously ran with a custom
-> `DB_PASSWORD`, the persisted `pgdata` volume was initialized with it and the new hardcoded
-> `wristbands` credentials fail. Run `docker compose down -v` once to recreate the volume.
+Full step-by-step instructions — IntelliJ run configs, the local PostgreSQL, the virtual cluster,
+and troubleshooting — are in **[docs/running-locally.md](docs/running-locally.md)**.
 
 ---
 
 ## Production deployment
 
-`docker-compose.prod.yml` runs **one management service** plus **one worker per Zebra printer**:
+`docker-compose.prod.yml` runs **one management service** (public, HTTPS on 8443, holds the TLS cert,
+DB connection and printer registry) plus **one worker per Zebra printer** (internal HTTP only). The
+database is a remote `wristbands` Postgres; Flyway migrates it on management's first start. The
+[Production quick start](#production-quick-start-real-printers) above is the condensed path.
 
-- **management** — the only public service (HTTPS on 8443). Holds the TLS certificate, the database
-  connection, and the printer registry. Flyway runs the migrations here, once, on startup.
-- **workers** — one per printer; internal HTTP only, no certificate and no database.
-- **database** — not bundled: management connects to a dedicated, remote `wristbands` database on the
-  Symfony site's Postgres instance.
-- **API key** — management and every worker share the same `API_KEY`.
-
-> Throughout the steps below, replace every **`[placeholder]`** with your real value. The per-printer
-> placeholders — **`[printer-N-ip]`** and **`[printer-N-label]`** — are the ones you fill in per Zebra.
-
-**Prerequisites**
-
-- An empty `wristbands` database + role exists on the prod Postgres (a DBA creates the database;
-  Flyway creates the tables — see the note below).
-- Every Zebra is reachable from the server — verify with `ping [printer-1-ip]`.
-- The base image is built: `./build.sh`.
-
-> **Database tables / migrations.** The schema is managed by Flyway; the migration scripts live in
-> [`src/main/resources/db/migration`](src/main/resources/db/migration) (`V1__…​.sql`, `V2__…​.sql`, …).
-> Management runs them **automatically** against the remote database the first time it starts, so no
-> manual step is needed when the DB role has DDL rights. If your DB user is restricted to DML, have a
-> DBA apply those `.sql` files **in version order** once, before launching — then management starts
-> against the already-migrated schema.
-
-**Step 1 — Configure secrets, the database, and the printer IPs (`.env.prod`)**
-
-```bash
-cp .env.example .env.prod
-```
-
-Edit `.env.prod` — one `PRINTERn_HOST` line per physical printer:
-
-```dotenv
-API_KEY=[strong-api-key]
-ADMIN_PASSWORD=[strong-admin-password]
-SSL_KEYSTORE_PASSWORD=[strong-keystore-password]
-MANAGEMENT_HOSTNAME=[hostname-symfony-connects-to]
-
-SPRING_DATASOURCE_URL=jdbc:postgresql://[db-host]:5432/wristbands
-DB_USERNAME=[db-user]
-DB_PASSWORD=[db-password]
-
-PRINTER1_HOST=[printer-1-ip]
-PRINTER2_HOST=[printer-2-ip]
-```
-
-**Step 2 — Declare one worker per printer (`docker-compose.prod.yml`)**
-
-`printer-worker-1` already exists. For each additional printer, uncomment/copy the
-`printer-worker-2` template and point it at that printer's `PRINTERn_HOST`:
-
-```yaml
-  printer-worker-2:
-    <<: *worker-base
-    environment:
-      SPRING_PROFILES_ACTIVE: worker
-      SECURITY_API_KEY: ${API_KEY}
-      PRINTER_HOST: ${PRINTER2_HOST}
-```
-
-Add each new worker to the management service's `depends_on` list.
-
-**Step 3 — Register the printers in management (`docker-compose.prod.yml`)**
-
-In the `management` service, edit `SPRING_APPLICATION_JSON` so the registry lists every worker.
-`id` is what Symfony sends as `printerId`, `display-name` is shown in the UI, and the `base-url`
-host **must** equal the worker's service name. Only `[printer-N-label]` is free text:
-
-```yaml
-      SPRING_APPLICATION_JSON: '{"cluster":{"printers":[{"id":"printer-1","display-name":"[printer-1-label]","base-url":"http://printer-worker-1:8080"},{"id":"printer-2","display-name":"[printer-2-label]","base-url":"http://printer-worker-2:8080"}]}}'
-```
-
-**Step 4 — Launch**
-
-```bash
-./build.sh
-docker compose -f docker-compose.prod.yml --env-file .env.prod up --build -d
-```
-
-**Step 5 — Verify**
-
-```bash
-# health (self-signed cert → -k)
-curl -fsk https://[management-hostname]:8443/actuator/health
-
-# the registry lists every printer you configured
-curl -fsk https://[management-hostname]:8443/api/wristbands/printers \
-  -H "X-API-Key: [api-key]"
-
-# a test print to a specific printer
-curl -fsk -X POST https://[management-hostname]:8443/api/wristbands/print \
-  -H "X-API-Key: [api-key]" -H "Content-Type: application/json" \
-  -d '{"eventName":"Test","firstName":"Jan","lastName":"Janssen","associationName":"STUP","barcodeValue":"123","printerId":"printer-1"}'
-```
-
-Then open `https://[management-hostname]:8443/jobs.html` (admin / your `ADMIN_PASSWORD`).
-
-**Adding another printer later** — repeat the same edits for the next index, then redeploy:
-
-1. `.env.prod`: add `PRINTER3_HOST=[printer-3-ip]`.
-2. `docker-compose.prod.yml`: add a `printer-worker-3` service (Step 2) and a registry entry
-   `{"id":"printer-3","display-name":"[printer-3-label]","base-url":"http://printer-worker-3:8080"}` (Step 3).
-3. `docker compose -f docker-compose.prod.yml --env-file .env.prod up --build -d`.
-
-The new printer then appears in `GET /api/wristbands/printers`, the jobs-page filter chips, and the
-reprint picker. Workers do **not** publish a host port and need no certificate.
-
-### HTTPS and Symfony cert trust
-
-Only **management** terminates TLS: in the `prod` profile it listens **HTTPS-only on 8443** with a
-self-signed certificate. Workers are HTTP on the private Docker network and are never exposed.
-Symfony calls management at `https://<MANAGEMENT_HOSTNAME>:8443/...`.
-
-The keystore is generated on first start and stored in the `certs-management` volume (reused across
-redeploys, so the cert is stable). `MANAGEMENT_HOSTNAME` (in `.env.prod`) becomes the certificate's
-CN/SAN — set it before the first start; the compose file maps it to `SSL_CERT_HOSTNAME`. To
-regenerate, remove the volume: `docker volume rm <project>_certs-management`.
-
-Export the public certificate from the running container:
-
-```bash
-docker compose -f docker-compose.prod.yml cp management:/certs/server.crt ./server.crt
-```
-
-Then either (recommended) point the Symfony HTTP client at it as a CA:
-
-```yaml
-# config/packages/framework.yaml
-framework:
-    http_client:
-        scoped_clients:
-            wristband.client:
-                base_uri: 'https://<MANAGEMENT_HOSTNAME>:8443'
-                cafile: '%kernel.project_dir%/config/certs/server.crt'
-```
-
-...or, on a trusted private network, disable peer verification instead:
-
-```yaml
-                verify_peer: false
-                verify_host: false
-```
-
-`MANAGEMENT_HOSTNAME` must match the hostname Symfony connects to, or hostname verification fails.
+The full guide — `.env.prod` secrets, declaring workers, registering printers, launch & verify,
+adding printers later, and HTTPS / Symfony certificate trust — is in
+**[docs/production-deployment.md](docs/production-deployment.md)**.
 
 ---
 
