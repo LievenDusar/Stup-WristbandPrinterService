@@ -34,7 +34,7 @@ built-in admin UI, a visual template designer, and support for multiple printers
 - **Git** — to clone the repository.
 - *(Optional)* **Java 21 + Maven 3.9+** — only for the native developer workflow and running the tests.
 
-### Setup
+### Local quick start (virtual printers)
 
 ```bash
 # 1. Clone
@@ -51,12 +51,29 @@ cp /path/to/stup-logo.png src/main/resources/images/stup-logo.png
 docker compose -f docker-compose.local-cluster.yml up --build -d
 ```
 
-Then open **http://localhost:8080/jobs.html** and sign in with `admin` / `local-admin`. Send a test
+Open **http://localhost:8080/jobs.html** and sign in with `admin` / `local-admin`. Send a test
 print with the curl examples under [Docker — multiple virtual printers](#docker--multiple-virtual-printers).
 
-That is the fastest end-to-end setup. For other modes — a native run, management-only, or a real
-production deployment — see [Running locally](#running-locally) and
-[Production deployment](#production-deployment).
+### Production quick start (real printers)
+
+Needs a remote, empty `wristbands` database (DB + role created by a DBA) and one reachable Zebra per
+printer.
+
+```bash
+# 1. Clone the repo and add the logo (steps 1–2 above), then build the base image
+./build.sh
+
+# 2. Configure the environment — DB URL/credentials, API key, hostname, printer IPs
+cp .env.example .env.prod
+$EDITOR .env.prod      # every variable is documented inside
+
+# 3. Launch management (HTTPS) + one worker per printer
+docker compose -f docker-compose.prod.yml --env-file .env.prod up --build -d
+```
+
+Open **https://&lt;MANAGEMENT_HOSTNAME&gt;:8443/jobs.html** (self-signed cert). For adding more
+printers, Symfony certificate trust, and the full topology, see
+[Production deployment](#production-deployment) and [Architecture](#architecture).
 
 ---
 
