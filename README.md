@@ -223,21 +223,23 @@ just Postgres + management on HTTP 8080; printing fails until a worker exists.
 
 ## Production deployment
 
-`docker-compose.prod.yml` runs one **management** service (public, HTTPS) plus one **worker** per
-Zebra printer (internal HTTP). There is no database container — management connects to a dedicated
-`wristbands` database on the Symfony site's Postgres instance (remote). Only management is published
-(HTTPS 8443) and holds the certificate + DB connection; workers are internal-only HTTP and need no
-certs or database. Management and every worker share the same `API_KEY`. Flyway runs once, in
-management, on startup.
+`docker-compose.prod.yml` runs **one management service** plus **one worker per Zebra printer**:
 
-Replace every **`[placeholder]`** below with your real value. The placeholders for each printer
-(`[printer-N-ip]`, `[printer-N-label]`) are the ones you fill in per Zebra.
+- **management** — the only public service (HTTPS on 8443). Holds the TLS certificate, the database
+  connection, and the printer registry. Flyway runs the migrations here, once, on startup.
+- **workers** — one per printer; internal HTTP only, no certificate and no database.
+- **database** — not bundled: management connects to a dedicated, remote `wristbands` database on the
+  Symfony site's Postgres instance.
+- **API key** — management and every worker share the same `API_KEY`.
+
+> Throughout the steps below, replace every **`[placeholder]`** with your real value. The per-printer
+> placeholders — **`[printer-N-ip]`** and **`[printer-N-label]`** — are the ones you fill in per Zebra.
 
 **Prerequisites**
 
-- A DBA has created an empty `wristbands` database + role on the prod Postgres (Flyway creates the
-  tables, not the database).
-- Each Zebra is reachable from the server — verify with `ping [printer-1-ip]`.
+- An empty `wristbands` database + role exists on the prod Postgres (a DBA creates the database;
+  Flyway creates the tables — see the note below).
+- Every Zebra is reachable from the server — verify with `ping [printer-1-ip]`.
 - The base image is built: `./build.sh`.
 
 > **Database tables / migrations.** The schema is managed by Flyway; the migration scripts live in
