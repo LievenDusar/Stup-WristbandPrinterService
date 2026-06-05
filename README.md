@@ -14,10 +14,8 @@ built-in admin UI, a visual template designer, and support for multiple printers
 - [Production deployment](#production-deployment)
   - [Adding a printer](#adding-a-printer)
   - [HTTPS and Symfony cert trust](#https-and-symfony-cert-trust)
-- [Configuration](#configuration)
-- [API endpoints](#api-endpoints)
-  - [Wristbands](#wristbands)
-  - [Templates](#templates)
+- [Configuration](#configuration) → [docs/configuration.md](docs/configuration.md)
+- [API endpoints](#api-endpoints) → [docs/api.md](docs/api.md)
 - [Job management UI](#job-management-ui)
 - [Labelary preview](#labelary-preview)
 - [Job persistence](#job-persistence)
@@ -376,145 +374,22 @@ framework:
 
 ## Configuration
 
-Settings are grouped below by area. Wristband geometry (dimensions, spacing, fonts, barcode) has
-its own [Wristband layout](#wristband-layout) section with a diagram.
+All settings — printer & routing, security, queue, and the full **Wristband layout** reference
+(dimensions, margins, fonts, barcode) with an annotated diagram — are documented in
+**[docs/configuration.md](docs/configuration.md)**.
 
-### Printer & routing
-
-| Property | Default | Description |
-|---|---|---|
-| `cluster.printers` | sentinel | **Management** printer registry: list of `{id, display-name, base-url}`, one per printer. Override per environment — see the compose files |
-| `printer.host` | `localhost` | Zebra printer IP/host — **set per worker** via `PRINTER_HOST`; unused by management |
-| `printer.port` | `9100` | Zebra printer TCP port (per worker) |
-| `printer.timeout-ms` | `5000` | Socket connection timeout (ms) |
-| `printer.max-retries` | `2` | Extra attempts after the first on a transient socket failure |
-| `printer.retry-backoff-ms` | `500` | Pause between retry attempts (ms) |
-| `printer.clear-cache-enabled` | `true` | Prepend a clear command to every job. Images are sent inline (`^GFA`) and never stored, so this is normally a no-op — it guards against object build-up in printer memory that historically stalled the printer after a number of prints |
-| `printer.clear-command` | `^XA^IDR:*.*^FS^XZ` | ZPL prepended before each label when clearing is enabled. Wipes objects from the printer's **RAM drive (R:)** only — no flash wear. Override if your printer model needs a different command |
-| `queue.max-depth` | `100` | Max pending jobs **per printer** before new submissions are rejected with HTTP 429 |
-
-### Integrations & security
-
-| Property | Default | Description |
-|---|---|---|
-| `labelary.base-url` | `http://api.labelary.com` | Labelary API base URL (preview rendering) |
-| `security.api-key` | `changeme` | Static API key — override in production; shared by management + workers |
-
-**Profile activation:**
-- Management — local: `--spring.profiles.active=local`
-- Management — production: `SPRING_PROFILES_ACTIVE=prod`
-- Worker (printer node): `SPRING_PROFILES_ACTIVE=worker` (no DB/UI; needs `PRINTER_HOST` + `SECURITY_API_KEY`)
-
-> Under the `prod` profile the application refuses to start if `security.api-key` is unset, blank,
-> or left at the default `changeme` — set `SECURITY_API_KEY` to a real value.
-
-### Wristband layout
-
-The band is generated programmatically as ZPL — there are no absolute coordinates to maintain. You
-set the band dimensions, the gaps between elements, and the font/barcode sizes; the service centres
-everything and stacks the elements in this fixed order, from the non-adhesive end to the adhesive end:
-
-**logo → barcode → text (event / name / association) → logo**
-
-The diagram below maps each setting to the element it controls. Orange labels (left) are the gaps
-between elements; the labels on the right size the elements themselves.
-
-![Wristband layout settings](docs/images/wristband-layout.svg)
-
-**Band dimensions & spacing**
-
-| Property | Default | Controls |
-|---|---|---|
-| `wristband.width-dots` | `300` | Band width (across), in dots |
-| `wristband.length-dots` | `3300` | Band length (along), in dots |
-| `wristband.dpi` | `300` | Printer resolution (203 or 300) |
-| `wristband.logo-path` | `classpath:images/stup-logo.png` | STUP logo PNG — bundled in the JAR, no external file needed |
-| `wristband.logo-side-margin-dots` | `75` | Left/right margin around each logo, in dots |
-| `wristband.margins.between-logo-and-barcode` | `30` | Gap: top logo → barcode |
-| `wristband.margins.between-barcode-and-text` | `120` | Gap: barcode → text block |
-| `wristband.margins.between-text-and-logo` | `120` | Gap: text block → bottom logo |
-
-**Text & barcode**
-
-| Property | Default | Controls |
-|---|---|---|
-| `wristband.text.font-size-event` | `45` | Font height of the event-name line |
-| `wristband.text.font-size-name` | `74` | Font height of the first + last name line (largest) |
-| `wristband.text.font-size-association` | `45` | Font height of the association line |
-| `wristband.barcode.type` | `CODE128` | Barcode symbology |
-| `wristband.barcode.height-dots` | `270` | Barcode height (across the band), in dots |
-| `wristband.barcode.module-width-dots` | `3` | Narrow-bar width — wider = longer along the band & easier to scan |
-| `wristband.barcode.show-human-readable` | `false` | Print the value as text next to the barcode |
-
-> **Calibration:** every position derives from the values above — no code changes needed. After a
-> first test print, tune `wristband.margins.*` and `wristband.text.*` in `application-prod.yml`.
+Most-used knobs: `printer.host`/`printer.port` (per worker), `security.api-key`, `queue.max-depth`,
+and the `wristband.*` geometry. Profiles: `local` / `prod` (management) and `worker` (printer node).
 
 ---
 
 ## API endpoints
 
-All endpoints (except `/api/wristbands/jobs/stream` and `/jobs.html`) require:
+The complete REST reference — wristband printing, job streaming (SSE), and the template endpoints —
+plus `curl` examples is in **[docs/api.md](docs/api.md)**.
 
-```
-X-API-Key: <your-api-key>
-```
-
-### Wristbands
-
-| Method | Path | Description |
-|---|---|---|
-| `POST` | `/api/wristbands/print` | Enqueue a print job → `202 + jobId`. Optional `printerId` selects the printer (default = first); unknown id → `400`. Response carries `printerId` + `printerName` |
-| `POST` | `/api/wristbands/preview/zpl` | Return generated ZPL as plain text |
-| `POST` | `/api/wristbands/preview/image` | Return rendered PNG via Labelary |
-| `GET` | `/api/wristbands/printers` | List routable printers (`[{id, displayName}]`) |
-| `GET` | `/api/wristbands/jobs` | List all jobs (`?status=PENDING\|PRINTING\|DONE\|FAILED`) |
-| `GET` | `/api/wristbands/jobs/{jobId}` | Get one job (incl. `printerId`/`printerName`) |
-| `GET` | `/api/wristbands/jobs/stream` | SSE stream — real-time updates for **all** jobs |
-| `GET` | `/api/wristbands/jobs/{jobId}/stream` | SSE stream for **one** job; emits its current status, then updates, and closes on a terminal status (for Symfony to follow a single job) |
-| `POST` | `/api/wristbands/jobs/{jobId}/reprint` | Reprint a previous job; optional `?printerId=` re-routes it to another printer |
-| `DELETE` | `/api/wristbands/jobs/completed` | Soft-delete DONE/FAILED/CANCELLED jobs |
-
-### Templates
-
-| Method | Path | Description |
-|---|---|---|
-| `POST` | `/api/templates` | Create a wristband template → `201 + detail` |
-| `PUT` | `/api/templates/{id}` | Update a template → `200` / `404` |
-| `GET` | `/api/templates` | List templates (catalog); `?projectType=` filters |
-| `GET` | `/api/templates/{id}` | Get a template's full definition → `200` / `404` |
-| `DELETE` | `/api/templates/{id}` | Soft-delete a template → `204` / `404` |
-| `GET` | `/api/templates/{id}/preview` | PNG preview with sample data (`?color=` tints stock) |
-| `POST` | `/api/templates/{id}/preview` | PNG preview with supplied `WristbandData` body |
-| `POST` | `/api/templates/assets` | Upload a logo (multipart `file`) → `201 + assetId` |
-| `GET` | `/api/templates/assets/{id}` | Fetch a stored logo PNG |
-
-> **Wristband Template Designer:** the `/api/templates` endpoints back a visual template designer.
-> `POST /api/wristbands/print` accepts an optional `templateId` — when set, the wristband is rendered
-> from that template instead of the default fixed layout. Architecture, data model, full API and
-> roadmap are in [docs/template-designer.md](docs/template-designer.md).
-
-**Example print request:**
-
-```bash
-curl -X POST http://localhost:8080/api/wristbands/print \
-  -H "X-API-Key: local-dev-key" -H "Content-Type: application/json" \
-  -d '{
-    "eventName": "Pukkelpop 2026",
-    "firstName": "Annechien",
-    "lastName": "Van De Wall",
-    "associationName": "Chiro Sint-Christina Brustem",
-    "barcodeValue": "12345455244226789"
-  }'
-```
-
-**Example ZPL preview** (paste the output at [labelary.com/viewer.html](https://labelary.com/viewer.html)):
-
-```bash
-curl -X POST http://localhost:8080/api/wristbands/preview/zpl \
-  -H "X-API-Key: local-dev-key" -H "Content-Type: application/json" \
-  -d '{"eventName":"Pukkelpop 2026","firstName":"Annechien","lastName":"Van De Wall","associationName":"Chiro Sint-Christina Brustem","barcodeValue":"12345455244226789"}' \
-  | pbcopy
-```
+All endpoints (except `/api/wristbands/jobs/stream` and `/jobs.html`) require an `X-API-Key` header.
+The `/api/templates` endpoints back the [template designer](docs/template-designer.md).
 
 ---
 
