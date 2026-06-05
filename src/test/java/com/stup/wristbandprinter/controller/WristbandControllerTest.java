@@ -3,6 +3,8 @@ package com.stup.wristbandprinter.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.stup.wristbandprinter.config.AdminProperties;
 import com.stup.wristbandprinter.config.SecurityConfig;
+import com.stup.wristbandprinter.cluster.Printer;
+import com.stup.wristbandprinter.cluster.PrinterRegistry;
 import com.stup.wristbandprinter.domain.*;
 import com.stup.wristbandprinter.exception.LabelaryUnavailableException;
 import com.stup.wristbandprinter.security.ApiKeyAuthFilter;
@@ -42,6 +44,7 @@ class WristbandControllerTest {
     @MockitoBean WristbandLayoutService wristbandLayoutService;
     @MockitoBean WristbandZplResolver wristbandZplResolver;
     @MockitoBean LabelaryPreviewService labelaryPreviewService;
+    @MockitoBean PrinterRegistry printerRegistry;
 
     private static final String API_KEY = "test-key";
 
@@ -333,6 +336,64 @@ class WristbandControllerTest {
         mockMvc.perform(get("/api/wristbands/jobs/" + id + "/preview")
                 .header("X-API-Key", "test-key"))
             .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void printers_returnsConfiguredPrinters() throws Exception {
+        when(printerRegistry.all()).thenReturn(List.of(
+            new Printer("printer-1", "Inkom links", "http://w1:8080"),
+            new Printer("printer-2", "Inkom rechts", "http://w2:8080")));
+
+        mockMvc.perform(get("/api/wristbands/printers")
+                .header("X-API-Key", API_KEY))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[0].id").value("printer-1"))
+            .andExpect(jsonPath("$[0].displayName").value("Inkom links"))
+            .andExpect(jsonPath("$[1].id").value("printer-2"))
+            .andExpect(jsonPath("$[1].displayName").value("Inkom rechts"));
+    }
+
+    @Test
+    void reprint_withPrinterId_targetsThatPrinter() throws Exception {
+        UUID originalId = UUID.randomUUID();
+        WristbandPrintRequest originalReq = sampleRequest();
+        PrintJob originalJob = new PrintJob(originalId, originalReq);
+        UUID newId = UUID.randomUUID();
+        PrintJob newJob = new PrintJob(newId, sampleRequest(), "printer-2", "Second");
+
+        when(printQueueService.getJob(originalId)).thenReturn(Optional.of(originalJob));
+        when(printQueueService.enqueue(any())).thenReturn(newJob);
+
+        mockMvc.perform(post("/api/wristbands/jobs/" + originalId + "/reprint?printerId=printer-2")
+                .header("X-API-Key", API_KEY))
+            .andExpect(status().isAccepted());
+
+        org.mockito.ArgumentCaptor<WristbandPrintRequest> captor =
+            org.mockito.ArgumentCaptor.forClass(WristbandPrintRequest.class);
+        verify(printQueueService).enqueue(captor.capture());
+        org.assertj.core.api.Assertions.assertThat(captor.getValue().getPrinterId()).isEqualTo("printer-2");
+    }
+
+    @Test
+    void reprint_withoutPrinterId_reusesOriginalRequest() throws Exception {
+        UUID originalId = UUID.randomUUID();
+        WristbandPrintRequest originalReq = sampleRequest();
+        originalReq.setPrinterId("printer-1");
+        PrintJob originalJob = new PrintJob(originalId, originalReq);
+        UUID newId = UUID.randomUUID();
+        PrintJob newJob = new PrintJob(newId, sampleRequest());
+
+        when(printQueueService.getJob(originalId)).thenReturn(Optional.of(originalJob));
+        when(printQueueService.enqueue(any())).thenReturn(newJob);
+
+        mockMvc.perform(post("/api/wristbands/jobs/" + originalId + "/reprint")
+                .header("X-API-Key", API_KEY))
+            .andExpect(status().isAccepted());
+
+        org.mockito.ArgumentCaptor<WristbandPrintRequest> captor =
+            org.mockito.ArgumentCaptor.forClass(WristbandPrintRequest.class);
+        verify(printQueueService).enqueue(captor.capture());
+        org.assertj.core.api.Assertions.assertThat(captor.getValue()).isSameAs(originalReq);
     }
 
     private WristbandPrintRequest sampleRequest() {

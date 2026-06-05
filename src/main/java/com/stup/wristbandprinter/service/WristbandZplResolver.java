@@ -5,6 +5,7 @@ import com.stup.wristbandprinter.domain.WristbandPrintRequest;
 import com.stup.wristbandprinter.editor.persistence.WristbandTemplateEntity;
 import com.stup.wristbandprinter.editor.persistence.WristbandTemplateRepository;
 import com.stup.wristbandprinter.editor.service.TemplateZplRenderer;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 
 /**
@@ -12,6 +13,7 @@ import org.springframework.stereotype.Service;
  * otherwise the legacy fixed layout. Shared by the print queue and every preview endpoint so
  * "what you preview" equals "what prints".
  */
+@Profile("!worker")
 @Service
 public class WristbandZplResolver {
 

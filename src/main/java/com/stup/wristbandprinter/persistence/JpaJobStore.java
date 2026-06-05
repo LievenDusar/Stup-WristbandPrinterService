@@ -3,12 +3,14 @@ package com.stup.wristbandprinter.persistence;
 import com.stup.wristbandprinter.domain.PrintJob;
 import com.stup.wristbandprinter.domain.PrintJobStatus;
 import com.stup.wristbandprinter.domain.WristbandPrintRequest;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.UUID;
 
+@Profile("!worker")
 @Component
 public class JpaJobStore implements JobStore {
 
@@ -25,6 +27,8 @@ public class JpaJobStore implements JobStore {
         repository.save(new PrintJobEntity(
             job.getJobId(),
             job.getStatus(),
+            job.getPrinterId(),
+            job.getPrinterName(),
             r.getEventName(),
             r.getFirstName(),
             r.getLastName(),
@@ -65,6 +69,8 @@ public class JpaJobStore implements JobStore {
         return PrintJob.restore(
             e.getJobId(),
             request,
+            e.getPrinterId(),
+            e.getPrinterName(),
             e.getStatus(),
             e.getSubmittedAt(),
             e.getCompletedAt(),

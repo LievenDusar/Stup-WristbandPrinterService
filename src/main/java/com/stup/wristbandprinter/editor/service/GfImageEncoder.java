@@ -1,5 +1,6 @@
 package com.stup.wristbandprinter.editor.service;
 
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 import java.awt.image.BufferedImage;
@@ -8,6 +9,7 @@ import java.awt.image.BufferedImage;
  * Encodes a 1-bit representation of an image as a ZPL {@code ^GFA} graphic field.
  * A pixel is "on" (printed) when its luminance is below the mid-point.
  */
+@Profile("!worker")
 @Component
 public class GfImageEncoder {
 

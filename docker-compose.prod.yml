@@ -1,17 +1,32 @@
-# Production stack: one print-service container PER PRINTER, all sharing the remote
-# dedicated `wristbands` database on the Symfony Postgres instance.
-# No Postgres container here — the DB is remote (SPRING_DATASOURCE_URL in .env.prod).
-# Prerequisites:
-#   1. ./build.sh                       (build the base image)
-#   2. cp .env.example .env.prod        (fill in real values)
-#   3. DBA has created an empty `wristbands` database + role on the prod Postgres instance.
-# Run:  docker compose -f docker-compose.prod.yml --env-file .env.prod up --build -d
+# Production stack: ONE management service + ONE printer-worker per physical printer.
 #
-# To ADD A PRINTER: copy the `printer-2` template block below, give it a new service
-# name, a unique published port, its PRINTERn_HOST / PRINTERn_HOSTNAME env, and its own
-# certs volume (add the volume name under `volumes:` too).
+#   management        UI + admin + DB + job history + routing. Public, HTTPS on 8443.
+#                     Connects to the remote `wristbands` database on the Symfony
+#                     Postgres instance (there is NO DB container here).
+#   printer-worker-N  Thin print-only service, one per Zebra printer. Internal HTTP
+#                     on 8080 (not published); no DB, no UI. Receives ready-to-print
+#                     ZPL from management and writes it to its printer (PRINTERn_HOST).
+#
+# Management routes a job to a worker using the printer registry in its
+# SPRING_APPLICATION_JSON (each entry: id + display-name + the worker's in-network URL).
+#
+# Prerequisites:
+#   1. ./build.sh                  (build the wristband-base image)
+#   2. cp .env.example .env.prod   (fill in real values)
+#   3. DBA has created an empty `wristbands` database + role on the prod Postgres.
+# Run:
+#   docker compose -f docker-compose.prod.yml --env-file .env.prod up --build -d
+#   # https://<MANAGEMENT_HOSTNAME>:8443/jobs.html   (self-signed cert)
+#
+# ADD A PRINTER (two coordinated edits):
+#   1. Copy the `printer-worker-2` template below; give it a unique service name and its
+#      own PRINTERn_HOST (add that variable to .env.prod).
+#   2. Add a matching entry to the management `SPRING_APPLICATION_JSON` registry:
+#      {"id":"printer-2","display-name":"<label>","base-url":"http://printer-worker-2:8080"}
+#   The `id` is the value Symfony sends as `printerId`; the `base-url` host MUST equal the
+#   worker's service name.
 
-x-printer-base: &printer-base
+x-worker-base: &worker-base
   image: wristband-printer
   build: .
   restart: unless-stopped
@@ -21,47 +36,69 @@ x-printer-base: &printer-base
         memory: 512m
         cpus: "1.0"
   healthcheck:
-    # Internal container port is always 8443; only the published host port differs.
-    test: ["CMD", "curl", "-fsk", "https://localhost:8443/actuator/health"]
+    test: ["CMD", "curl", "-fs", "http://localhost:8080/actuator/health"]
     interval: 30s
     timeout: 5s
     retries: 3
-    start_period: 20s
-
-x-printer-env: &printer-env
-  SPRING_PROFILES_ACTIVE: prod
-  SECURITY_API_KEY: ${API_KEY}
-  ADMIN_PASSWORD: ${ADMIN_PASSWORD}
-  SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
-  SPRING_DATASOURCE_USERNAME: ${DB_USERNAME}
-  SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
-  SSL_KEYSTORE_PATH: /certs/keystore.p12
-  SSL_KEYSTORE_PASSWORD: ${SSL_KEYSTORE_PASSWORD}
+    start_period: 30s
 
 services:
-  printer-1:
-    <<: *printer-base
+  # --- One thin worker per physical printer (internal HTTP, no DB, no UI) ---
+  printer-worker-1:
+    <<: *worker-base
     environment:
-      <<: *printer-env
+      SPRING_PROFILES_ACTIVE: worker
+      SECURITY_API_KEY: ${API_KEY}
       PRINTER_HOST: ${PRINTER1_HOST}
-      SSL_CERT_HOSTNAME: ${PRINTER1_HOSTNAME:-localhost}
+
+  # --- Printer-worker template: copy this block to add a printer ---
+  # printer-worker-2:
+  #   <<: *worker-base
+  #   environment:
+  #     SPRING_PROFILES_ACTIVE: worker
+  #     SECURITY_API_KEY: ${API_KEY}
+  #     PRINTER_HOST: ${PRINTER2_HOST}
+
+  # --- Management: the only public, HTTPS, DB-connected service ---
+  management:
+    image: wristband-printer
+    build: .
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+          cpus: "1.0"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SECURITY_API_KEY: ${API_KEY}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
+      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      SSL_KEYSTORE_PATH: /certs/keystore.p12
+      SSL_KEYSTORE_PASSWORD: ${SSL_KEYSTORE_PASSWORD}
+      SSL_CERT_HOSTNAME: ${MANAGEMENT_HOSTNAME:-localhost}
+      # Printer registry — one entry per worker. ADD a line here when you add a printer.
+      SPRING_APPLICATION_JSON: '{
+        "cluster":
+          {"printers":[
+            {"id":"printer-1", "display-name":"Secretariaat", "base-url":"http://printer-worker-1:8080"}
+          ]}
+        }'
     ports:
       - "8443:8443"
     volumes:
-      - certs-printer1:/certs
-
-  # --- Printer template: copy this block to add a printer ---
-  # printer-2:
-  #   <<: *printer-base
-  #   environment:
-  #     <<: *printer-env
-  #     PRINTER_HOST: ${PRINTER2_HOST}
-  #     SSL_CERT_HOSTNAME: ${PRINTER2_HOSTNAME:-localhost}
-  #   ports:
-  #     - "8444:8443"
-  #   volumes:
-  #     - certs-printer2:/certs
+      - certs-management:/certs
+    depends_on:
+      - printer-worker-1
+    healthcheck:
+      # Internal container port is always 8443; only the published host port differs.
+      test: ["CMD", "curl", "-fsk", "https://localhost:8443/actuator/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
 volumes:
-  certs-printer1:
-  # certs-printer2:
+  certs-management:

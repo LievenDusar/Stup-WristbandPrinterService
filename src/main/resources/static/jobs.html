@@ -20,10 +20,12 @@
     </div>
 
     <div class="chips" id="chips"></div>
+    <div class="chips" id="printer-chips"></div>
 
     <div class="controls">
       <div class="search">
         <input class="input" id="search" type="text" placeholder="Search by name, job ID or event…" oninput="render()">
+        <button type="button" class="search-clear" id="search-clear" onclick="clearSearch()" aria-label="Clear search" title="Clear">×</button>
       </div>
       <button class="btn btn-danger" onclick="clearCompleted()">Clear completed</button>
     </div>
@@ -35,6 +37,7 @@
             <th onclick="sortBy('jobId')">Job ID</th>
             <th onclick="sortBy('firstName')">Name</th>
             <th onclick="sortBy('eventName')">Event</th>
+            <th onclick="sortBy('printerName')">Printer</th>
             <th onclick="sortBy('status')">Status</th>
             <th onclick="sortBy('submittedAt')">Submitted</th>
             <th onclick="sortBy('completedAt')">Completed</th>
@@ -42,7 +45,7 @@
           </tr>
         </thead>
         <tbody id="jobs-body">
-          <tr><td colspan="7" class="empty">Loading…</td></tr>
+          <tr><td colspan="8" class="empty">Loading…</td></tr>
         </tbody>
       </table>
     </div>

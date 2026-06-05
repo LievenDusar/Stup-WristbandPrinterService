@@ -24,8 +24,12 @@ public class ApiKeyValidator implements InitializingBean {
     @Override
     public void afterPropertiesSet() {
         boolean prod = environment.acceptsProfiles(Profiles.of("prod"));
+        boolean worker = environment.acceptsProfiles(Profiles.of("worker"));
         validate(prod, apiKey);
-        validateAdminPassword(prod, adminProperties.getPassword());
+        // Printer-workers have no admin UI, so they never need an admin password — even under prod.
+        if (!worker) {
+            validateAdminPassword(prod, adminProperties.getPassword());
+        }
     }
 
     static void validate(boolean prodProfileActive, String apiKey) {

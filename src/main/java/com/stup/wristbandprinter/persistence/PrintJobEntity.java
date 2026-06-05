@@ -21,6 +21,9 @@ public class PrintJobEntity {
     @Enumerated(EnumType.STRING)
     private PrintJobStatus status;
 
+    private String printerId;
+    private String printerName;
+
     private String eventName;
     private String firstName;
     private String lastName;
@@ -38,11 +41,14 @@ public class PrintJobEntity {
     protected PrintJobEntity() {
     }
 
-    public PrintJobEntity(UUID jobId, PrintJobStatus status, String eventName, String firstName,
+    public PrintJobEntity(UUID jobId, PrintJobStatus status, String printerId, String printerName,
+                          String eventName, String firstName,
                           String lastName, String associationName, String barcodeValue,
                           Instant submittedAt, Instant completedAt, String error) {
         this.jobId = jobId;
         this.status = status;
+        this.printerId = printerId;
+        this.printerName = printerName;
         this.eventName = eventName;
         this.firstName = firstName;
         this.lastName = lastName;
@@ -55,6 +61,8 @@ public class PrintJobEntity {
 
     public UUID getJobId() { return jobId; }
     public PrintJobStatus getStatus() { return status; }
+    public String getPrinterId() { return printerId; }
+    public String getPrinterName() { return printerName; }
     public String getEventName() { return eventName; }
     public String getFirstName() { return firstName; }
     public String getLastName() { return lastName; }

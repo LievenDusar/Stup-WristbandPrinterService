@@ -20,6 +20,9 @@ import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.context.annotation.Profile;
+
+@Profile("!worker")
 @RestController
 @RequestMapping("/api/templates")
 @Tag(name = "Templates", description = "Create, manage and browse wristband templates")

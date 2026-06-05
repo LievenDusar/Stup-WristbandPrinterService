@@ -1,11 +1,13 @@
 package com.stup.wristbandprinter.controller;
 
+import com.stup.wristbandprinter.cluster.PrinterRegistry;
 import com.stup.wristbandprinter.domain.*;
 import com.stup.wristbandprinter.service.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -15,6 +17,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import java.util.List;
 import java.util.UUID;
 
+@Profile("!worker")
 @RestController
 @RequestMapping("/api/wristbands")
 @Tag(name = "Wristbands", description = "Print and preview STUP event wristbands")
@@ -25,15 +28,18 @@ public class WristbandController {
     private final WristbandLayoutService wristbandLayoutService;
     private final WristbandZplResolver wristbandZplResolver;
     private final LabelaryPreviewService labelaryPreviewService;
+    private final PrinterRegistry printerRegistry;
 
     public WristbandController(PrintQueueService printQueueService,
                                WristbandLayoutService wristbandLayoutService,
                                WristbandZplResolver wristbandZplResolver,
-                               LabelaryPreviewService labelaryPreviewService) {
+                               LabelaryPreviewService labelaryPreviewService,
+                               PrinterRegistry printerRegistry) {
         this.printQueueService = printQueueService;
         this.wristbandLayoutService = wristbandLayoutService;
         this.wristbandZplResolver = wristbandZplResolver;
         this.labelaryPreviewService = labelaryPreviewService;
+        this.printerRegistry = printerRegistry;
     }
 
     @PostMapping("/print")
@@ -96,15 +102,40 @@ public class WristbandController {
         return printQueueService.subscribe();
     }
 
+    @GetMapping(value = "/jobs/{jobId}/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @Operation(summary = "Subscribe to a single job's status updates via SSE")
+    public ResponseEntity<SseEmitter> streamJob(@PathVariable UUID jobId) {
+        SseEmitter emitter = printQueueService.subscribeToJob(jobId);
+        return emitter == null ? ResponseEntity.notFound().build() : ResponseEntity.ok(emitter);
+    }
+
     @PostMapping("/jobs/{jobId}/reprint")
-    @Operation(summary = "Reprint a previous job using the same data")
-    public ResponseEntity<PrintJobResponse> reprint(@PathVariable UUID jobId) {
+    @Operation(summary = "Reprint a previous job using the same data, optionally on a chosen printer")
+    public ResponseEntity<PrintJobResponse> reprint(@PathVariable UUID jobId,
+                                                    @RequestParam(required = false) String printerId) {
         return printQueueService.getJob(jobId)
             .map(original -> {
-                PrintJob newJob = printQueueService.enqueue(original.getRequest());
+                WristbandPrintRequest req = original.getRequest();
+                if (printerId != null && !printerId.isBlank()) {
+                    req = copyWithPrinter(req, printerId);
+                }
+                PrintJob newJob = printQueueService.enqueue(req);
                 return ResponseEntity.status(HttpStatus.ACCEPTED).body(newJob.toResponse());
             })
             .orElse(ResponseEntity.notFound().build());
+    }
+
+    /** Copy a request, overriding only the target printer (leaves the original job's request untouched). */
+    private static WristbandPrintRequest copyWithPrinter(WristbandPrintRequest src, String printerId) {
+        WristbandPrintRequest copy = new WristbandPrintRequest();
+        copy.setEventName(src.getEventName());
+        copy.setFirstName(src.getFirstName());
+        copy.setLastName(src.getLastName());
+        copy.setAssociationName(src.getAssociationName());
+        copy.setBarcodeValue(src.getBarcodeValue());
+        copy.setTemplateId(src.getTemplateId());
+        copy.setPrinterId(printerId);
+        return copy;
     }
 
     @PostMapping("/jobs/{jobId}/cancel")
@@ -121,5 +152,14 @@ public class WristbandController {
     public ResponseEntity<Void> clearCompleted() {
         printQueueService.clearCompleted();
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/printers")
+    @Operation(summary = "List the printers this service can route to")
+    public ResponseEntity<List<PrinterSummaryResponse>> printers() {
+        List<PrinterSummaryResponse> list = printerRegistry.all().stream()
+            .map(p -> new PrinterSummaryResponse(p.id(), p.displayName()))
+            .toList();
+        return ResponseEntity.ok(list);
     }
 }

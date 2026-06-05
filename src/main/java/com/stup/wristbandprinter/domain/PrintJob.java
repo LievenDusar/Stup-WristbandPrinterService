@@ -7,36 +7,55 @@ public class PrintJob {
 
     private final UUID jobId;
     private final WristbandPrintRequest request;
+    private final String printerId;
+    private final String printerName;
     private PrintJobStatus status;
     private final Instant submittedAt;
     private Instant completedAt;
     private String error;
 
     public PrintJob(UUID jobId, WristbandPrintRequest request) {
+        this(jobId, request, null, null);
+    }
+
+    public PrintJob(UUID jobId, WristbandPrintRequest request, String printerId, String printerName) {
         this.jobId = jobId;
         this.request = request;
+        this.printerId = printerId;
+        this.printerName = printerName;
         this.status = PrintJobStatus.PENDING;
         this.submittedAt = Instant.now();
     }
 
-    private PrintJob(UUID jobId, WristbandPrintRequest request, PrintJobStatus status,
-                     Instant submittedAt, Instant completedAt, String error) {
+    private PrintJob(UUID jobId, WristbandPrintRequest request, String printerId, String printerName,
+                     PrintJobStatus status, Instant submittedAt, Instant completedAt, String error) {
         this.jobId = jobId;
         this.request = request;
+        this.printerId = printerId;
+        this.printerName = printerName;
         this.status = status;
         this.submittedAt = submittedAt;
         this.completedAt = completedAt;
         this.error = error;
     }
 
-    /** Rebuild a job from durable storage, preserving its original timestamps and state. */
+    /** Rebuild a job from durable storage (no printer recorded). */
     public static PrintJob restore(UUID jobId, WristbandPrintRequest request, PrintJobStatus status,
                                    Instant submittedAt, Instant completedAt, String error) {
-        return new PrintJob(jobId, request, status, submittedAt, completedAt, error);
+        return restore(jobId, request, null, null, status, submittedAt, completedAt, error);
+    }
+
+    /** Rebuild a job from durable storage, preserving its printer and original state. */
+    public static PrintJob restore(UUID jobId, WristbandPrintRequest request, String printerId,
+                                   String printerName, PrintJobStatus status, Instant submittedAt,
+                                   Instant completedAt, String error) {
+        return new PrintJob(jobId, request, printerId, printerName, status, submittedAt, completedAt, error);
     }
 
     public UUID getJobId() { return jobId; }
     public WristbandPrintRequest getRequest() { return request; }
+    public String getPrinterId() { return printerId; }
+    public String getPrinterName() { return printerName; }
 
     public synchronized PrintJobStatus getStatus() { return status; }
     public synchronized void setStatus(PrintJobStatus status) { this.status = status; }
@@ -62,29 +81,16 @@ public class PrintJob {
 
     public synchronized PrintJobResponse toResponse() {
         return new PrintJobResponse(
-            jobId,
-            status,
-            request.getEventName(),
-            request.getFirstName(),
-            request.getLastName(),
-            submittedAt,
-            completedAt,
-            error
-        );
+            jobId, status, printerId, printerName,
+            request.getEventName(), request.getFirstName(), request.getLastName(),
+            submittedAt, completedAt, error);
     }
 
     public synchronized PrintJobDetailResponse toDetailResponse() {
         return new PrintJobDetailResponse(
-            jobId,
-            status,
-            request.getEventName(),
-            request.getFirstName(),
-            request.getLastName(),
-            request.getAssociationName(),
-            request.getBarcodeValue(),
-            submittedAt,
-            completedAt,
-            error
-        );
+            jobId, status, printerId, printerName,
+            request.getEventName(), request.getFirstName(), request.getLastName(),
+            request.getAssociationName(), request.getBarcodeValue(),
+            submittedAt, completedAt, error);
     }
 }

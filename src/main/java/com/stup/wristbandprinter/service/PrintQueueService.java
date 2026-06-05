@@ -1,5 +1,8 @@
 package com.stup.wristbandprinter.service;
 
+import com.stup.wristbandprinter.cluster.Printer;
+import com.stup.wristbandprinter.cluster.PrinterRegistry;
+import com.stup.wristbandprinter.cluster.WorkerClient;
 import com.stup.wristbandprinter.config.QueueProperties;
 import com.stup.wristbandprinter.domain.PrintJob;
 import com.stup.wristbandprinter.domain.PrintJobStatus;
@@ -17,6 +20,7 @@ import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -26,18 +30,23 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.stream.Collectors;
 
+@Profile("!worker")
 @Service
 public class PrintQueueService {
 
     private static final Logger log = LoggerFactory.getLogger(PrintQueueService.class);
 
-    private final LinkedBlockingQueue<PrintJob> queue;
+    private final java.util.concurrent.ConcurrentHashMap<String, java.util.concurrent.BlockingQueue<PrintJob>> queues
+        = new java.util.concurrent.ConcurrentHashMap<>();
     private final ConcurrentHashMap<UUID, PrintJob> jobs = new ConcurrentHashMap<>();
     private final CopyOnWriteArrayList<SseEmitter> emitters = new CopyOnWriteArrayList<>();
+    private final java.util.concurrent.ConcurrentHashMap<UUID, java.util.List<SseEmitter>> jobEmitters
+        = new java.util.concurrent.ConcurrentHashMap<>();
 
     private final WristbandLayoutService layoutService;
     private final WristbandZplResolver wristbandZplResolver;
-    private final PrinterService printerService;
+    private final PrinterRegistry printerRegistry;
+    private final WorkerClient workerClient;
     private final QueueProperties queueProperties;
     private final JobStore jobStore;
 
@@ -49,16 +58,17 @@ public class PrintQueueService {
 
     public PrintQueueService(WristbandLayoutService layoutService,
                               WristbandZplResolver wristbandZplResolver,
-                              PrinterService printerService,
+                              PrinterRegistry printerRegistry,
+                              WorkerClient workerClient,
                               QueueProperties queueProperties,
                               JobStore jobStore,
                               MeterRegistry meterRegistry) {
         this.layoutService = layoutService;
         this.wristbandZplResolver = wristbandZplResolver;
-        this.printerService = printerService;
+        this.printerRegistry = printerRegistry;
+        this.workerClient = workerClient;
         this.queueProperties = queueProperties;
         this.jobStore = jobStore;
-        this.queue = new LinkedBlockingQueue<>(queueProperties.getMaxDepth());
 
         this.submittedCounter = Counter.builder("wristband.jobs.submitted")
             .description("Total print jobs accepted into the queue").register(meterRegistry);
@@ -66,8 +76,14 @@ public class PrintQueueService {
             .tag("status", "done").register(meterRegistry);
         this.failedCounter = Counter.builder("wristband.jobs.completed")
             .tag("status", "failed").register(meterRegistry);
-        Gauge.builder("wristband.queue.depth", queue, Collection::size)
+        Gauge.builder("wristband.queue.depth", queues,
+                q -> q.values().stream().mapToInt(java.util.Collection::size).sum())
             .description("Pending print jobs waiting to be processed").register(meterRegistry);
+    }
+
+    private java.util.concurrent.BlockingQueue<PrintJob> queueFor(String printerId) {
+        return queues.computeIfAbsent(printerId,
+            id -> new java.util.concurrent.LinkedBlockingQueue<>(queueProperties.getMaxDepth()));
     }
 
     @PostConstruct
@@ -94,13 +110,17 @@ public class PrintQueueService {
     }
 
     public void startWorker() {
-        worker = Executors.newSingleThreadExecutor(r -> {
+        java.util.List<Printer> printers = printerRegistry.all();
+        worker = Executors.newFixedThreadPool(Math.max(1, printers.size()), r -> {
             Thread t = new Thread(r, "print-queue-worker");
             t.setDaemon(true);
             return t;
         });
-        worker.submit(this::processQueue);
-        log.info("Print queue worker started");
+        for (Printer p : printers) {
+            java.util.concurrent.BlockingQueue<PrintJob> q = queueFor(p.id());
+            worker.submit(() -> processQueue(q));
+        }
+        log.info("Started {} print-queue worker(s)", printers.size());
     }
 
     @PreDestroy
@@ -120,17 +140,22 @@ public class PrintQueueService {
     }
 
     public PrintJob enqueue(WristbandPrintRequest request) {
-        if (queue.size() >= queueProperties.getMaxDepth()) {
+        Printer printer = (request.getPrinterId() == null || request.getPrinterId().isBlank())
+            ? printerRegistry.getDefault()
+            : printerRegistry.get(request.getPrinterId());   // throws UnknownPrinterException -> 400
+
+        java.util.concurrent.BlockingQueue<PrintJob> q = queueFor(printer.id());
+        if (q.size() >= queueProperties.getMaxDepth()) {
             throw queueFull(request);
         }
 
-        PrintJob job = new PrintJob(UUID.randomUUID(), request);
+        PrintJob job = new PrintJob(UUID.randomUUID(), request, printer.id(), printer.displayName());
         // Persist before exposing the job to the worker: otherwise the worker thread can
         // dequeue and save it concurrently with this thread's save, causing duplicate inserts.
         jobStore.save(job);
         jobs.put(job.getJobId(), job);
 
-        if (!queue.offer(job)) {
+        if (!q.offer(job)) {
             // Lost a capacity race against another submitter; undo the persisted row.
             jobs.remove(job.getJobId());
             jobStore.deleteById(job.getJobId());
@@ -139,8 +164,9 @@ public class PrintQueueService {
 
         submittedCounter.increment();
         broadcastUpdate(job);
-        log.info("Job {} enqueued for event: {}, barcode: {}",
-            job.getJobId(), request.getEventName(), request.getBarcodeValue());
+        log.info("Job {} enqueued for printer {} ({}), event: {}, barcode: {}",
+            job.getJobId(), printer.id(), printer.displayName(),
+            request.getEventName(), request.getBarcodeValue());
         return job;
     }
 
@@ -186,7 +212,8 @@ public class PrintQueueService {
             throw new JobNotCancellableException(
                 "Job " + jobId + " is " + job.getStatus() + " and cannot be cancelled");
         }
-        if (!queue.remove(job)) {
+        java.util.concurrent.BlockingQueue<PrintJob> q = queueFor(job.getPrinterId());
+        if (!q.remove(job)) {
             // The worker dequeued it between the status check and now.
             throw new JobNotCancellableException(
                 "Job " + jobId + " has already started printing");
@@ -207,11 +234,51 @@ public class PrintQueueService {
         return emitter;
     }
 
-    private void processQueue() {
+    /** Subscribe to one job's updates; null if the job is unknown. Completes on a terminal status. */
+    public SseEmitter subscribeToJob(UUID jobId) {
+        PrintJob job = jobs.get(jobId);
+        if (job == null) {
+            return null;
+        }
+        SseEmitter emitter = new SseEmitter(Long.MAX_VALUE);
+        jobEmitters.computeIfAbsent(jobId, id -> new java.util.concurrent.CopyOnWriteArrayList<>()).add(emitter);
+        emitter.onCompletion(() -> removeJobEmitter(jobId, emitter));
+        emitter.onTimeout(() -> removeJobEmitter(jobId, emitter));
+        emitter.onError(e -> removeJobEmitter(jobId, emitter));
+        try {
+            emitter.send(SseEmitter.event().data(job.toResponse()));   // current snapshot
+            if (isTerminal(job.getStatus())) {
+                emitter.complete();
+            }
+        } catch (IOException | IllegalStateException e) {
+            // IllegalStateException: a concurrent terminal broadcast already completed this emitter.
+            removeJobEmitter(jobId, emitter);
+        }
+        return emitter;
+    }
+
+    private void removeJobEmitter(UUID jobId, SseEmitter emitter) {
+        java.util.List<SseEmitter> list = jobEmitters.get(jobId);
+        if (list != null) {
+            list.remove(emitter);
+            if (list.isEmpty()) {
+                jobEmitters.remove(jobId);
+            }
+        }
+    }
+
+    private static boolean isTerminal(PrintJobStatus status) {
+        return status == PrintJobStatus.DONE
+            || status == PrintJobStatus.FAILED
+            || status == PrintJobStatus.CANCELLED;
+    }
+
+    private void processQueue(java.util.concurrent.BlockingQueue<PrintJob> q) {
         while (!Thread.currentThread().isInterrupted()) {
             try {
-                PrintJob job = queue.take();
+                PrintJob job = q.take();
                 MDC.put("jobId", job.getJobId().toString());
+                MDC.put("printerId", String.valueOf(job.getPrinterId()));
                 try {
                     job.setStatus(PrintJobStatus.PRINTING);
                     jobStore.save(job);
@@ -219,7 +286,8 @@ public class PrintQueueService {
                     try {
                         WristbandData data = layoutService.buildData(job.getRequest());
                         String zpl = wristbandZplResolver.resolve(job.getRequest(), data);
-                        printerService.send(zpl);
+                        Printer printer = printerRegistry.get(job.getPrinterId());
+                        workerClient.print(printer.baseUrl(), job.getJobId(), zpl);
                         job.complete(PrintJobStatus.DONE, null, Instant.now());
                         doneCounter.increment();
                     } catch (PrinterUnavailableException e) {
@@ -235,6 +303,7 @@ public class PrintQueueService {
                     broadcastUpdate(job);
                 } finally {
                     MDC.remove("jobId");
+                    MDC.remove("printerId");
                 }
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
@@ -253,5 +322,20 @@ public class PrintQueueService {
             }
         }
         emitters.removeAll(dead);
+
+        java.util.List<SseEmitter> perJob = jobEmitters.get(job.getJobId());
+        if (perJob != null) {
+            boolean terminal = isTerminal(job.getStatus());
+            for (SseEmitter emitter : perJob) {
+                try {
+                    emitter.send(SseEmitter.event().data(job.toResponse()));
+                    if (terminal) {
+                        emitter.complete();
+                    }
+                } catch (IOException | IllegalStateException e) {
+                    removeJobEmitter(job.getJobId(), emitter);
+                }
+            }
+        }
     }
 }

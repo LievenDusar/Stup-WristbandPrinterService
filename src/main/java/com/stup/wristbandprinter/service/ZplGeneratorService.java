@@ -3,9 +3,11 @@ package com.stup.wristbandprinter.service;
 import com.stup.wristbandprinter.config.WristbandProperties;
 import com.stup.wristbandprinter.domain.WristbandData;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 
 @Slf4j
+@Profile("!worker")
 @Service
 public class ZplGeneratorService {
 

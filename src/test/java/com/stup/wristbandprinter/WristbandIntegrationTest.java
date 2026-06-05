@@ -1,7 +1,10 @@
 package com.stup.wristbandprinter;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.stup.wristbandprinter.cluster.dto.PrintForwardRequest;
 import com.stup.wristbandprinter.domain.PrintJobResponse;
 import com.stup.wristbandprinter.domain.PrintJobStatus;
+import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,13 +24,11 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
 import java.io.IOException;
-import java.net.ServerSocket;
-import java.net.Socket;
+import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
@@ -50,43 +51,47 @@ class WristbandIntegrationTest {
 
     private static final String API_KEY = "itest-key";
 
-    private static final ServerSocket printerSocket;
+    private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final HttpServer workerServer;
     private static final BlockingQueue<String> printerReceived = new LinkedBlockingQueue<>();
-    private static volatile boolean printerRunning = true;
 
     static {
         try {
-            printerSocket = new ServerSocket(0);
+            workerServer = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
         } catch (IOException e) {
             throw new ExceptionInInitializerError(e);
         }
-        Thread t = new Thread(WristbandIntegrationTest::acceptLoop, "fake-printer");
-        t.setDaemon(true);
-        t.start();
-    }
-
-    private static void acceptLoop() {
-        while (printerRunning) {
-            try (Socket s = printerSocket.accept()) {
-                printerReceived.add(new String(s.getInputStream().readAllBytes(), StandardCharsets.UTF_8));
-            } catch (IOException e) {
-                // socket closed during shutdown
+        workerServer.createContext("/api/internal/print", exchange -> {
+            try {
+                byte[] body = exchange.getRequestBody().readAllBytes();
+                PrintForwardRequest req = MAPPER.readValue(body, PrintForwardRequest.class);
+                printerReceived.add(req.zpl());
+                exchange.sendResponseHeaders(200, -1);
+            } catch (Exception e) {
+                exchange.sendResponseHeaders(500, -1);
+            } finally {
+                exchange.close();
             }
-        }
+        });
+        workerServer.start();
     }
 
     @AfterAll
-    static void stopFakePrinter() throws IOException {
-        printerRunning = false;
-        printerSocket.close();
+    static void stopFakeWorker() {
+        workerServer.stop(0);
     }
 
     @DynamicPropertySource
     static void properties(DynamicPropertyRegistry registry) {
-        registry.add("printer.host", () -> "localhost");
-        registry.add("printer.port", printerSocket::getLocalPort);
-        registry.add("printer.max-retries", () -> 0);
         registry.add("security.api-key", () -> API_KEY);
+        registry.add("cluster.printers[0].id", () -> "printer-1");
+        registry.add("cluster.printers[0].display-name", () -> "Integration printer");
+        registry.add("cluster.printers[0].base-url",
+            () -> "http://localhost:" + workerServer.getAddress().getPort());
+        registry.add("cluster.printers[1].id", () -> "printer-2");
+        registry.add("cluster.printers[1].display-name", () -> "Second printer");
+        registry.add("cluster.printers[1].base-url",
+            () -> "http://localhost:" + workerServer.getAddress().getPort());
     }
 
     @LocalServerPort
@@ -96,12 +101,14 @@ class WristbandIntegrationTest {
     private TestRestTemplate rest;
 
     @Test
-    void printJob_reachesDone_andPrinterReceivesZpl() {
+    void printJob_reachesDone_andWorkerReceivesZpl() {
         ResponseEntity<PrintJobResponse> response = rest.exchange(
             url("/api/wristbands/print"), org.springframework.http.HttpMethod.POST,
             jsonRequest(sampleBody()), PrintJobResponse.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.ACCEPTED);
+        assertThat(response.getBody().printerId()).isEqualTo("printer-1");
+        assertThat(response.getBody().printerName()).isEqualTo("Integration printer");
         String jobId = response.getBody().jobId().toString();
 
         await().atMost(Duration.ofSeconds(10)).untilAsserted(() ->
@@ -163,6 +170,55 @@ class WristbandIntegrationTest {
             }
         }
         assertThat(dataLine).as("expected at least one SSE data line").isNotNull();
+    }
+
+    @Test
+    void printJob_routesToRequestedPrinter() {
+        String body = """
+            {
+              "eventName": "Pukkelpop 2026",
+              "firstName": "Jan",
+              "lastName": "Janssens",
+              "associationName": "STUP vzw",
+              "barcodeValue": "987654321",
+              "printerId": "printer-2"
+            }
+            """;
+        ResponseEntity<PrintJobResponse> response = rest.exchange(
+            url("/api/wristbands/print"), org.springframework.http.HttpMethod.POST,
+            jsonRequest(body), PrintJobResponse.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.ACCEPTED);
+        assertThat(response.getBody().printerId()).isEqualTo("printer-2");
+        assertThat(response.getBody().printerName()).isEqualTo("Second printer");
+
+        String jobId = response.getBody().jobId().toString();
+        await().atMost(Duration.ofSeconds(10)).untilAsserted(() ->
+            assertThat(jobStatus(jobId)).isEqualTo(PrintJobStatus.DONE));
+    }
+
+    @Test
+    void perJobStream_emitsStatusForThatJob() throws Exception {
+        ResponseEntity<PrintJobResponse> submit = rest.exchange(
+            url("/api/wristbands/print"), org.springframework.http.HttpMethod.POST,
+            jsonRequest(sampleBody()), PrintJobResponse.class);
+        String jobId = submit.getBody().jobId().toString();
+
+        HttpClient client = HttpClient.newHttpClient();
+        java.util.concurrent.BlockingQueue<String> lines = new java.util.concurrent.LinkedBlockingQueue<>();
+        client.sendAsync(
+                HttpRequest.newBuilder(URI.create(url("/api/wristbands/jobs/" + jobId + "/stream")))
+                    .header("X-API-Key", API_KEY).GET().build(),
+                HttpResponse.BodyHandlers.ofLines())
+            .thenAccept(resp -> resp.body().forEach(lines::add));
+
+        String dataLine = null;
+        long deadline = System.currentTimeMillis() + 5000;
+        while (System.currentTimeMillis() < deadline) {
+            String line = lines.poll(500, java.util.concurrent.TimeUnit.MILLISECONDS);
+            if (line != null && line.startsWith("data:")) { dataLine = line; break; }
+        }
+        assertThat(dataLine).as("expected at least one SSE data line for the job").isNotNull();
     }
 
     private PrintJobStatus jobStatus(String jobId) {

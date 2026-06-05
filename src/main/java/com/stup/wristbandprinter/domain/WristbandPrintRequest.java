@@ -29,6 +29,9 @@ public class WristbandPrintRequest {
     @Schema(description = "Optional template id; when set the wristband is rendered from that template instead of the default layout")
     private java.util.UUID templateId;
 
+    @Schema(description = "Optional id of the printer to use; when omitted the default printer is used")
+    private String printerId;
+
     public String getEventName() { return eventName; }
     public void setEventName(String eventName) { this.eventName = eventName; }
 
@@ -46,4 +49,7 @@ public class WristbandPrintRequest {
 
     public java.util.UUID getTemplateId() { return templateId; }
     public void setTemplateId(java.util.UUID templateId) { this.templateId = templateId; }
+
+    public String getPrinterId() { return printerId; }
+    public void setPrinterId(String printerId) { this.printerId = printerId; }
 }

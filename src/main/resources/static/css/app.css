@@ -58,13 +58,24 @@ a { color: var(--purple-light); }
 .btn-danger { border-color: #f4433680; }
 
 .controls { display: flex; gap: 10px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
-.search { flex: 1; min-width: 200px; }
+.search { flex: 1; min-width: 200px; position: relative; }
 .input {
   font-family: inherit; font-size: 0.9rem; color: var(--text-body);
   background: var(--glass-bg); border: 1px solid var(--glass-border);
   border-radius: var(--radius-md); padding: 9px 12px; width: 100%;
 }
 .input:focus { outline: 1px solid var(--purple-light); }
+#search { padding-right: 32px; }
+.search-clear {
+  position: absolute; top: 50%; right: 6px; transform: translateY(-50%);
+  display: none; align-items: center; justify-content: center;
+  width: 22px; height: 22px; padding: 0; line-height: 1;
+  border: none; border-radius: 50%; cursor: pointer;
+  background: transparent; color: var(--text-body); opacity: 0.55; font-size: 1.2rem;
+}
+.search-clear:hover { opacity: 1; }
+/* Reveal the clear button only while the field holds text (placeholder no longer shown). */
+.search .input:not(:placeholder-shown) ~ .search-clear { display: flex; }
 
 .chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
 .chip {

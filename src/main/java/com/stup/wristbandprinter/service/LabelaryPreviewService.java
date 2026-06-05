@@ -5,6 +5,7 @@ import com.stup.wristbandprinter.config.WristbandProperties;
 import com.stup.wristbandprinter.exception.LabelaryUnavailableException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
+@Profile("!worker")
 @Service
 public class LabelaryPreviewService {
 
