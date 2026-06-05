@@ -2,7 +2,13 @@
 
 [← Back to README](../README.md)
 
-All endpoints (except `/api/wristbands/jobs/stream` and `/jobs.html`) require:
+The REST API for printing wristbands, tracking jobs, and managing templates.
+
+---
+
+## Authentication
+
+All endpoints require an API key header, **except** `/api/wristbands/jobs/stream` and `/jobs.html`:
 
 ```
 X-API-Key: <your-api-key>
@@ -37,12 +43,14 @@ X-API-Key: <your-api-key>
 | `POST` | `/api/templates/assets` | Upload a logo (multipart `file`) → `201 + assetId` |
 | `GET` | `/api/templates/assets/{id}` | Fetch a stored logo PNG |
 
-> **Wristband Template Designer:** the `/api/templates` endpoints back a visual template designer.
+> 💡 **Wristband Template Designer:** the `/api/templates` endpoints back a visual template designer.
 > `POST /api/wristbands/print` accepts an optional `templateId` — when set, the wristband is rendered
 > from that template instead of the default fixed layout. Architecture, data model, full API and
 > roadmap are in [template-designer.md](template-designer.md).
 
-**Example print request:**
+## Examples
+
+### Print a wristband
 
 ```bash
 curl -X POST http://localhost:8080/api/wristbands/print \
@@ -56,7 +64,9 @@ curl -X POST http://localhost:8080/api/wristbands/print \
   }'
 ```
 
-**Example ZPL preview** (paste the output at [labelary.com/viewer.html](https://labelary.com/viewer.html)):
+### Preview ZPL
+
+Paste the output at [labelary.com/viewer.html](https://labelary.com/viewer.html):
 
 ```bash
 curl -X POST http://localhost:8080/api/wristbands/preview/zpl \

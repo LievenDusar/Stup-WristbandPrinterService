@@ -2,8 +2,10 @@
 
 [← Back to README](../README.md)
 
-Settings are grouped below by area. Wristband geometry (dimensions, spacing, fonts, barcode) has
-its own [Wristband layout](#wristband-layout) section with a diagram.
+Every setting, its default, and what it does. Settings are grouped by area; wristband geometry has
+its own [Wristband layout](#wristband-layout) section with an annotated diagram.
+
+---
 
 ## Printer & routing
 
@@ -26,13 +28,18 @@ its own [Wristband layout](#wristband-layout) section with a diagram.
 | `labelary.base-url` | `http://api.labelary.com` | Labelary API base URL (preview rendering) |
 | `security.api-key` | `changeme` | Static API key — override in production; shared by management + workers |
 
-**Profile activation:**
-- Management — local: `--spring.profiles.active=local`
-- Management — production: `SPRING_PROFILES_ACTIVE=prod`
-- Worker (printer node): `SPRING_PROFILES_ACTIVE=worker` (no DB/UI; needs `PRINTER_HOST` + `SECURITY_API_KEY`)
+## Profiles & startup
 
-> Under the `prod` profile the application refuses to start if `security.api-key` is unset, blank,
-> or left at the default `changeme` — set `SECURITY_API_KEY` to a real value.
+Activate one Spring profile per process:
+
+| Process | Profile | Activation |
+|---|---|---|
+| Management — local | `local` | `--spring.profiles.active=local` |
+| Management — production | `prod` | `SPRING_PROFILES_ACTIVE=prod` |
+| Worker (printer node) | `worker` | `SPRING_PROFILES_ACTIVE=worker` — no DB/UI; needs `PRINTER_HOST` + `SECURITY_API_KEY` |
+
+> ⚠️ Under the `prod` profile the application **refuses to start** if `security.api-key` is unset,
+> blank, or left at the default `changeme` — set `SECURITY_API_KEY` to a real value.
 
 ## Wristband layout
 
@@ -40,14 +47,14 @@ The band is generated programmatically as ZPL — there are no absolute coordina
 set the band dimensions, the gaps between elements, and the font/barcode sizes; the service centres
 everything and stacks the elements in this fixed order, from the non-adhesive end to the adhesive end:
 
-**logo → barcode → text (event / name / association) → logo**
+> **logo → barcode → text (event / name / association) → logo**
 
-The diagram below maps each setting to the element it controls. Orange labels (left) are the gaps
-between elements; the labels on the right size the elements themselves.
+The diagram maps each setting to the element it controls. Orange labels (left) are the gaps between
+elements; the labels on the right size the elements themselves.
 
 ![Wristband layout settings](images/wristband-layout.svg)
 
-**Band dimensions & spacing**
+### Band dimensions & spacing
 
 | Property | Default | Controls |
 |---|---|---|
@@ -60,7 +67,7 @@ between elements; the labels on the right size the elements themselves.
 | `wristband.margins.between-barcode-and-text` | `120` | Gap: barcode → text block |
 | `wristband.margins.between-text-and-logo` | `120` | Gap: text block → bottom logo |
 
-**Text & barcode**
+### Text & barcode
 
 | Property | Default | Controls |
 |---|---|---|
@@ -72,5 +79,5 @@ between elements; the labels on the right size the elements themselves.
 | `wristband.barcode.module-width-dots` | `3` | Narrow-bar width — wider = longer along the band & easier to scan |
 | `wristband.barcode.show-human-readable` | `false` | Print the value as text next to the barcode |
 
-> **Calibration:** every position derives from the values above — no code changes needed. After a
+> 💡 **Calibration:** every position derives from the values above — no code changes needed. After a
 > first test print, tune `wristband.margins.*` and `wristband.text.*` in `application-prod.yml`.

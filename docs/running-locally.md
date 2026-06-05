@@ -2,15 +2,25 @@
 
 [← Back to README](../README.md)
 
-Two ways to run the stack on your machine: from **IntelliJ** (JDK + Maven, fastest inner loop) or
-entirely with **Docker** (no host Java; closest to production).
+Two ways to run the stack on your machine:
+
+| Path | Best for | Prints? |
+|---|---|---|
+| **[In IntelliJ](#in-intellij)** | Fastest inner loop (JDK + Maven) | Only with an added worker |
+| **[Via Docker](#via-docker)** | Closest to production; no host Java | Yes — virtual cluster with fake printers |
+
+---
 
 ## In IntelliJ
 
 Runs the **management** service from the IDE. On its own it serves the UI/API but does not print —
 add a worker (step 5) for end-to-end printing.
 
-**Prerequisites:** JDK 21, IntelliJ IDEA, Docker (for a local PostgreSQL).
+### Prerequisites
+
+JDK 21, IntelliJ IDEA, Docker (for a local PostgreSQL).
+
+### Steps
 
 1. **Add the logo** — place `stup-logo.png` in `src/main/resources/images/`.
 2. **Start PostgreSQL** — the `local` profile expects database `wristbands`, user/password
@@ -44,7 +54,7 @@ add a worker (step 5) for end-to-end printing.
    `application-local.yml` already registers `printer-1` at `http://localhost:8089`, so jobs flow
    management → worker → fake printer.
 
-> **Port 5432 already in use?** Start the container with `-p 5433:5432` and set
+> 💡 **Port 5432 already in use?** Start the container with `-p 5433:5432` and set
 > `SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5433/wristbands` in the run configuration's
 > environment. (PostgreSQL only sets the password when the data volume is first created — if you
 > reused an old `stup-pg`, `docker rm -f stup-pg` and recreate.)
@@ -60,6 +70,8 @@ No host Java needed. Build the shared base image once (and after changing `docke
 The **full virtual cluster** (`docker-compose.local-cluster.yml`) mirrors the production topology
 **without real printers**: Postgres + management + two workers + two fake printers (`socat` TCP
 listeners that log the ZPL they receive).
+
+### Steps
 
 1. **Start the stack:**
 
@@ -92,13 +104,15 @@ listeners that log the ZPL they receive).
 The jobs page shows the **Printer** column, per-printer **filter chips**, parallel printing and the
 **reprint printer picker**.
 
-> **Add a virtual printer:** add a `fakeprinter-3` (copy a socat service) and a `worker-3`
-> (`PRINTER_HOST=fakeprinter-3`) to `docker-compose.local-cluster.yml`, then add a third entry to the
-> management `SPRING_APPLICATION_JSON` registry pointing at `http://worker-3:8080`.
+### Variations
 
 **Management only** — for pure UI/template work without printers, `docker compose up --build` runs
 just Postgres + management on HTTP 8080; printing fails until a worker exists.
 
-> **Upgrading from an older compose?** If `docker-compose.yml` previously ran with a custom
+> 💡 **Add a virtual printer:** add a `fakeprinter-3` (copy a socat service) and a `worker-3`
+> (`PRINTER_HOST=fakeprinter-3`) to `docker-compose.local-cluster.yml`, then add a third entry to the
+> management `SPRING_APPLICATION_JSON` registry pointing at `http://worker-3:8080`.
+
+> ⚠️ **Upgrading from an older compose?** If `docker-compose.yml` previously ran with a custom
 > `DB_PASSWORD`, the persisted `pgdata` volume was initialized with it and the new hardcoded
 > `wristbands` credentials fail. Run `docker compose down -v` once to recreate the volume.
