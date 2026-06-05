@@ -246,6 +246,13 @@ Replace every **`[placeholder]`** below with your real value. The placeholders f
 - Each Zebra is reachable from the server — verify with `ping [printer-1-ip]`.
 - The base image is built: `./build.sh`.
 
+> **Database tables / migrations.** The schema is managed by Flyway; the migration scripts live in
+> [`src/main/resources/db/migration`](src/main/resources/db/migration) (`V1__…​.sql`, `V2__…​.sql`, …).
+> Management runs them **automatically** against the remote database the first time it starts, so no
+> manual step is needed when the DB role has DDL rights. If your DB user is restricted to DML, have a
+> DBA apply those `.sql` files **in version order** once, before launching — then management starts
+> against the already-migrated schema.
+
 **Step 1 — Configure secrets, the database, and the printer IPs (`.env.prod`)**
 
 ```bash
