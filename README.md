@@ -6,6 +6,7 @@ built-in admin UI, a visual template designer, and support for multiple printers
 
 ## Contents
 
+- [Installation](#installation)
 - [Architecture](#architecture)
 - [Running locally](#running-locally)
   - [Native (management only)](#native-management-only)
@@ -22,6 +23,40 @@ built-in admin UI, a visual template designer, and support for multiple printers
 - [Swagger UI](#swagger-ui)
 - [Metrics](#metrics)
 - [Running tests](#running-tests)
+
+---
+
+## Installation
+
+### Prerequisites
+
+- **Docker** with Compose v2 — the only hard requirement; the app and its PostgreSQL run in containers.
+- **Git** — to clone the repository.
+- *(Optional)* **Java 21 + Maven 3.9+** — only for the native developer workflow and running the tests.
+
+### Setup
+
+```bash
+# 1. Clone
+git clone <repository-url> Stup-WristbandPrinterService
+cd Stup-WristbandPrinterService
+
+# 2. Add the STUP logo used by the default layout
+cp /path/to/stup-logo.png src/main/resources/images/stup-logo.png
+
+# 3. Build the shared base image (once, and after changing docker/base/Dockerfile)
+./build.sh
+
+# 4. Start a full local stack with two virtual printers
+docker compose -f docker-compose.local-cluster.yml up --build -d
+```
+
+Then open **http://localhost:8080/jobs.html** and sign in with `admin` / `local-admin`. Send a test
+print with the curl examples under [Docker — multiple virtual printers](#docker--multiple-virtual-printers).
+
+That is the fastest end-to-end setup. For other modes — a native run, management-only, or a real
+production deployment — see [Running locally](#running-locally) and
+[Production deployment](#production-deployment).
 
 ---
 
