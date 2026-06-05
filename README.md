@@ -16,6 +16,8 @@ built-in admin UI, a visual template designer, and support for multiple printers
   - [HTTPS and Symfony cert trust](#https-and-symfony-cert-trust)
 - [Configuration](#configuration)
 - [API endpoints](#api-endpoints)
+  - [Wristbands](#wristbands)
+  - [Templates](#templates)
 - [Job management UI](#job-management-ui)
 - [Labelary preview](#labelary-preview)
 - [Job persistence](#job-persistence)
@@ -416,6 +418,8 @@ All endpoints (except `/api/wristbands/jobs/stream` and `/jobs.html`) require:
 X-API-Key: <your-api-key>
 ```
 
+### Wristbands
+
 | Method | Path | Description |
 |---|---|---|
 | `POST` | `/api/wristbands/print` | Enqueue a print job → `202 + jobId`. Optional `printerId` selects the printer (default = first); unknown id → `400`. Response carries `printerId` + `printerName` |
@@ -428,6 +432,11 @@ X-API-Key: <your-api-key>
 | `GET` | `/api/wristbands/jobs/{jobId}/stream` | SSE stream for **one** job; emits its current status, then updates, and closes on a terminal status (for Symfony to follow a single job) |
 | `POST` | `/api/wristbands/jobs/{jobId}/reprint` | Reprint a previous job; optional `?printerId=` re-routes it to another printer |
 | `DELETE` | `/api/wristbands/jobs/completed` | Soft-delete DONE/FAILED/CANCELLED jobs |
+
+### Templates
+
+| Method | Path | Description |
+|---|---|---|
 | `POST` | `/api/templates` | Create a wristband template → `201 + detail` |
 | `PUT` | `/api/templates/{id}` | Update a template → `200` / `404` |
 | `GET` | `/api/templates` | List templates (catalog); `?projectType=` filters |
