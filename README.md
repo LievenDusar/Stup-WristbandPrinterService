@@ -68,9 +68,34 @@ Build the base image first (run once, and after changing `docker/base/Dockerfile
 ./build.sh
 ```
 
-### Local (development)
+### Architecture: management + printer-workers
 
-Postgres + the service on plain HTTP, `local` profile:
+The service runs in two roles, selected by Spring profile (same image, different
+`SPRING_PROFILES_ACTIVE`):
+
+- **management** (`local` / `prod`; active whenever the `worker` profile is *not* set) — the only
+  role with a UI, admin login, database, job history and SSE. It holds the **printer registry**,
+  renders the ZPL, and forwards each job to the right worker. One instance.
+- **worker** (`worker`) — a thin, database-free, UI-free service; one per physical printer. It
+  exposes an internal `POST /api/internal/print`, writes the received ZPL to its printer
+  (`PRINTER_HOST:9100`) and reports success/failure. Reached only by management over the private
+  network.
+
+The **registry** lives in management config under `cluster.printers` — a list of
+`{ id, display-name, base-url }`, one per printer. `id` is what a caller sends as `printerId`;
+`base-url` is the worker's in-network address. A print request with no `printerId` goes to the
+first (default) printer; an unknown `printerId` is rejected with **400**. Each printer has its own
+queue and worker thread, so printers print in parallel.
+
+| | Local dev | Production |
+|---|---|---|
+| Management | `docker-compose.yml` (HTTP 8080) | `docker-compose.prod.yml` (HTTPS 8443) |
+| Workers + printers | `docker-compose.local-cluster.yml` (virtual) | `docker-compose.prod.yml` (real Zebras) |
+
+### Local — management only (`docker-compose.yml`)
+
+Postgres + the management service on plain HTTP, `local` profile. Good for UI/template work, but
+**printing fails until a worker exists** — use the cluster stack below for end-to-end prints.
 
 ```bash
 ./build.sh
@@ -83,47 +108,98 @@ docker compose up --build
 > so the new hardcoded `wristbands` credentials fail authentication. Run
 > `docker compose down -v` once to drop and recreate the volume.
 
-### Production (one container per printer)
+### Local — multiple virtual printers (`docker-compose.local-cluster.yml`)
 
-The production stack has **no database container** — it connects to a dedicated
-`wristbands` database on the Symfony site's Postgres instance (remote).
+Simulates the full production topology **without any real printers**: Postgres + management +
+two workers + two fake printers (`socat` TCP listeners that log the ZPL they receive). This is the
+recommended way to develop and demo multi-printer behaviour locally.
+
+```bash
+./build.sh
+docker compose -f docker-compose.local-cluster.yml up --build -d
+# http://localhost:8080/jobs.html   (admin / local-admin)
+```
+
+Two printers are registered — `printer-1` ("Inkom links") and `printer-2` ("Inkom rechts") — each
+wired to its own fake printer. Target a specific printer with `"printerId"`:
+
+```bash
+# default printer (printer-1)
+curl -s -X POST http://localhost:8080/api/wristbands/print \
+  -H "Content-Type: application/json" -H "X-API-Key: local-dev-key" \
+  -d '{"eventName":"Test","firstName":"Jan","lastName":"Janssen","associationName":"STUP","barcodeValue":"111"}'
+
+# explicitly to printer-2
+curl -s -X POST http://localhost:8080/api/wristbands/print \
+  -H "Content-Type: application/json" -H "X-API-Key: local-dev-key" \
+  -d '{"eventName":"Test","firstName":"An","lastName":"Peeters","associationName":"STUP","barcodeValue":"222","printerId":"printer-2"}'
+
+# watch the ZPL arrive at each printer:
+docker compose -f docker-compose.local-cluster.yml logs -f fakeprinter-1 fakeprinter-2
+```
+
+The jobs page then shows the **Printer** column, per-printer **filter chips**, parallel printing
+and the **reprint printer picker**. Stop with `docker compose -f docker-compose.local-cluster.yml down`.
+
+**Add a virtual printer:** add a `fakeprinter-3` (copy a socat service) and a `worker-3`
+(`PRINTER_HOST=fakeprinter-3`), then add a third entry to the management `SPRING_APPLICATION_JSON`
+registry pointing at `http://worker-3:8080`.
+
+### Production — real printers (`docker-compose.prod.yml`)
+
+No database container — management connects to a dedicated `wristbands` database on the Symfony
+site's Postgres instance (remote). One management service (public, HTTPS) plus one worker per Zebra
+printer (internal HTTP).
 
 Prerequisites:
 1. A DBA creates an empty `wristbands` database + role on the prod Postgres instance
    (Flyway creates the tables, not the database).
-2. `cp .env.example .env.prod` and fill in the values.
+2. `cp .env.example .env.prod` and fill in the values (each variable is documented in `.env.example`).
 
 Run:
 
 ```bash
 ./build.sh
 docker compose -f docker-compose.prod.yml --env-file .env.prod up --build -d
-# https://<host>:8443/actuator/health   (self-signed cert)
+# https://<MANAGEMENT_HOSTNAME>:8443/actuator/health   (self-signed cert)
 ```
 
-Each printer gets its own container, port, and self-signed certificate; all containers
-share the same database. Flyway runs in each container on startup and is lock-serialized,
-so staggered starts are safe.
+Only the management service is published (HTTPS 8443) and holds the certificate + DB connection;
+workers are internal-only HTTP and need no certs or database. Management and every worker share the
+same `API_KEY`. Flyway runs once, in management, on startup.
 
-### Adding a printer
+### Adding a printer in production
 
-In `docker-compose.prod.yml`, copy the commented `printer-2` template block, then:
-- give it a unique service name and published host port (`8444`, `8445`, …);
-- set its `PRINTERn_HOST` / `PRINTERn_HOSTNAME` (add them to `.env.prod`);
-- add its own `certs-printerN` volume under `volumes:`.
+Two coordinated edits in `docker-compose.prod.yml`:
 
-> **Printer network access:** The container uses Docker's default bridge network and routes outbound traffic through the host. The Zebra printer must be reachable from the server itself — verify with `ping <PRINTER_HOST>` on the server before deploying.
+1. **Add a worker** — copy the commented `printer-worker-2` template, give it a unique service name,
+   and point `PRINTER_HOST` at the new Zebra's IP (add `PRINTER2_HOST=…` to `.env.prod`).
+2. **Register it** — add a matching entry to the management `SPRING_APPLICATION_JSON` registry:
+   `{"id":"printer-2","display-name":"Inkom rechts","base-url":"http://printer-worker-2:8080"}`.
+   The `base-url` host **must** equal the worker's service name; `id` is what Symfony sends as `printerId`.
+
+Then redeploy (`up --build -d`). The new printer appears in `GET /api/wristbands/printers`, in the
+jobs-page filter chips, and in the reprint picker. Workers do **not** publish a host port and need no
+certificate.
+
+> **Printer network access:** workers reach printers over the host network. Each Zebra must be
+> reachable from the server — verify with `ping <PRINTERn_HOST>` on the server before deploying.
 
 ### HTTPS and Symfony cert trust
 
-In the `prod` profile each container listens **HTTPS-only on port 8443** (or the port you publish) using a self-signed certificate. The Symfony app calls it at `https://<host>:8443/...`.
+Only the **management** service terminates TLS: in the `prod` profile it listens **HTTPS-only on
+8443** with a self-signed certificate. Workers are HTTP on the private Docker network and are never
+exposed. Symfony calls management at `https://<MANAGEMENT_HOSTNAME>:8443/...`.
 
-The keystore is generated automatically on first container start and stored in a named `certs-printerN` Docker volume. It is reused on subsequent starts, so the certificate is stable across redeploys. `PRINTER1_HOSTNAME` (in `.env.prod`) becomes the certificate's CN/SAN — set it before the first start; the compose file maps it to the container's `SSL_CERT_HOSTNAME`. To regenerate the certificate, remove the volume: `docker volume rm <certs-volume-name>`.
+The keystore is generated on first start and stored in the `certs-management` volume (reused across
+redeploys, so the certificate is stable). `MANAGEMENT_HOSTNAME` (in `.env.prod`) becomes the
+certificate's CN/SAN — set it before the first start; the compose file maps it to `SSL_CERT_HOSTNAME`.
+To regenerate, remove the volume: `docker volume rm <project>_certs-management`.
 
 Export the public certificate from the running container:
 
 ```bash
-docker compose -f docker-compose.prod.yml cp printer-1:/certs/server.crt ./server.crt
+docker compose -f docker-compose.prod.yml cp management:/certs/server.crt ./server.crt
 ```
 
 Then either (recommended) point the Symfony HTTP client at it as a CA:
@@ -134,7 +210,7 @@ framework:
     http_client:
         scoped_clients:
             wristband.client:
-                base_uri: 'https://<host>:8443'
+                base_uri: 'https://<MANAGEMENT_HOSTNAME>:8443'
                 cafile: '%kernel.project_dir%/config/certs/server.crt'
 ```
 
@@ -145,7 +221,7 @@ framework:
                 verify_host: false
 ```
 
-`PRINTER1_HOSTNAME` must match the hostname the Symfony app uses to connect, otherwise hostname verification fails.
+`MANAGEMENT_HOSTNAME` must match the hostname the Symfony app uses to connect, otherwise hostname verification fails.
 
 ---
 
@@ -153,12 +229,13 @@ framework:
 
 | Property | Default | Description |
 |---|---|---|
-| `printer.host` | `localhost` | Zebra printer IP address |
-| `printer.port` | `9100` | Zebra printer TCP port |
+| `printer.host` | `localhost` | Zebra printer IP/host — **set per worker** via `PRINTER_HOST`; unused by management |
+| `printer.port` | `9100` | Zebra printer TCP port (per worker) |
+| `cluster.printers` | sentinel | Printer registry (management only): list of `{id, display-name, base-url}`, one per printer. Override per environment — see the compose files |
 | `printer.timeout-ms` | `5000` | Connection timeout in milliseconds |
 | `printer.max-retries` | `2` | Extra attempts after the first on a transient socket failure |
 | `printer.retry-backoff-ms` | `500` | Pause between retry attempts |
-| `queue.max-depth` | `100` | Max pending jobs before new submissions are rejected with HTTP 429 |
+| `queue.max-depth` | `100` | Max pending jobs **per printer** before new submissions are rejected with HTTP 429 |
 | `wristband.dpi` | `300` | Printer DPI (203 or 300) |
 | `wristband.logo-path` | `classpath:images/stup-logo.png` | Path to STUP logo PNG — bundled inside the JAR, no external file needed |
 | `wristband.logo-side-margin-dots` | `75` | Left/right margin around logo in dots |
@@ -171,8 +248,9 @@ framework:
 | `security.api-key` | `changeme` | Static API key — override in production |
 
 **Profile activation:**
-- Local: `--spring.profiles.active=local`
-- Production: `SPRING_PROFILES_ACTIVE=prod` env var
+- Management — Local: `--spring.profiles.active=local`
+- Management — Production: `SPRING_PROFILES_ACTIVE=prod` env var
+- Worker (printer node): `SPRING_PROFILES_ACTIVE=worker` (no DB/UI; needs `PRINTER_HOST` + `SECURITY_API_KEY`)
 
 > Under the `prod` profile the application refuses to start if `security.api-key` is unset, blank, or left at the default `changeme` — set `SECURITY_API_KEY` to a real value.
 
@@ -189,13 +267,15 @@ X-API-Key: <your-api-key>
 
 | Method | Path | Description |
 |---|---|---|
-| `POST` | `/api/wristbands/print` | Enqueue a print job → `202 + jobId` |
+| `POST` | `/api/wristbands/print` | Enqueue a print job → `202 + jobId`. Optional `printerId` selects the printer (default = first); unknown id → `400`. Response carries `printerId` + `printerName` |
 | `POST` | `/api/wristbands/preview/zpl` | Return generated ZPL as plain text |
 | `POST` | `/api/wristbands/preview/image` | Return rendered PNG via Labelary |
+| `GET` | `/api/wristbands/printers` | List routable printers (`[{id, displayName}]`) |
 | `GET` | `/api/wristbands/jobs` | List all jobs (`?status=PENDING\|PRINTING\|DONE\|FAILED`) |
-| `GET` | `/api/wristbands/jobs/{jobId}` | Get job status |
-| `GET` | `/api/wristbands/jobs/stream` | SSE stream — real-time job updates |
-| `POST` | `/api/wristbands/jobs/{jobId}/reprint` | Reprint a previous job |
+| `GET` | `/api/wristbands/jobs/{jobId}` | Get job status (incl. `printerId`/`printerName`) |
+| `GET` | `/api/wristbands/jobs/stream` | SSE stream — real-time updates for **all** jobs |
+| `GET` | `/api/wristbands/jobs/{jobId}/stream` | SSE stream for **one** job; sends current status, then updates, and closes on a terminal status (for Symfony to follow a single job) |
+| `POST` | `/api/wristbands/jobs/{jobId}/reprint` | Reprint a previous job; optional `?printerId=` re-routes it to another printer |
 | `DELETE` | `/api/wristbands/jobs/completed` | Remove DONE and FAILED jobs |
 | `POST` | `/api/templates` | Create a wristband template → `201 + detail` |
 | `PUT` | `/api/templates/{id}` | Update a template → `200` / `404` |
@@ -273,12 +353,15 @@ Open **http://localhost:8080/jobs.html** in a browser (you'll be redirected to
 - Sign in with the admin credential (`security.admin.username` / `security.admin.password`).
   A session is kept in an HttpOnly cookie — no key is stored in the browser.
 - The job table updates in real-time via Server-Sent Events.
-- Each row shows the person's **name**, event, status, a truncated job ID (with copy),
+- Each row shows the person's **name**, event, **printer**, status, a truncated job ID (with copy),
   relative timestamps, and per-job actions. Status chips give live counts and filter; columns sort.
+- When more than one printer is configured, a second chip row **filters by printer**.
+- The search box has a clear (×) button that appears once it holds text.
 - Clicking a row opens a **slide-in detail drawer** with the full wristband data
-  (name, association, barcode, timestamps) and a **Show preview** button that renders
+  (name, association, barcode, printer, timestamps) and a **Show preview** button that renders
   the wristband image via Labelary on demand.
-- **Cancel** stops a PENDING job; **Reprint** re-queues a DONE/FAILED job.
+- **Cancel** stops a PENDING job; **Reprint** re-queues a DONE/FAILED job — with several printers it
+  first asks which printer to print on (automatic when there is only one).
 - **Clear completed** asks for confirmation, then **soft-deletes** DONE/FAILED/CANCELLED
   jobs — they are hidden from the queue but kept in the database (`deleted = true`).
   Restore one with `UPDATE print_jobs SET deleted = false WHERE job_id = '…';`.
@@ -301,11 +384,11 @@ Micrometer metrics are exposed via Actuator at **http://localhost:8080/actuator/
 
 - `wristband.jobs.submitted` — jobs accepted into the queue
 - `wristband.jobs.completed{status=done|failed}` — processed jobs by outcome
-- `wristband.queue.depth` — pending jobs waiting to print
-- `wristband.printer.send` — timer for sending ZPL to the printer (includes retries)
+- `wristband.queue.depth` — pending jobs waiting to print (summed across all per-printer queues)
+- `wristband.printer.send` — timer for sending ZPL to the printer (includes retries; measured on the worker)
 
-Each job's `jobId` is added to the logging MDC while it is processed, so log lines for a
-job can be correlated.
+Each job's `jobId` and `printerId` are added to the logging MDC while it is processed, so log lines
+for a job (and the printer it targets) can be correlated.
 
 ---
 

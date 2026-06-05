@@ -8,7 +8,9 @@ server:
     key-alias: wristband
 
 printer:
-  host: ${PRINTER_HOST}   # set via environment variable
+  # Only the worker profile actually prints; the management service never uses this,
+  # so it defaults to localhost and is overridden by PRINTER_HOST on each worker.
+  host: ${PRINTER_HOST:localhost}
   port: 9100
   timeout-ms: 5000
 
