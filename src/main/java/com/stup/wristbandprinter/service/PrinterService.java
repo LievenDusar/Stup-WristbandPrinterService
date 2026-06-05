@@ -31,9 +31,10 @@ public class PrinterService {
     }
 
     public void send(String zpl) {
+        String payload = props.isClearCacheEnabled() ? props.getClearCommand() + zpl : zpl;
         Timer.Sample sample = Timer.start(meterRegistry);
         try {
-            sendWithRetries(zpl);
+            sendWithRetries(payload);
         } finally {
             sample.stop(sendTimer);
         }

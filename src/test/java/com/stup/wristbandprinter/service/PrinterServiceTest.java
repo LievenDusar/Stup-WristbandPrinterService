@@ -25,26 +25,48 @@ class PrinterServiceTest {
     private final MeterRegistry registry = new SimpleMeterRegistry();
 
     @Test
-    void send_writesZplToSocket() throws Exception {
+    void send_prependsClearCommandToSocket_byDefault() throws Exception {
         try (ServerSocket server = new ServerSocket(0)) {
             int port = server.getLocalPort();
 
-            CompletableFuture<String> received = CompletableFuture.supplyAsync(() -> {
-                try (Socket client = server.accept();
-                     BufferedReader reader = new BufferedReader(
-                         new InputStreamReader(client.getInputStream()))) {
-                    return reader.lines().collect(Collectors.joining());
-                } catch (Exception e) {
-                    throw new RuntimeException(e);
-                }
-            });
+            CompletableFuture<String> received = captureSocketPayload(server);
 
-            PrinterService service = new PrinterService(propsFor("localhost", port), registry);
+            PrinterProperties props = propsFor("localhost", port);
+            PrinterService service = new PrinterService(props, registry);
+            service.send("^XA^XZ");
+
+            assertThat(received.get(5, TimeUnit.SECONDS))
+                .isEqualTo(props.getClearCommand() + "^XA^XZ");
+            assertThat(registry.get("wristband.printer.send").timer().count()).isEqualTo(1);
+        }
+    }
+
+    @Test
+    void send_omitsClearCommand_whenDisabled() throws Exception {
+        try (ServerSocket server = new ServerSocket(0)) {
+            int port = server.getLocalPort();
+
+            CompletableFuture<String> received = captureSocketPayload(server);
+
+            PrinterProperties props = propsFor("localhost", port);
+            props.setClearCacheEnabled(false);
+            PrinterService service = new PrinterService(props, registry);
             service.send("^XA^XZ");
 
             assertThat(received.get(5, TimeUnit.SECONDS)).isEqualTo("^XA^XZ");
-            assertThat(registry.get("wristband.printer.send").timer().count()).isEqualTo(1);
         }
+    }
+
+    private CompletableFuture<String> captureSocketPayload(ServerSocket server) {
+        return CompletableFuture.supplyAsync(() -> {
+            try (Socket client = server.accept();
+                 BufferedReader reader = new BufferedReader(
+                     new InputStreamReader(client.getInputStream()))) {
+                return reader.lines().collect(Collectors.joining());
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        });
     }
 
     @Test

@@ -1,0 +1,114 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="900" viewBox="0 0 960 900" font-family="-apple-system, Segoe UI, Helvetica, Arial, sans-serif">
+  <style>
+    .band   { fill:#ffffff; stroke:#334155; stroke-width:2; }
+    .logo   { fill:#dbeafe; stroke:#3b82f6; stroke-width:1.5; }
+    .text   { fill:#f3e8ff; stroke:#a855f7; stroke-width:1.5; }
+    .bar    { fill:#111827; }
+    .barbox { fill:#dcfce7; stroke:#22c55e; stroke-width:1.5; }
+    .gap    { stroke:#f59e0b; stroke-width:2; stroke-dasharray:4 3; }
+    .lead   { stroke:#94a3b8; stroke-width:1; }
+    .dim    { stroke:#64748b; stroke-width:1; }
+    .lbl    { font-size:13px; fill:#0f172a; }
+    .pre    { font-size:11px; fill:#b45309; }
+    .key    { font-size:13px; fill:#b45309; }
+    .code   { font-family:ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .cap    { font-size:11px; fill:#64748b; }
+    .ttl    { font-size:13px; font-weight:600; fill:#0f172a; }
+  </style>
+
+  <!-- band outline -->
+  <rect class="band" x="380" y="70" width="160" height="760" rx="14"/>
+
+  <!-- ===== elements top -> bottom: logo, barcode, text, logo ===== -->
+  <!-- top logo -->
+  <rect class="logo" x="395" y="85" width="130" height="95" rx="4"/>
+  <text class="lbl" x="460" y="138" text-anchor="middle">STUP logo</text>
+  <text class="cap" x="460" y="156" text-anchor="middle">(inverted 180°)</text>
+
+  <!-- barcode -->
+  <rect class="barbox" x="410" y="235" width="100" height="160" rx="3"/>
+  <g class="bar">
+    <rect x="422" y="247" width="4" height="136"/>
+    <rect x="430" y="247" width="2" height="136"/>
+    <rect x="436" y="247" width="6" height="136"/>
+    <rect x="446" y="247" width="3" height="136"/>
+    <rect x="453" y="247" width="5" height="136"/>
+    <rect x="462" y="247" width="2" height="136"/>
+    <rect x="468" y="247" width="4" height="136"/>
+    <rect x="476" y="247" width="6" height="136"/>
+    <rect x="486" y="247" width="2" height="136"/>
+    <rect x="492" y="247" width="4" height="136"/>
+    <rect x="500" y="247" width="3" height="136"/>
+  </g>
+
+  <!-- text block (3 lines) -->
+  <rect class="text" x="395" y="450" width="130" height="205" rx="4"/>
+  <text class="lbl" x="460" y="492" text-anchor="middle">Event name</text>
+  <text class="lbl" x="460" y="560" text-anchor="middle" font-size="17" font-weight="600">First + Last</text>
+  <text class="lbl" x="460" y="628" text-anchor="middle">Association</text>
+
+  <!-- bottom logo -->
+  <rect class="logo" x="395" y="715" width="130" height="95" rx="4"/>
+  <text class="lbl" x="460" y="768" text-anchor="middle">STUP logo</text>
+  <text class="cap" x="460" y="786" text-anchor="middle">(same image)</text>
+
+  <!-- ===== gap brackets on the LEFT (margins) ===== -->
+  <!-- gap: logo -> barcode (180 .. 235) -->
+  <line class="gap" x1="368" y1="180" x2="368" y2="235"/>
+  <line class="lead" x1="368" y1="207" x2="262" y2="207"/>
+  <text class="code pre" x="250" y="203" text-anchor="end">margins.</text>
+  <text class="code key" x="250" y="219" text-anchor="end">between-logo-and-barcode</text>
+
+  <!-- gap: barcode -> text (395 .. 450) -->
+  <line class="gap" x1="368" y1="395" x2="368" y2="450"/>
+  <line class="lead" x1="368" y1="422" x2="262" y2="422"/>
+  <text class="code pre" x="250" y="418" text-anchor="end">margins.</text>
+  <text class="code key" x="250" y="434" text-anchor="end">between-barcode-and-text</text>
+
+  <!-- gap: text -> bottom logo (655 .. 715) -->
+  <line class="gap" x1="368" y1="655" x2="368" y2="715"/>
+  <line class="lead" x1="368" y1="685" x2="262" y2="685"/>
+  <text class="code pre" x="250" y="681" text-anchor="end">margins.</text>
+  <text class="code key" x="250" y="697" text-anchor="end">between-text-and-logo</text>
+
+  <!-- ===== element labels on the RIGHT ===== -->
+  <!-- top logo -->
+  <line class="lead" x1="525" y1="130" x2="584" y2="130"/>
+  <text class="code lbl" x="590" y="126">logo-path</text>
+  <text class="code lbl" x="590" y="144">logo-side-margin-dots</text>
+
+  <!-- barcode -->
+  <line class="lead" x1="510" y1="315" x2="584" y2="315"/>
+  <text class="code lbl" x="590" y="303">barcode.type</text>
+  <text class="code lbl" x="590" y="321">barcode.height-dots</text>
+  <text class="code lbl" x="590" y="339">barcode.module-width-dots</text>
+  <text class="code lbl" x="590" y="357">barcode.show-human-readable</text>
+
+  <!-- text lines -->
+  <line class="lead" x1="525" y1="487" x2="584" y2="487"/>
+  <text class="code lbl" x="590" y="491">text.font-size-event</text>
+  <line class="lead" x1="525" y1="558" x2="584" y2="558"/>
+  <text class="code lbl" x="590" y="562">text.font-size-name</text>
+  <line class="lead" x1="525" y1="625" x2="584" y2="625"/>
+  <text class="code lbl" x="590" y="629">text.font-size-association</text>
+
+  <!-- ===== overall dimensions ===== -->
+  <!-- width across the top -->
+  <line class="dim" x1="380" y1="54" x2="540" y2="54"/>
+  <line class="dim" x1="380" y1="49" x2="380" y2="59"/>
+  <line class="dim" x1="540" y1="49" x2="540" y2="59"/>
+  <text class="code lbl" x="460" y="44" text-anchor="middle">width-dots</text>
+
+  <!-- length down the right -->
+  <line class="dim" x1="820" y1="70" x2="820" y2="830"/>
+  <line class="dim" x1="815" y1="70" x2="825" y2="70"/>
+  <line class="dim" x1="815" y1="830" x2="825" y2="830"/>
+  <text class="code lbl" x="838" y="450" transform="rotate(90 838 450)" text-anchor="middle">length-dots</text>
+
+  <!-- side margin arrows inside top logo -->
+  <line class="dim" x1="380" y1="120" x2="395" y2="120"/>
+  <line class="dim" x1="525" y1="120" x2="540" y2="120"/>
+
+  <!-- title -->
+  <text class="ttl" x="20" y="868">Wristband layout — element order top → bottom: logo · barcode · text · logo. (schematic, not to scale)</text>
+</svg>

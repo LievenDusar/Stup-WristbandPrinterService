@@ -13,6 +13,12 @@ printer:
   host: ${PRINTER_HOST:localhost}
   port: 9100
   timeout-ms: 5000
+  # Defensive: prepended to every job to wipe the printer's RAM drive (R:) before each label,
+  # guarding against object build-up that historically stalled the printer after a number of
+  # prints. Normally a no-op since images are sent inline (^GFA). Override clear-command if your
+  # printer model needs a different reset, or set clear-cache-enabled=false to disable.
+  clear-cache-enabled: true
+  clear-command: "^XA^IDR:*.*^FS^XZ"
 
 security:
   api-key: ${SECURITY_API_KEY}   # set via environment variable
