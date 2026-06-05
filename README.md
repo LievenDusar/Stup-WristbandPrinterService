@@ -231,41 +231,103 @@ registry pointing at `http://worker-3:8080`.
 
 `docker-compose.prod.yml` runs one **management** service (public, HTTPS) plus one **worker** per
 Zebra printer (internal HTTP). There is no database container — management connects to a dedicated
-`wristbands` database on the Symfony site's Postgres instance (remote).
+`wristbands` database on the Symfony site's Postgres instance (remote). Only management is published
+(HTTPS 8443) and holds the certificate + DB connection; workers are internal-only HTTP and need no
+certs or database. Management and every worker share the same `API_KEY`. Flyway runs once, in
+management, on startup.
 
-**Prerequisites:**
-1. A DBA creates an empty `wristbands` database + role on the prod Postgres (Flyway creates the
-   tables, not the database).
-2. `cp .env.example .env.prod` and fill in the values (each variable is documented in `.env.example`).
+Replace every **`[placeholder]`** below with your real value. The placeholders for each printer
+(`[printer-N-ip]`, `[printer-N-label]`) are the ones you fill in per Zebra.
 
-**Run:**
+**Prerequisites**
+
+- A DBA has created an empty `wristbands` database + role on the prod Postgres (Flyway creates the
+  tables, not the database).
+- Each Zebra is reachable from the server — verify with `ping [printer-1-ip]`.
+- The base image is built: `./build.sh`.
+
+**Step 1 — Configure secrets, the database, and the printer IPs (`.env.prod`)**
+
+```bash
+cp .env.example .env.prod
+```
+
+Edit `.env.prod` — one `PRINTERn_HOST` line per physical printer:
+
+```dotenv
+API_KEY=[strong-api-key]
+ADMIN_PASSWORD=[strong-admin-password]
+SSL_KEYSTORE_PASSWORD=[strong-keystore-password]
+MANAGEMENT_HOSTNAME=[hostname-symfony-connects-to]
+
+SPRING_DATASOURCE_URL=jdbc:postgresql://[db-host]:5432/wristbands
+DB_USERNAME=[db-user]
+DB_PASSWORD=[db-password]
+
+PRINTER1_HOST=[printer-1-ip]
+PRINTER2_HOST=[printer-2-ip]
+```
+
+**Step 2 — Declare one worker per printer (`docker-compose.prod.yml`)**
+
+`printer-worker-1` already exists. For each additional printer, uncomment/copy the
+`printer-worker-2` template and point it at that printer's `PRINTERn_HOST`:
+
+```yaml
+  printer-worker-2:
+    <<: *worker-base
+    environment:
+      SPRING_PROFILES_ACTIVE: worker
+      SECURITY_API_KEY: ${API_KEY}
+      PRINTER_HOST: ${PRINTER2_HOST}
+```
+
+Add each new worker to the management service's `depends_on` list.
+
+**Step 3 — Register the printers in management (`docker-compose.prod.yml`)**
+
+In the `management` service, edit `SPRING_APPLICATION_JSON` so the registry lists every worker.
+`id` is what Symfony sends as `printerId`, `display-name` is shown in the UI, and the `base-url`
+host **must** equal the worker's service name. Only `[printer-N-label]` is free text:
+
+```yaml
+      SPRING_APPLICATION_JSON: '{"cluster":{"printers":[{"id":"printer-1","display-name":"[printer-1-label]","base-url":"http://printer-worker-1:8080"},{"id":"printer-2","display-name":"[printer-2-label]","base-url":"http://printer-worker-2:8080"}]}}'
+```
+
+**Step 4 — Launch**
 
 ```bash
 ./build.sh
 docker compose -f docker-compose.prod.yml --env-file .env.prod up --build -d
-# https://<MANAGEMENT_HOSTNAME>:8443/actuator/health   (self-signed cert)
 ```
 
-Only management is published (HTTPS 8443) and holds the certificate + DB connection; workers are
-internal-only HTTP and need no certs or database. Management and every worker share the same
-`API_KEY`. Flyway runs once, in management, on startup.
+**Step 5 — Verify**
 
-### Adding a printer
+```bash
+# health (self-signed cert → -k)
+curl -fsk https://[management-hostname]:8443/actuator/health
 
-Two coordinated edits in `docker-compose.prod.yml`:
+# the registry lists every printer you configured
+curl -fsk https://[management-hostname]:8443/api/wristbands/printers \
+  -H "X-API-Key: [api-key]"
 
-1. **Add a worker** — copy the commented `printer-worker-2` template, give it a unique service name,
-   and point `PRINTER_HOST` at the new Zebra's IP (add `PRINTER2_HOST=…` to `.env.prod`).
-2. **Register it** — add a matching entry to the management `SPRING_APPLICATION_JSON` registry:
-   `{"id":"printer-2","display-name":"Inkom rechts","base-url":"http://printer-worker-2:8080"}`.
-   The `base-url` host **must** equal the worker's service name; `id` is what Symfony sends as `printerId`.
+# a test print to a specific printer
+curl -fsk -X POST https://[management-hostname]:8443/api/wristbands/print \
+  -H "X-API-Key: [api-key]" -H "Content-Type: application/json" \
+  -d '{"eventName":"Test","firstName":"Jan","lastName":"Janssen","associationName":"STUP","barcodeValue":"123","printerId":"printer-1"}'
+```
 
-Then redeploy (`up --build -d`). The new printer appears in `GET /api/wristbands/printers`, the
-jobs-page filter chips, and the reprint picker. Workers do **not** publish a host port and need no
-certificate.
+Then open `https://[management-hostname]:8443/jobs.html` (admin / your `ADMIN_PASSWORD`).
 
-> **Printer network access:** workers reach printers over the host network. Each Zebra must be
-> reachable from the server — verify with `ping <PRINTERn_HOST>` before deploying.
+**Adding another printer later** — repeat the same edits for the next index, then redeploy:
+
+1. `.env.prod`: add `PRINTER3_HOST=[printer-3-ip]`.
+2. `docker-compose.prod.yml`: add a `printer-worker-3` service (Step 2) and a registry entry
+   `{"id":"printer-3","display-name":"[printer-3-label]","base-url":"http://printer-worker-3:8080"}` (Step 3).
+3. `docker compose -f docker-compose.prod.yml --env-file .env.prod up --build -d`.
+
+The new printer then appears in `GET /api/wristbands/printers`, the jobs-page filter chips, and the
+reprint picker. Workers do **not** publish a host port and need no certificate.
 
 ### HTTPS and Symfony cert trust
 
