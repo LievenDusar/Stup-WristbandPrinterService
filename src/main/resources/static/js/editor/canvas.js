@@ -60,6 +60,11 @@ export function initCanvas(containerId, selectHandler) {
     }
   });
 
+  // Center-snapping: drag events bubble to the layer, so one pair of listeners
+  // covers every draggable node (leaves + groups), however it was created.
+  layer.on('dragmove', (e) => applySnap(outermost(e.target)));
+  layer.on('dragend', hideGuides);
+
   resize(canvasDots);
 }
 
@@ -86,6 +91,44 @@ export function getCanvasDots() { return { ...canvasDots }; }
 export function getScale() { return scale; }
 export function getSelection() { return selection.slice(); }
 export { layer, tr };
+
+// Enable/disable center snapping. Disabling clears any guideline left on screen.
+export function setSnapToCenter(enabled) {
+  snapEnabled = enabled;
+  if (!enabled) hideGuides();
+}
+
+function hideGuides() {
+  if (vGuide) vGuide.visible(false);
+  if (hGuide) hGuide.visible(false);
+}
+
+// Snap the dragged node's bbox center onto a canvas centerline (each axis independent).
+// Reveals the matching dashed guide while snapped; called on every dragmove.
+function applySnap(node) {
+  if (!snapEnabled) return;
+  const r = node.getClientRect({ relativeTo: layer, skipStroke: true });
+  const nodeCenterX = r.x + r.width / 2;
+  const nodeCenterY = r.y + r.height / 2;
+  const canvasCenterX = stage.width() / 2;
+  const canvasCenterY = stage.height() / 2;
+
+  if (Math.abs(nodeCenterX - canvasCenterX) < SNAP_THRESHOLD) {
+    node.x(node.x() + (canvasCenterX - nodeCenterX));
+    vGuide.visible(true); vGuide.moveToTop();
+  } else {
+    vGuide.visible(false);
+  }
+
+  if (Math.abs(nodeCenterY - canvasCenterY) < SNAP_THRESHOLD) {
+    node.y(node.y() + (canvasCenterY - nodeCenterY));
+    hGuide.visible(true); hGuide.moveToTop();
+  } else {
+    hGuide.visible(false);
+  }
+
+  layer.batchDraw();
+}
 
 // ---- node helpers --------------------------------------------------------
 
