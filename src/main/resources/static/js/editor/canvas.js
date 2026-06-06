@@ -3,7 +3,10 @@ import { nextId } from './state.js';
 const Konva = window.Konva;
 
 const MAX_DISPLAY_HEIGHT = 720;
+const SNAP_THRESHOLD = 10; // screen pixels — distance at which the center locks to a centerline
 let stage, layer, tr, bg;
+let vGuide, hGuide;        // dashed centerline guides (Konva.Line), hidden unless actively snapped
+let snapEnabled = false;
 let scale = 1;
 let canvasDots = { widthDots: 330, lengthDots: 3300, dpi: 300 };
 let onSelect = () => {};
@@ -31,6 +34,13 @@ export function initCanvas(containerId, selectHandler) {
     enabledAnchors: ['top-left', 'top-right', 'bottom-left', 'bottom-right'] });
   layer.add(tr);
 
+  // Dashed center guides. Non-interactive and hidden; revealed only while a drag is snapped.
+  // moveToTop() in applySnap() keeps them above content (content nodes are added later).
+  const guideStyle = { stroke: '#ff3399', strokeWidth: 1, dash: [6, 4], listening: false, visible: false };
+  vGuide = new Konva.Line({ ...guideStyle }); // vertical line  → X-axis (horizontal-center) snap
+  hGuide = new Konva.Line({ ...guideStyle }); // horizontal line → Y-axis (vertical-center) snap
+  layer.add(vGuide, hGuide);
+
   stage.on('click tap', (e) => {
     if (e.target === bg || e.target === stage) { setSelection([]); return; }
     const node = outermost(e.target);
@@ -56,10 +66,17 @@ export function initCanvas(containerId, selectHandler) {
 export function resize(dots) {
   canvasDots = { ...dots };
   scale = Math.min(MAX_DISPLAY_HEIGHT / dots.lengthDots, 2);
-  stage.width(dots.widthDots * scale);
-  stage.height(dots.lengthDots * scale);
-  bg.width(dots.widthDots * scale);
-  bg.height(dots.lengthDots * scale);
+  const w = dots.widthDots * scale, h = dots.lengthDots * scale;
+  stage.width(w);
+  stage.height(h);
+  bg.width(w);
+  bg.height(h);
+  // Guides span the full canvas through the exact center of each axis.
+  // Guard: resize() runs once at the end of initCanvas, after the guides are created above.
+  if (vGuide) {
+    vGuide.points([w / 2, 0, w / 2, h]);
+    hGuide.points([0, h / 2, w, h / 2]);
+  }
   applyLayout();
   layer.draw();
 }
@@ -73,7 +90,8 @@ export { layer, tr };
 // ---- node helpers --------------------------------------------------------
 
 function contentNodes() {
-  return layer.getChildren(n => n !== bg && n.className !== 'Transformer');
+  return layer.getChildren(n =>
+    n !== bg && n !== vGuide && n !== hGuide && n.className !== 'Transformer');
 }
 function isGroup(n) { return n.getAttr('elType') === 'GROUP'; }
 function outermost(node) {
