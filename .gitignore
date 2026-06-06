@@ -32,3 +32,6 @@ Thumbs.db
 # Local scratch / smoke-test images
 wristband.png
 wristband copy*.png
+
+# Superpowers brainstorm/visual-companion scratch
+.superpowers/
