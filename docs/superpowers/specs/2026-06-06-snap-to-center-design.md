@@ -54,7 +54,7 @@ Minimal styling (matches the existing `muted` label style used for W/L/DPI input
 | File | Change |
 |------|--------|
 | `src/main/resources/static/template-editor.html` | Add checkbox label in Arrange section |
-| `src/main/resources/static/js/editor/canvas.js` | Add snap state, dashed guideline nodes, shared `applySnap`, leaf + group wiring |
+| `src/main/resources/static/js/editor/canvas.js` | Add snap state, dashed guideline nodes, shared `applySnap`, layer-level drag delegation, `contentNodes()` exclusion, resize repositioning |
 | `src/main/resources/static/js/editor/main.js` | Wire checkbox to canvas |
 
 No backend changes. No new files.
@@ -149,24 +149,14 @@ A single function used by both leaf nodes and groups. On every `dragmove` while 
 
 When `snapEnabled` is false, `applySnap` returns immediately (and guides stay hidden).
 
-**Wiring on leaf nodes (`wireLeaf`):**
+**Wiring via event delegation (`initCanvas`):**
 
-Add alongside the existing `transformend dragend` listener:
+Konva drag events **bubble** from the dragged node up to the layer. A single pair of layer-level listeners therefore catches **every** dragged node — leaf elements, groups loaded from a template, *and* groups created at runtime via the Group button — with no per-node wiring. Register them once in `initCanvas`:
 ```js
-node.on('dragmove', () => applySnap(node));
-node.on('dragend', hideGuides);
+layer.on('dragmove', (e) => applySnap(outermost(e.target)));
+layer.on('dragend', hideGuides);
 ```
-
-**Wiring on groups (`buildNode`):**
-
-Groups are draggable when `parent === layer` but are **not** routed through `wireLeaf`, so they currently get no snap behaviour. After creating a top-level group, attach the same handlers:
-```js
-if (parent === layer) {
-  node.on('dragmove', () => applySnap(node));
-  node.on('dragend', hideGuides);
-}
-```
-This satisfies R9 — groups snap and show guidelines exactly like leaf elements. (The existing "Center on band" button already centers groups via `centerSelectedOnBand`; this adds the drag-snap path.)
+`outermost(e.target)` resolves to the top-level node being dragged (group members are non-draggable, so `e.target` is already top-level; `outermost` is belt-and-braces). This satisfies R9 — groups snap and show guidelines exactly like leaf elements, regardless of how they were created. The existing "Center on band" button already centers groups via `centerSelectedOnBand`; this adds the drag-snap path. No changes to `wireLeaf`, `buildNode`, or `groupops.js` are needed.
 
 **Why `node.x/y` delta correction works:**
 `getClientRect` returns the bbox in layer coordinates (pixels). The difference between current center and canvas center gives the exact pixel offset to add to `node.x()/node.y()` to bring the center onto the centerline. This works for rotated nodes and for groups because `getClientRect` returns the axis-aligned bbox of the whole node/subtree.
@@ -199,7 +189,7 @@ Import `setSnapToCenter` from `canvas.js`.
 | Toggle turned off mid-session | `setSnapToCenter(false)` calls `hideGuides()` so no line is left on screen |
 | Drag ends while snapped | `dragend` → `hideGuides()` removes the guideline(s) |
 | Element larger than canvas | Snap still fires when the element's *center* aligns, even if edges overflow |
-| Group dragged | Works identically — `applySnap` is wired to top-level groups; `getClientRect` returns the group's composite bbox |
+| Group dragged (loaded or created via Group button) | Works identically — the layer-level `dragmove` listener catches every dragged node; `getClientRect` returns the group's composite bbox |
 | Element already centered | No movement; the correction delta is ~0; guideline still shows (it is centered) |
 | Canvas resized (W/L/DPI change) | Guideline `points()` are recomputed in `resize()` so lines stay centered |
 | Snap + transform (resize/rotate) | Snap only fires on `dragmove`, not on `transform` — resize/rotate are unaffected |
