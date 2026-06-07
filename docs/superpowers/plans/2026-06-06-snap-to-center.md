@@ -415,3 +415,322 @@ docker compose -f docker-compose.local-cluster.yml down
 - **Spec coverage:** R1/R2/R3 (independent per-axis center snap) → Task 3 `applySnap`. R4 (10px magnetic) → `SNAP_THRESHOLD`. R5/R6 (dashed guide only while snapped) → guide nodes (Task 2) + visibility toggle + `dragend`/`setSnapToCenter(false)` hiding (Task 3). R7 (checkbox, default off) → Task 1 + `snapEnabled = false`. R8 (session-only) → no persistence anywhere. R9 (leaves + groups) → layer-level delegation (Task 3 Step 2), verified Task 5 Step 5. R10 (fires on every dragmove) → `layer.on('dragmove')`.
 - **Guides excluded from serialization** → Task 2 Step 4, verified Task 5 Step 7.
 - **No placeholders, consistent names:** `vGuide`/`hGuide`/`applySnap`/`hideGuides`/`setSnapToCenter`/`SNAP_THRESHOLD` used identically across all tasks.
+
+---
+
+# Quarter-line snap extension (added 2026-06-07)
+
+**Goal:** Add a second independent "Snap to quarters" checkbox that snaps the element's center to the 25%/75% lines on each axis, with subtle slate-blue dashed guides. Refactors the center-snap code (Tasks 1–4, already implemented) into a data-driven multi-line model.
+
+**Covers spec requirements R11–R14.** Builds on the implemented center-snap code in the worktree.
+
+> Each step replaces the exact center-snap code from Tasks 2–4 with the generalized version. After Task E1 the center snap still behaves identically (it becomes the 50% candidate); Tasks E2–E3 add the quarter lines and checkbox.
+
+## Task E1: Generalize canvas.js to data-driven multi-line snapping
+
+**Files:**
+- Modify: `src/main/resources/static/js/editor/canvas.js`
+
+- [ ] **Step 1: Replace the module-level snap state**
+
+Find:
+```js
+const SNAP_THRESHOLD = 10; // screen pixels — distance at which the center locks to a centerline
+let stage, layer, tr, bg;
+let vGuide, hGuide;        // dashed centerline guides (Konva.Line), hidden unless actively snapped
+let snapEnabled = false;
+```
+
+Replace with:
+```js
+const SNAP_THRESHOLD = 10; // screen pixels — distance at which the center locks to a guide line
+const QUARTER_STROKE = '#9bb0c9'; // subtle slate-blue for quarter guides (center stays pink)
+let stage, layer, tr, bg;
+let vGuide, hGuide, vQ1, vQ2, hQ1, hQ2; // dashed guides (Konva.Line); hidden unless actively snapped
+let vGuides = [], hGuides = [];          // candidate lists: { frac, line } per axis
+let snapEnabled = false;        // "Snap to center" (50%)
+let quarterSnapEnabled = false; // "Snap to quarters" (25% / 75%)
+```
+
+- [ ] **Step 2: Create all six guides and the candidate arrays in `initCanvas`**
+
+Find:
+```js
+  // Dashed center guides. Non-interactive and hidden; revealed only while a drag is snapped.
+  // moveToTop() in applySnap() keeps them above content (content nodes are added later).
+  const guideStyle = { stroke: '#ff3399', strokeWidth: 1, dash: [6, 4], listening: false, visible: false };
+  vGuide = new Konva.Line({ ...guideStyle }); // vertical line  → X-axis (horizontal-center) snap
+  hGuide = new Konva.Line({ ...guideStyle }); // horizontal line → Y-axis (vertical-center) snap
+  layer.add(vGuide, hGuide);
+```
+
+Replace with:
+```js
+  // Dashed snap guides. Non-interactive and hidden; revealed only while a drag is snapped.
+  // moveToTop() in snapAxis() keeps them above content (content nodes are added later).
+  // isGuide marks them so contentNodes() never serializes or destroys them.
+  const base = { strokeWidth: 1, dash: [6, 4], listening: false, visible: false, isGuide: true };
+  const pink = { ...base, stroke: '#ff3399' };       // center (primary)
+  const slate = { ...base, stroke: QUARTER_STROKE }; // quarters (subtle)
+  vGuide = new Konva.Line({ ...pink });  hGuide = new Konva.Line({ ...pink });
+  vQ1 = new Konva.Line({ ...slate });    vQ2 = new Konva.Line({ ...slate });
+  hQ1 = new Konva.Line({ ...slate });    hQ2 = new Konva.Line({ ...slate });
+  layer.add(vGuide, hGuide, vQ1, vQ2, hQ1, hQ2);
+  // Vertical lines snap the X axis; horizontal lines snap the Y axis. 0.5 = center, 0.25/0.75 = quarters.
+  vGuides = [{ frac: 0.5, line: vGuide }, { frac: 0.25, line: vQ1 }, { frac: 0.75, line: vQ2 }];
+  hGuides = [{ frac: 0.5, line: hGuide }, { frac: 0.25, line: hQ1 }, { frac: 0.75, line: hQ2 }];
+```
+
+- [ ] **Step 3: Make `resize` data-driven**
+
+Find:
+```js
+  // Guides span the full canvas through the exact center of each axis.
+  // Guard: resize() runs once at the end of initCanvas, after the guides are created above.
+  if (vGuide) {
+    vGuide.points([w / 2, 0, w / 2, h]);
+    hGuide.points([0, h / 2, w, h / 2]);
+  }
+```
+
+Replace with:
+```js
+  // Position every guide from its fractional location. Guard: resize() runs once at the
+  // end of initCanvas, after the candidate arrays are populated above.
+  if (vGuides.length) {
+    vGuides.forEach(g => g.line.points([g.frac * w, 0, g.frac * w, h]));
+    hGuides.forEach(g => g.line.points([0, g.frac * h, w, g.frac * h]));
+  }
+```
+
+- [ ] **Step 4: Exclude guides by marker in `contentNodes`**
+
+Find:
+```js
+function contentNodes() {
+  return layer.getChildren(n =>
+    n !== bg && n !== vGuide && n !== hGuide && n.className !== 'Transformer');
+}
+```
+
+Replace with:
+```js
+function contentNodes() {
+  return layer.getChildren(n =>
+    n !== bg && !n.getAttr('isGuide') && n.className !== 'Transformer');
+}
+```
+
+- [ ] **Step 5: Replace `setSnapToCenter` / `hideGuides` / `applySnap` with the generalized versions**
+
+Find the whole block:
+```js
+// Enable/disable center snapping. Disabling clears any guideline left on screen.
+export function setSnapToCenter(enabled) {
+  snapEnabled = enabled;
+  if (!enabled) hideGuides();
+}
+
+function hideGuides() {
+  if (vGuide) vGuide.visible(false);
+  if (hGuide) hGuide.visible(false);
+}
+
+// Snap the dragged node's bbox center onto a canvas centerline (each axis independent).
+// Reveals the matching dashed guide while snapped; called on every dragmove.
+function applySnap(node) {
+  if (!snapEnabled) return;
+  const r = node.getClientRect({ relativeTo: layer, skipStroke: true });
+  const nodeCenterX = r.x + r.width / 2;
+  const nodeCenterY = r.y + r.height / 2;
+  const canvasCenterX = stage.width() / 2;
+  const canvasCenterY = stage.height() / 2;
+
+  if (Math.abs(nodeCenterX - canvasCenterX) < SNAP_THRESHOLD) {
+    node.x(node.x() + (canvasCenterX - nodeCenterX));
+    vGuide.visible(true); vGuide.moveToTop();
+  } else {
+    vGuide.visible(false);
+  }
+
+  if (Math.abs(nodeCenterY - canvasCenterY) < SNAP_THRESHOLD) {
+    node.y(node.y() + (canvasCenterY - nodeCenterY));
+    hGuide.visible(true); hGuide.moveToTop();
+  } else {
+    hGuide.visible(false);
+  }
+
+  layer.batchDraw();
+}
+```
+
+Replace with:
+```js
+// Enable/disable center (50%) snapping. Disabling clears any guide left on screen.
+export function setSnapToCenter(enabled) {
+  snapEnabled = enabled;
+  if (!enabled) hideGuides();
+}
+
+// Enable/disable quarter (25% / 75%) snapping. Disabling clears any guide left on screen.
+export function setSnapToQuarters(enabled) {
+  quarterSnapEnabled = enabled;
+  if (!enabled) hideGuides();
+}
+
+function hideGuides() {
+  [...vGuides, ...hGuides].forEach(g => g.line && g.line.visible(false));
+}
+
+// Is the line at this fraction currently active? 0.5 = center toggle, else quarter toggle.
+function enabledFrac(frac) {
+  return frac === 0.5 ? snapEnabled : quarterSnapEnabled;
+}
+
+// Snap one axis: pick the nearest ENABLED candidate line within threshold, move the node's
+// center onto it, show only that line (hide the rest on this axis). Each axis is independent.
+function snapAxis(node, guides, size, center, axis) {
+  let best = null, bestDist = SNAP_THRESHOLD;
+  for (const g of guides) {
+    if (!enabledFrac(g.frac)) continue;
+    const dist = Math.abs(center - g.frac * size);
+    if (dist < bestDist) { bestDist = dist; best = g; }
+  }
+  for (const g of guides) {
+    const on = g === best;
+    if (on) {
+      const target = g.frac * size;
+      if (axis === 'x') node.x(node.x() + (target - center));
+      else              node.y(node.y() + (target - center));
+      g.line.moveToTop();
+    }
+    g.line.visible(on);
+  }
+}
+
+// Snap the dragged node's bbox center to the nearest active guide on each axis.
+// Reveals the matching dashed guide while snapped; called on every dragmove.
+function applySnap(node) {
+  if (!snapEnabled && !quarterSnapEnabled) return;
+  const r = node.getClientRect({ relativeTo: layer, skipStroke: true });
+  snapAxis(node, vGuides, stage.width(),  r.x + r.width  / 2, 'x');
+  snapAxis(node, hGuides, stage.height(), r.y + r.height / 2, 'y');
+  layer.batchDraw();
+}
+```
+
+- [ ] **Step 6: Syntax check**
+
+Run: `node --check --input-type=module < src/main/resources/static/js/editor/canvas.js`
+Expected: `SYNTAX OK` (exit 0, no output).
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add src/main/resources/static/js/editor/canvas.js
+git commit -m "feat(editor): generalize snap to multi-line + add quarter (25/75%) guides"
+```
+
+## Task E2: Add the "Snap to quarters" checkbox
+
+**Files:**
+- Modify: `src/main/resources/static/template-editor.html`
+
+- [ ] **Step 1: Add the checkbox below "Snap to center"**
+
+Find:
+```html
+        <label class="muted" style="display:flex;align-items:center;gap:6px;margin-top:8px">
+          <input type="checkbox" id="snap-center"> Snap to center
+        </label>
+        <h3 style="margin-top:16px">Logo</h3>
+```
+
+Replace with:
+```html
+        <label class="muted" style="display:flex;align-items:center;gap:6px;margin-top:8px">
+          <input type="checkbox" id="snap-center"> Snap to center
+        </label>
+        <label class="muted" style="display:flex;align-items:center;gap:6px;margin-top:6px">
+          <input type="checkbox" id="snap-quarters"> Snap to quarters
+        </label>
+        <h3 style="margin-top:16px">Logo</h3>
+```
+
+- [ ] **Step 2: Commit**
+
+```bash
+git add src/main/resources/static/template-editor.html
+git commit -m "feat(editor): add 'Snap to quarters' checkbox to toolbox"
+```
+
+## Task E3: Wire the quarter checkbox in main.js
+
+**Files:**
+- Modify: `src/main/resources/static/js/editor/main.js`
+
+- [ ] **Step 1: Import `setSnapToQuarters`**
+
+Find:
+```js
+import { initCanvas, deleteSelected, setSnapToCenter } from './canvas.js';
+```
+
+Replace with:
+```js
+import { initCanvas, deleteSelected, setSnapToCenter, setSnapToQuarters } from './canvas.js';
+```
+
+- [ ] **Step 2: Add the change listener**
+
+Find:
+```js
+  document.getElementById('snap-center').addEventListener('change',
+    (e) => setSnapToCenter(e.target.checked));
+```
+
+Replace with:
+```js
+  document.getElementById('snap-center').addEventListener('change',
+    (e) => setSnapToCenter(e.target.checked));
+  document.getElementById('snap-quarters').addEventListener('change',
+    (e) => setSnapToQuarters(e.target.checked));
+```
+
+- [ ] **Step 3: Syntax check + commit**
+
+```bash
+node --check --input-type=module < src/main/resources/static/js/editor/main.js
+git add src/main/resources/static/js/editor/main.js
+git commit -m "feat(editor): wire 'Snap to quarters' checkbox to canvas"
+```
+
+## Task E4: Rebuild and verify
+
+- [ ] **Step 1: Rebuild the running cluster from the worktree**
+
+```bash
+docker compose -p stup-wristbandprinterservice -f docker-compose.local-cluster.yml up --build -d
+```
+
+- [ ] **Step 2: Confirm served code includes the quarter feature**
+
+```bash
+curl -s http://localhost:8080/template-editor.html | grep -c 'snap-quarters'   # expect 1
+curl -s http://localhost:8080/js/editor/canvas.js   | grep -c 'setSnapToQuarters' # expect >= 1
+curl -s http://localhost:8080/js/editor/main.js     | grep -c 'setSnapToQuarters' # expect 2
+```
+
+- [ ] **Step 3: Manual checks (browser, http://localhost:8080/template-editor.html)**
+  - Check **Snap to quarters** only → drag an element; its center snaps to the ¼ and ¾ lines on each axis with **slate-blue** dashed guides; nothing snaps at 50%.
+  - Check **both** toggles → near center the **pink** 50% line wins; near a quarter the **slate** line wins; only one line per axis shows.
+  - Uncheck **Snap to quarters** mid-session → quarter snapping stops, no slate line lingers; center snap (if still checked) still works.
+  - Save + reload a template → no stray guide elements (the `isGuide` exclusion holds for all six lines).
+
+## Extension Self-Review Notes
+
+- **R11** (quarter checkbox, both axes, 4 lines, session-only) → E2 + `quarterSnapEnabled=false` + `vGuides/hGuides` 0.25/0.75 entries.
+- **R12** (dashed, only-while-snapped, hide on release/off) → `snapAxis` visibility + `dragend`→`hideGuides` (unchanged) + `setSnapToQuarters(false)`→`hideGuides`.
+- **R13** (subtle colour) → `QUARTER_STROKE = '#9bb0c9'`.
+- **R14** (independent toggles, nearest-active-line-per-axis, one line per axis) → `enabledFrac` + nearest-within-threshold loop in `snapAxis`.
+- **Names consistent:** `vGuides`/`hGuides`/`snapAxis`/`enabledFrac`/`setSnapToQuarters`/`QUARTER_STROKE`/`isGuide` used identically across tasks and spec.
