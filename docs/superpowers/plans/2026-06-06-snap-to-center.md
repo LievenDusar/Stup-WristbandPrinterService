@@ -727,6 +727,50 @@ curl -s http://localhost:8080/js/editor/main.js     | grep -c 'setSnapToQuarters
   - Uncheck **Snap to quarters** mid-session → quarter snapping stops, no slate line lingers; center snap (if still checked) still works.
   - Save + reload a template → no stray guide elements (the `isGuide` exclusion holds for all six lines).
 
+## Task E5: Fix — skip Transformer anchor drags (rotate/resize bug)
+
+**Bug:** With snapping on, rotating an object 90°/270° snaps it to the wrong place. **Root cause (confirmed empirically with a standalone Konva harness):** the Transformer's resize/rotate anchors are draggable; their `dragmove` bubbles to `layer.on('dragmove')`; `outermost(e.target)` resolves to the **Transformer**, whose `getClientRect()` includes the rotater handle (measured +25px horizontal center offset at 90°). `applySnap` then snapped that inflated box. Content nodes carry `elType`; the Transformer does not.
+
+**Files:**
+- Modify: `src/main/resources/static/js/editor/canvas.js`
+
+- [ ] **Step 1: Guard the dragmove listener to content nodes only**
+
+Find:
+```js
+  // Center-snapping: drag events bubble to the layer, so one pair of listeners
+  // covers every draggable node (leaves + groups), however it was created.
+  layer.on('dragmove', (e) => applySnap(outermost(e.target)));
+  layer.on('dragend', hideGuides);
+```
+
+Replace with:
+```js
+  // Center-snapping: drag events bubble to the layer, so one pair of listeners
+  // covers every draggable node (leaves + groups), however it was created.
+  // Guard: the Transformer's resize/rotate anchors are draggable too and bubble
+  // dragmove here; their outermost() is the Transformer, whose bbox includes the
+  // rotater handle. Only snap real content nodes (they carry elType) so a
+  // rotate/resize never snaps the transformer's inflated box.
+  layer.on('dragmove', (e) => {
+    const node = outermost(e.target);
+    if (node.getAttr('elType')) applySnap(node);
+  });
+  layer.on('dragend', hideGuides);
+```
+
+- [ ] **Step 2: Syntax check + commit**
+
+```bash
+node --check --input-type=module < src/main/resources/static/js/editor/canvas.js
+git add src/main/resources/static/js/editor/canvas.js
+git commit -m "fix(editor): don't snap Transformer anchor drags (rotate/resize)"
+```
+
+- [ ] **Step 3: Verify in the app**
+  - Rebuild (Task E4 Step 1), hard-refresh the editor.
+  - Add a text block, rotate it 90°, enable Snap to quarters, drag it: it now snaps by the **object's** center (not the rotater-inflated box). Rotate to 270° and repeat. Resizing via corner anchors is likewise unaffected by snapping.
+
 ## Extension Self-Review Notes
 
 - **R11** (quarter checkbox, both axes, 4 lines, session-only) → E2 + `quarterSnapEnabled=false` + `vGuides/hGuides` 0.25/0.75 entries.

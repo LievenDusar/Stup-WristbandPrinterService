@@ -170,10 +170,15 @@ When `snapEnabled` is false, `applySnap` returns immediately (and guides stay hi
 
 Konva drag events **bubble** from the dragged node up to the layer. A single pair of layer-level listeners therefore catches **every** dragged node — leaf elements, groups loaded from a template, *and* groups created at runtime via the Group button — with no per-node wiring. Register them once in `initCanvas`:
 ```js
-layer.on('dragmove', (e) => applySnap(outermost(e.target)));
+layer.on('dragmove', (e) => {
+  const node = outermost(e.target);
+  if (node.getAttr('elType')) applySnap(node); // content nodes only (see guard below)
+});
 layer.on('dragend', hideGuides);
 ```
 `outermost(e.target)` resolves to the top-level node being dragged (group members are non-draggable, so `e.target` is already top-level; `outermost` is belt-and-braces). This satisfies R9 — groups snap and show guidelines exactly like leaf elements, regardless of how they were created. The existing "Center on band" button already centers groups via `centerSelectedOnBand`; this adds the drag-snap path. No changes to `wireLeaf`, `buildNode`, or `groupops.js` are needed.
+
+**Guard — skip Transformer anchor drags.** The Konva `Transformer`'s resize/rotate **anchors are draggable nodes**, and their `dragmove` events also bubble to the layer. For such an event `outermost(e.target)` walks up to the **Transformer**, whose `getClientRect()` includes the **rotater handle** that sticks out beyond the object (measured ~25px horizontal offset at 90°/270°). Without a guard, `applySnap` would snap that inflated box during a rotate/resize, yanking the object to a wrong center. Every real content node (leaf or group) carries an `elType` attr; the Transformer and its anchors do not. So the listener only calls `applySnap` when `node.getAttr('elType')` is set. This fixes erratic snapping while rotating **and** the same latent issue during resize.
 
 **Why `node.x/y` delta correction works:**
 `getClientRect` returns the bbox in layer coordinates (pixels). The difference between current center and canvas center gives the exact pixel offset to add to `node.x()/node.y()` to bring the center onto the centerline. This works for rotated nodes and for groups because `getClientRect` returns the axis-aligned bbox of the whole node/subtree.
@@ -289,7 +294,7 @@ document.getElementById('snap-quarters').addEventListener('change',
 | Group dragged (loaded or created via Group button) | Works identically — the layer-level `dragmove` listener catches every dragged node; `getClientRect` returns the group's composite bbox |
 | Element already centered | No movement; the correction delta is ~0; guideline still shows (it is centered) |
 | Canvas resized (W/L/DPI change) | All six guideline `points()` are recomputed in `resize()` from each line's `frac` so they stay correctly placed |
-| Snap + transform (resize/rotate) | Snap only fires on `dragmove`, not on `transform` — resize/rotate are unaffected |
+| Snap during resize/rotate (Transformer anchors) | Anchor drags bubble `dragmove`, but `outermost` is the Transformer (no `elType`), so the `elType` guard skips them — the object is not snapped to the transformer's inflated bbox. Verified empirically: at 90° the transformer center is +25px off the object center. |
 | Both toggles on, object near center | Each axis snaps to the **nearest** active line; near 50% the center (pink) wins, near a quarter the slate line wins; only one line shows per axis |
 | Quarter toggle off mid-snap | `setSnapToQuarters(false)` → `hideGuides()` clears any visible line; next `dragmove` re-evaluates with only the still-enabled lines |
 | Both toggles off | `applySnap` early-returns; no snapping, no lines |
