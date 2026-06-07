@@ -72,7 +72,14 @@ export function initCanvas(containerId, selectHandler) {
 
   // Center-snapping: drag events bubble to the layer, so one pair of listeners
   // covers every draggable node (leaves + groups), however it was created.
-  layer.on('dragmove', (e) => applySnap(outermost(e.target)));
+  // Guard: the Transformer's resize/rotate anchors are draggable too and bubble
+  // dragmove here; their outermost() is the Transformer, whose bbox includes the
+  // rotater handle. Only snap real content nodes (they carry elType) so a
+  // rotate/resize never snaps the transformer's inflated box.
+  layer.on('dragmove', (e) => {
+    const node = outermost(e.target);
+    if (node.getAttr('elType')) applySnap(node);
+  });
   layer.on('dragend', hideGuides);
 
   resize(canvasDots);
