@@ -3,10 +3,13 @@ import { nextId } from './state.js';
 const Konva = window.Konva;
 
 const MAX_DISPLAY_HEIGHT = 720;
-const SNAP_THRESHOLD = 10; // screen pixels — distance at which the center locks to a centerline
+const SNAP_THRESHOLD = 10; // screen pixels — distance at which the center locks to a guide line
+const QUARTER_STROKE = '#9bb0c9'; // subtle slate-blue for quarter guides (center stays pink)
 let stage, layer, tr, bg;
-let vGuide, hGuide;        // dashed centerline guides (Konva.Line), hidden unless actively snapped
-let snapEnabled = false;
+let vGuide, hGuide, vQ1, vQ2, hQ1, hQ2; // dashed guides (Konva.Line); hidden unless actively snapped
+let vGuides = [], hGuides = [];          // candidate lists: { frac, line } per axis
+let snapEnabled = false;        // "Snap to center" (50%)
+let quarterSnapEnabled = false; // "Snap to quarters" (25% / 75%)
 let scale = 1;
 let canvasDots = { widthDots: 330, lengthDots: 3300, dpi: 300 };
 let onSelect = () => {};
@@ -34,12 +37,19 @@ export function initCanvas(containerId, selectHandler) {
     enabledAnchors: ['top-left', 'top-right', 'bottom-left', 'bottom-right'] });
   layer.add(tr);
 
-  // Dashed center guides. Non-interactive and hidden; revealed only while a drag is snapped.
-  // moveToTop() in applySnap() keeps them above content (content nodes are added later).
-  const guideStyle = { stroke: '#ff3399', strokeWidth: 1, dash: [6, 4], listening: false, visible: false };
-  vGuide = new Konva.Line({ ...guideStyle }); // vertical line  → X-axis (horizontal-center) snap
-  hGuide = new Konva.Line({ ...guideStyle }); // horizontal line → Y-axis (vertical-center) snap
-  layer.add(vGuide, hGuide);
+  // Dashed snap guides. Non-interactive and hidden; revealed only while a drag is snapped.
+  // moveToTop() in snapAxis() keeps them above content (content nodes are added later).
+  // isGuide marks them so contentNodes() never serializes or destroys them.
+  const base = { strokeWidth: 1, dash: [6, 4], listening: false, visible: false, isGuide: true };
+  const pink = { ...base, stroke: '#ff3399' };       // center (primary)
+  const slate = { ...base, stroke: QUARTER_STROKE }; // quarters (subtle)
+  vGuide = new Konva.Line({ ...pink });  hGuide = new Konva.Line({ ...pink });
+  vQ1 = new Konva.Line({ ...slate });    vQ2 = new Konva.Line({ ...slate });
+  hQ1 = new Konva.Line({ ...slate });    hQ2 = new Konva.Line({ ...slate });
+  layer.add(vGuide, hGuide, vQ1, vQ2, hQ1, hQ2);
+  // Vertical lines snap the X axis; horizontal lines snap the Y axis. 0.5 = center, 0.25/0.75 = quarters.
+  vGuides = [{ frac: 0.5, line: vGuide }, { frac: 0.25, line: vQ1 }, { frac: 0.75, line: vQ2 }];
+  hGuides = [{ frac: 0.5, line: hGuide }, { frac: 0.25, line: hQ1 }, { frac: 0.75, line: hQ2 }];
 
   stage.on('click tap', (e) => {
     if (e.target === bg || e.target === stage) { setSelection([]); return; }
@@ -76,11 +86,11 @@ export function resize(dots) {
   stage.height(h);
   bg.width(w);
   bg.height(h);
-  // Guides span the full canvas through the exact center of each axis.
-  // Guard: resize() runs once at the end of initCanvas, after the guides are created above.
-  if (vGuide) {
-    vGuide.points([w / 2, 0, w / 2, h]);
-    hGuide.points([0, h / 2, w, h / 2]);
+  // Position every guide from its fractional location. Guard: resize() runs once at the
+  // end of initCanvas, after the candidate arrays are populated above.
+  if (vGuides.length) {
+    vGuides.forEach(g => g.line.points([g.frac * w, 0, g.frac * w, h]));
+    hGuides.forEach(g => g.line.points([0, g.frac * h, w, g.frac * h]));
   }
   applyLayout();
   layer.draw();
@@ -92,41 +102,55 @@ export function getScale() { return scale; }
 export function getSelection() { return selection.slice(); }
 export { layer, tr };
 
-// Enable/disable center snapping. Disabling clears any guideline left on screen.
+// Enable/disable center (50%) snapping. Disabling clears any guide left on screen.
 export function setSnapToCenter(enabled) {
   snapEnabled = enabled;
   if (!enabled) hideGuides();
 }
 
-function hideGuides() {
-  if (vGuide) vGuide.visible(false);
-  if (hGuide) hGuide.visible(false);
+// Enable/disable quarter (25% / 75%) snapping. Disabling clears any guide left on screen.
+export function setSnapToQuarters(enabled) {
+  quarterSnapEnabled = enabled;
+  if (!enabled) hideGuides();
 }
 
-// Snap the dragged node's bbox center onto a canvas centerline (each axis independent).
+function hideGuides() {
+  [...vGuides, ...hGuides].forEach(g => g.line && g.line.visible(false));
+}
+
+// Is the line at this fraction currently active? 0.5 = center toggle, else quarter toggle.
+function enabledFrac(frac) {
+  return frac === 0.5 ? snapEnabled : quarterSnapEnabled;
+}
+
+// Snap one axis: pick the nearest ENABLED candidate line within threshold, move the node's
+// center onto it, show only that line (hide the rest on this axis). Each axis is independent.
+function snapAxis(node, guides, size, center, axis) {
+  let best = null, bestDist = SNAP_THRESHOLD;
+  for (const g of guides) {
+    if (!enabledFrac(g.frac)) continue;
+    const dist = Math.abs(center - g.frac * size);
+    if (dist < bestDist) { bestDist = dist; best = g; }
+  }
+  for (const g of guides) {
+    const on = g === best;
+    if (on) {
+      const target = g.frac * size;
+      if (axis === 'x') node.x(node.x() + (target - center));
+      else              node.y(node.y() + (target - center));
+      g.line.moveToTop();
+    }
+    g.line.visible(on);
+  }
+}
+
+// Snap the dragged node's bbox center to the nearest active guide on each axis.
 // Reveals the matching dashed guide while snapped; called on every dragmove.
 function applySnap(node) {
-  if (!snapEnabled) return;
+  if (!snapEnabled && !quarterSnapEnabled) return;
   const r = node.getClientRect({ relativeTo: layer, skipStroke: true });
-  const nodeCenterX = r.x + r.width / 2;
-  const nodeCenterY = r.y + r.height / 2;
-  const canvasCenterX = stage.width() / 2;
-  const canvasCenterY = stage.height() / 2;
-
-  if (Math.abs(nodeCenterX - canvasCenterX) < SNAP_THRESHOLD) {
-    node.x(node.x() + (canvasCenterX - nodeCenterX));
-    vGuide.visible(true); vGuide.moveToTop();
-  } else {
-    vGuide.visible(false);
-  }
-
-  if (Math.abs(nodeCenterY - canvasCenterY) < SNAP_THRESHOLD) {
-    node.y(node.y() + (canvasCenterY - nodeCenterY));
-    hGuide.visible(true); hGuide.moveToTop();
-  } else {
-    hGuide.visible(false);
-  }
-
+  snapAxis(node, vGuides, stage.width(),  r.x + r.width  / 2, 'x');
+  snapAxis(node, hGuides, stage.height(), r.y + r.height / 2, 'y');
   layer.batchDraw();
 }
 
@@ -134,7 +158,7 @@ function applySnap(node) {
 
 function contentNodes() {
   return layer.getChildren(n =>
-    n !== bg && n !== vGuide && n !== hGuide && n.className !== 'Transformer');
+    n !== bg && !n.getAttr('isGuide') && n.className !== 'Transformer');
 }
 function isGroup(n) { return n.getAttr('elType') === 'GROUP'; }
 function outermost(node) {
