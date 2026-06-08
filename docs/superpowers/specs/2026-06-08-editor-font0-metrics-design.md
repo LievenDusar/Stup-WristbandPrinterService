@@ -35,7 +35,7 @@ The editor will mirror this: a text element's box becomes **length = `chars × f
 | R3 | The metrics are recomputed whenever the element is created, its **text/binding/sampleText** changes, or its **fontSize** changes (incl. via resize). |
 | R4 | `chars` is the length of the **displayed** string: the static `value` for STATIC_TEXT, or the resolved sample/placeholder for data-bound TEXT (the same string the canvas shows today). |
 | R5 | The element's **bounding box** (used for snapping, the transformer, serialization, rotation) equals this font-0 box — i.e. all existing geometry flows from the new box automatically. |
-| R6 | Canvas text renders in a **Helvetica/Arial-family** face (close to font 0) so glyphs sit naturally in the font-0 box with minimal visual mismatch. |
+| R6 | Canvas text renders in the on-screen equivalent of the **printer's resident font 0** (Zebra `^A0` = CG Triumvirate, a Helvetica/Arial-class face): `font-family: 'Helvetica, Arial, sans-serif'`. There is **no bundled font file** to reuse — `ZplGeneratorService` prints with `^A0` (the device font), so Helvetica/Arial is the faithful on-screen stand-in. Not Poppins. |
 | R7 | The center-on-band renderer's **rotated-text** centering is aligned to the same model — cross extent = `fontSize` — matching `ZplGeneratorService.centerX(fontSize)`, replacing the separate `0.94`/`leftMargin` calibration. |
 | R8 | No change to the basic-wristband path, the printed ZPL for existing templates, or `ZplGeneratorService`. |
 
@@ -53,7 +53,8 @@ const CHAR_ADVANCE_RATIO = 0.46;
 
 **Text node creation (`makeLeaf`, TEXT/STATIC_TEXT branch):** create the `Konva.Text` with the printer-like face and a fixed, model-derived box rather than auto-size:
 ```js
-node = new Konva.Text({ ...base, fontFamily: 'Arial, Helvetica, sans-serif',
+// Helvetica/Arial = on-screen stand-in for the printer's resident font 0 (^A0 / CG Triumvirate).
+node = new Konva.Text({ ...base, fontFamily: 'Helvetica, Arial, sans-serif',
   fill: '#111', wrap: 'none', align: 'center', verticalAlign: 'middle' });
 // fontSize + box set by applyTextMetrics below
 ```
