@@ -197,19 +197,44 @@ conventions), bound in `application.yml`:
 
 ## Endpoints
 
-New, dedicated mappings on `WristbandController` (or a small sibling controller),
-parallel to the existing ones — the existing `/print`, `/preview/zpl`, `/preview/image`
-mappings and their request handling for `WristbandPrintRequest` are untouched:
+The URL pattern is **`/api/wristbands/{type}/…`** — type slug first, action second.
+All wristband-generation endpoints live under a per-type namespace; the job/stream
+endpoints operate on job IDs and therefore stay type-agnostic and unchanged.
 
-- `POST /api/wristbands/print/electricity` — validates `ElectricityWristbandPrintRequest`,
-  calls `printQueueService.enqueue(request)` (now accepting `PrintableRequest`),
-  returns `202 Accepted` with `PrintJobResponse` — identical contract shape to today.
-- `POST /api/wristbands/preview/electricity/zpl` — returns generated ZPL as text.
-- `POST /api/wristbands/preview/electricity/image` — returns a Labelary-rendered PNG.
+### Wristband type endpoints
 
-Job listing/detail/preview/reprint/cancel/SSE endpoints are **unchanged** — they
-already operate on `PrintJob`/`jobId` generically and will transparently handle both
-types once `PrintJob`/`PrintJobEntity`/response DTOs are type-aware (see Architecture).
+| Method | URL | Notes |
+|--------|-----|-------|
+| `POST` | `/api/wristbands/crew/print` | **Renamed** from `/print` — Symfony must update its call URL. Same request contract (`WristbandPrintRequest`), same `202 Accepted` + `PrintJobResponse` response. |
+| `POST` | `/api/wristbands/crew/preview/zpl` | Renamed from `/preview/zpl`. |
+| `POST` | `/api/wristbands/crew/preview/image` | Renamed from `/preview/image`. |
+| `POST` | `/api/wristbands/electricity/print` | New — accepts `ElectricityWristbandPrintRequest`, returns `202 Accepted` + `PrintJobResponse` (same shape, adds `wristbandType`). |
+| `POST` | `/api/wristbands/electricity/preview/zpl` | New — returns ZPL as plain text. |
+| `POST` | `/api/wristbands/electricity/preview/image` | New — returns a Labelary-rendered PNG. |
+
+Future band types follow the same pattern: `POST /api/wristbands/{slug}/print` etc.
+
+A short-lived `/print` alias (HTTP 301/308 redirect to `/crew/print`) may be offered
+during the Symfony transition window, then removed once both sides are updated.
+
+### Unchanged job / SSE endpoints
+
+| Method | URL |
+|--------|-----|
+| `GET` | `/api/wristbands/jobs` |
+| `GET` | `/api/wristbands/jobs/{jobId}` |
+| `GET` | `/api/wristbands/jobs/{jobId}/preview` |
+| `GET` | `/api/wristbands/jobs/stream` |
+| `GET` | `/api/wristbands/jobs/{jobId}/stream` |
+| `POST` | `/api/wristbands/jobs/{jobId}/reprint` |
+| `POST` | `/api/wristbands/jobs/{jobId}/cancel` |
+| `DELETE` | `/api/wristbands/jobs/completed` |
+| `GET` | `/api/wristbands/gallery` |
+| `GET` | `/api/wristbands/printers` |
+
+Job/stream endpoints are type-agnostic: the `PrintJobResponse` gains a `wristbandType`
+field so subscribers can tell which kind of job they're tracking, but the endpoint
+URLs and payload shapes are otherwise unchanged.
 
 ## Gallery screen ("default bands" overview)
 
