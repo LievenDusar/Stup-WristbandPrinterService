@@ -72,6 +72,24 @@ class TemplateZplRendererTest {
     }
 
     @Test
+    void render_centeredText_rotated270_centersByCellRatio() {
+        TemplateElement el = new TemplateElement("t", ElementType.TEXT, 999, 70, 60, 600, 270,
+            DataBinding.FULL_NAME, null, 60, "0", null, null, null, null, null).withCenterOnBand(true);
+        String zpl = renderer.render(def(el), data); // band width 203
+        assertThat(zpl).contains("^FO70,70");           // thickness=round(0.94*60)=56; (203-56)/2 - 3 = 70
+        assertThat(zpl).contains("^A0B,60,60").contains("^FDJan Janssens^FS");
+    }
+
+    @Test
+    void render_centeredText_rotated90_centersByCellRatio() {
+        TemplateElement el = new TemplateElement("t", ElementType.TEXT, 999, 70, 28, 600, 90,
+            DataBinding.FULL_NAME, null, 28, "0", null, null, null, null, null).withCenterOnBand(true);
+        String zpl = renderer.render(def(el), data); // band width 203
+        assertThat(zpl).contains("^FO83,70");           // thickness=round(0.94*28)=26; margin=round(0.063*28+3.5)=5; (203-26)/2 - 5 = 83
+        assertThat(zpl).contains("^A0R,28,28").contains("^FDJan Janssens^FS");
+    }
+
+    @Test
     void render_barcode_emitsBcWithValue() {
         TemplateElement el = new TemplateElement("b", ElementType.BARCODE, 0, 0, 100, 400, 270,
             DataBinding.BARCODE_VALUE, null, null, null, "CODE128", false, null, null, null);

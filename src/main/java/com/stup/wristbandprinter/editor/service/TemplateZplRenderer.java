@@ -25,6 +25,11 @@ public class TemplateZplRenderer {
 
     private static final int MAX_DEPTH = 20;
 
+    // Font-0 rotated-text cell metrics, measured via Labelary at 12 dpmm (see plan 2026-06-07 Task 4).
+    // Cross-thickness ≈ 0.94 × size for both 90°/270°. Left margin (ink-left − ^FO): 270° constant 3;
+    // 90° ≈ 0.063 × size + 3.5. Centering: ^FO.x = (bandWidth − thickness)/2 − leftMargin.
+    static final float FONT0_CELL_RATIO = 0.94f;
+
     private final TemplateAssetService assetService;
 
     public TemplateZplRenderer(TemplateAssetService assetService) {
@@ -166,7 +171,13 @@ public class TemplateZplRenderer {
             zpl.append(String.format("^FD%s^FS", text));
             return;
         }
-        zpl.append(String.format("^FO%d,%d", x, y)); // rotated-centered handled in Task 4
+        int fox = x;
+        if (centered) { // rot is 90 or 270 here (0/180 handled by ^FB above)
+            int thickness = Math.round(FONT0_CELL_RATIO * size);
+            int leftMargin = (rot == 90) ? Math.round(0.063f * size + 3.5f) : 3;
+            fox = (bandWidth - thickness) / 2 - leftMargin;
+        }
+        zpl.append(String.format("^FO%d,%d", fox, y));
         zpl.append(String.format("^A%s%s,%d,%d", font, orientation(el.rotation()), size, size));
         zpl.append(String.format("^FD%s^FS", text));
     }
