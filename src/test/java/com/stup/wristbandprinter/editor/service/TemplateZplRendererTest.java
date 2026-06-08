@@ -61,6 +61,17 @@ class TemplateZplRendererTest {
     }
 
     @Test
+    void render_centeredText_nonRotated_usesFieldBlockCenter() {
+        TemplateElement el = new TemplateElement("t", ElementType.STATIC_TEXT, 999, 50, 20, 100, 0,
+            null, "STAFF", 24, "0", null, null, null, null, null).withCenterOnBand(true);
+        String zpl = renderer.render(def(el), data); // band width 203
+        assertThat(zpl).contains("^FO0,50");
+        assertThat(zpl).contains("^FB203,1,0,C");
+        assertThat(zpl).contains("^A0N,24,24");
+        assertThat(zpl).contains("^FDSTAFF^FS");
+    }
+
+    @Test
     void render_barcode_emitsBcWithValue() {
         TemplateElement el = new TemplateElement("b", ElementType.BARCODE, 0, 0, 100, 400, 270,
             DataBinding.BARCODE_VALUE, null, null, null, "CODE128", false, null, null, null);

@@ -155,7 +155,18 @@ public class TemplateZplRenderer {
         int size = el.fontSize() == null ? 24 : el.fontSize();
         String font = el.font() == null ? "0" : el.font();
         String text = el.type() == ElementType.STATIC_TEXT ? sanitize(el.value()) : valueFor(el.binding(), data);
-        zpl.append(String.format("^FO%d,%d", x, y));
+        boolean centered = Boolean.TRUE.equals(el.centerOnBand());
+        int rot = ((el.rotation() % 360) + 360) % 360;
+
+        if (centered && (rot == 0 || rot == 180)) {
+            // ZPL field block centers the line across the full width, metric-free.
+            zpl.append(String.format("^FO0,%d", y));
+            zpl.append(String.format("^FB%d,1,0,C", bandWidth));
+            zpl.append(String.format("^A%s%s,%d,%d", font, orientation(el.rotation()), size, size));
+            zpl.append(String.format("^FD%s^FS", text));
+            return;
+        }
+        zpl.append(String.format("^FO%d,%d", x, y)); // rotated-centered handled in Task 4
         zpl.append(String.format("^A%s%s,%d,%d", font, orientation(el.rotation()), size, size));
         zpl.append(String.format("^FD%s^FS", text));
     }
