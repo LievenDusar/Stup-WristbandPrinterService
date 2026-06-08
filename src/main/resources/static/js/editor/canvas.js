@@ -5,6 +5,9 @@ const Konva = window.Konva;
 const MAX_DISPLAY_HEIGHT = 720;
 const SNAP_THRESHOLD = 10; // screen pixels — distance at which the center locks to a guide line
 const QUARTER_STROKE = '#9bb0c9'; // subtle slate-blue for quarter guides (center stays pink)
+// Mirrors ZplGeneratorService.CHAR_ADVANCE_RATIO — Zebra font 0 (^A0) proportional advance ÷ size.
+// Used to size editor text to the printed font-0 footprint (length = chars × fontSize × ratio).
+const CHAR_ADVANCE_RATIO = 0.46;
 let stage, layer, tr, bg;
 let vGuide, hGuide, vQ1, vQ2, hQ1, hQ2; // dashed guides (Konva.Line); hidden unless actively snapped
 let vGuides = [], hGuides = [];          // candidate lists: { frac, line } per axis
@@ -198,14 +201,30 @@ function textOf(node) {
     : (node.getAttr('sampleText') || labelFor(node.getAttr('binding')));
 }
 
+// Size a text node to the printer's font-0 footprint: length = chars × fontSize × CHAR_ADVANCE_RATIO,
+// thickness = fontSize. Glyphs are scaled to fill that box so the canvas matches the print.
+function applyTextMetrics(node) {
+  node.scaleX(1); node.scaleY(1);
+  node.width('auto'); node.height('auto');                 // measure the natural glyph run
+  const fsDots = p2d(node.fontSize());
+  const chars  = Math.max(1, (textOf(node) || '').length);
+  const targetWpx = d2p(Math.round(chars * fsDots * CHAR_ADVANCE_RATIO)); // length along text
+  const targetHpx = node.fontSize();                                      // thickness = fontSize
+  const sx = targetWpx / Math.max(1, node.width());
+  const sy = targetHpx / Math.max(1, node.height());       // ≈ 1 (lineHeight 1 ⇒ height = fontSize)
+  node.scaleX(sx); node.scaleY(sy);
+  node.setAttr('fitScaleY', sy);                           // lets resize separate gesture from fit
+}
+
 // Create a Konva node for a leaf spec. Geometry comes from the spec (in dots → px);
 // non-geometry fields are stashed as attrs.
 function makeLeaf(s) {
   const base = { x: d2p(s.x || 0), y: d2p(s.y || 0), rotation: s.rotation || 0, draggable: true };
   let node;
   if (s.type === 'TEXT' || s.type === 'STATIC_TEXT') {
-    // Text auto-sizes to its content (no fixed width → no wrapping into an invisible sliver).
-    node = new Konva.Text({ ...base, fontSize: d2p(s.fontSize || 24), fontFamily: 'Poppins', fill: '#111' });
+    // Helvetica/Arial = on-screen stand-in for the printer's resident font 0 (^A0 / CG Triumvirate).
+    node = new Konva.Text({ ...base, fontSize: d2p(s.fontSize || 24),
+      fontFamily: 'Helvetica, Arial, sans-serif', fill: '#111' });
   } else if (s.type === 'BARCODE') {
     node = new Konva.Rect({ ...base, width: d2p(s.widthDots || 1), height: d2p(s.heightDots || 1), fill: '#d0d0d0', stroke: '#333', strokeWidth: 1 });
   } else if (s.type === 'IMAGE') {
@@ -217,7 +236,7 @@ function makeLeaf(s) {
   node.setAttr('id', s.id);
   node.setAttr('elType', s.type);
   NON_GEO.forEach(k => { if (s[k] !== undefined && s[k] !== null) node.setAttr(k, s[k]); });
-  if (node.className === 'Text') node.text(textOf(node));
+  if (node.className === 'Text') { node.text(textOf(node)); applyTextMetrics(node); }
   wireLeaf(node);
   return node;
 }
@@ -225,10 +244,11 @@ function makeLeaf(s) {
 function wireLeaf(node) {
   node.on('transformend dragend', () => {
     if (node.className === 'Text') {
-      // Resizing text scales the font; bake the scale into fontSize, then clear it.
-      const nf = Math.max(2, node.fontSize() * node.scaleX());
-      node.scaleX(1); node.scaleY(1);
-      node.fontSize(nf);
+      // scaleX also carries the font-0 fit (condense), so read the resize gesture from scaleY
+      // (whose fit factor is ≈1), bake it into fontSize, then re-derive the box + fit.
+      const gesture = node.scaleY() / (node.getAttr('fitScaleY') || 1);
+      node.fontSize(Math.max(2, node.fontSize() * gesture));
+      applyTextMetrics(node);
     } else {
       const nw = Math.max(1, node.width() * node.scaleX());
       const nh = Math.max(1, node.height() * node.scaleY());
@@ -366,6 +386,9 @@ export function applyProp(node, key, value) {
       break;
     default:
       node.setAttr(key, value); // symbology, showHumanReadable, thicknessDots, group settings
+  }
+  if (node.className === 'Text' && ['fontSize', 'value', 'sampleText', 'binding'].includes(key)) {
+    applyTextMetrics(node);
   }
   if (['stackDirection', 'marginDots', 'crossAlign', 'widthDots', 'heightDots',
        'fontSize', 'value', 'sampleText', 'binding', 'rotation'].includes(key)) applyLayout();
