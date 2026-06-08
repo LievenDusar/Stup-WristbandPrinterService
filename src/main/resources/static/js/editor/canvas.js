@@ -22,7 +22,7 @@ const p2d = (p) => Math.round(p / scale);
 // lives ONLY on the Konva node (in pixels) and is derived to dots at serialize time —
 // storing dots in Konva's native attrs would corrupt position/size on every edit.
 const NON_GEO = ['binding', 'value', 'font', 'symbology', 'showHumanReadable',
-  'assetId', 'shape', 'thicknessDots', 'sampleText'];
+  'assetId', 'shape', 'thicknessDots', 'sampleText', 'centerOnBand'];
 
 export function initCanvas(containerId, selectHandler) {
   onSelect = selectHandler;
@@ -289,8 +289,16 @@ function sizePx(node) {
   return dir === 'LENGTH' ? { w: cross, h: along } : { w: along, h: cross };
 }
 
+// Center a top-level node's bbox on the band width (px). Used for centerOnBand nodes.
+export function centerNodeOnBand(node) {
+  const widthPx = canvasDots.widthDots * scale;
+  const r = node.getClientRect({ relativeTo: layer, skipStroke: true });
+  node.x(node.x() + (widthPx / 2 - (r.x + r.width / 2)));
+}
+
 export function applyLayout() {
   contentNodes().forEach(n => { if (isGroup(n)) layoutGroup(n); });
+  contentNodes().forEach(n => { if (n.getAttr('centerOnBand')) centerNodeOnBand(n); });
 }
 
 function layoutGroup(group) {
@@ -374,6 +382,7 @@ function nodeToElement(node) {
       stackDirection: node.getAttr('stackDirection') || 'LENGTH',
       marginDots: node.getAttr('marginDots') || 0,
       crossAlign: node.getAttr('crossAlign') || 'START',
+      centerOnBand: node.getAttr('centerOnBand') || undefined,
       children: node.getChildren().map(nodeToElement),
     };
   }
@@ -402,6 +411,7 @@ function buildNode(spec, parent) {
     node.setAttr('stackDirection', spec.stackDirection || 'LENGTH');
     node.setAttr('marginDots', spec.marginDots || 0);
     node.setAttr('crossAlign', spec.crossAlign || 'START');
+    if (spec.centerOnBand) node.setAttr('centerOnBand', true);
     parent.add(node);
     (spec.children || []).forEach(child => buildNode(child, node));
   } else {
@@ -418,5 +428,10 @@ export function loadElements(elements) {
   setSelection([]);
   (elements || []).forEach(el => buildNode(el, layer));
   applyLayout();
+  contentNodes().forEach(n => {
+    if (n.getAttr('centerOnBand') && n.getParent() === layer) {
+      n.dragBoundFunc(function (pos) { return { x: this.absolutePosition().x, y: pos.y }; });
+    }
+  });
   layer.draw();
 }
