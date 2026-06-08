@@ -330,7 +330,72 @@ Postgres, mocked printer/Labelary):
 
 ## Documentation
 
-Per project convention ("Docs are part of the change"): update `docs/` (likely a new
-`docs/electricity-wristband.md` or a section in the existing wristband docs) describing
-the new band, its endpoint contract, and its configuration — and keep this spec's
-implementation plan under `docs/superpowers/plans/`.
+Documentation updates are a required deliverable of this change — not optional
+follow-up. Every file below must be updated (or created) as part of the implementation,
+before the work is considered done.
+
+### Files to update
+
+**`docs/api.md`** — the endpoint reference is the most heavily affected:
+- Replace all references to the old `/api/wristbands/print`, `/preview/zpl`,
+  `/preview/image` URLs with the new `/api/wristbands/crew/print`,
+  `/api/wristbands/crew/preview/zpl`, `/api/wristbands/crew/preview/image` names.
+- Add the three new electricity endpoints (`/electricity/print`,
+  `/electricity/preview/zpl`, `/electricity/preview/image`) with their request/response
+  shape, including the optional `codeValue`/`codeSymbology` fields and the new
+  `wristbandType` field in `PrintJobResponse`.
+- Add the new `GET /api/wristbands/gallery` endpoint.
+- Update curl examples to use the new crew URLs.
+- Note the temporary `/print` redirect alias (if implemented) and its planned removal.
+
+**`docs/configuration.md`** — add a new `wristband.electricity.*` section documenting:
+- `eventLogoPath`, `iconPath`
+- `margins.betweenBlocks` (uniform inter-block gap, default ~60 dots) and
+  `margins.writingSpaceGap` (internal gap in the permission block)
+- `text.*` font sizes and `dotCount`
+- `code.defaultSymbology`
+- Mention the `codeSymbology` override available on all band-type requests.
+
+**`docs/electricity-wristband.md`** ← **new file** — create this document covering:
+- Purpose: what this band is for (campsite electricity / power-box access permission)
+- Layout diagram and description of the three/four blocks, rotations, the
+  dots-vs-association fill-in behaviour, and the optional scan code
+- Endpoint contract (link to `api.md` for full reference, summarise the key fields here)
+- Assets required (electricity icon PNG, event logo PNG) and the SVG→PNG export note
+- Configuration reference (link to `configuration.md`)
+- How to swap the event logo for a new event (ops runbook — edit config, redeploy)
+
+**`README.md`** — update any top-level mention of the print endpoint URL or wristband
+type count. If README links to `docs/api.md` for endpoint detail, no deep changes are
+needed — just verify the summary text is still accurate after the URL rename.
+
+### Files to update at the very end of implementation
+
+These two files capture the broader architectural picture and must be updated **after**
+all code and the above docs are complete, as a final step:
+
+**`CLAUDE.md`** — update to reflect:
+- Architecture overview: mention the `PrintableRequest` sealed interface and the
+  two-band-type model; update the request flow description to reference `/crew/print`
+  and `/electricity/print`.
+- Printer registry / routing: no changes, but confirm the description still holds.
+- Folder structure: add `domain/CodeSymbology.java`, `service/ScanCodeRenderer.java`,
+  `service/ElectricityZplGeneratorService.java`, the new controller mapping(s), and
+  `WristbandGalleryCatalog` to the relevant packages.
+- Known issues: **close** the "Template renderer emits Code 128 regardless of selected
+  symbology" entry — `ScanCodeRenderer` now provides multi-symbology support for
+  fixed-layout generators; note the template designer renderer follow-up is still open.
+- Current work in progress: move this feature from "in progress" to "landed" once done,
+  and update the "Recommended next steps" list.
+
+**`HANDOVER.md`** — add a new entry under "Decisions that were made" recording:
+- The `/{type}/action` URL structure decision and the reasoning (extensibility,
+  clear per-role naming, Symfony one-line update).
+- The `PrintableRequest` sealed interface approach and why isolated generators were
+  preferred over a shared strategy interface.
+- The additive V6 migration strategy (nullable columns + discriminator, backfill default).
+- The `ScanCodeRenderer` shared helper and why it was extracted (avoid duplication,
+  closes the template renderer gap as a side effect).
+- The uniform `betweenBlocks` margin decision for the electricity band.
+- Any notable rejected alternatives (e.g. single-DTO with conditional validation,
+  separate job table for electricity, per-gap margins).
