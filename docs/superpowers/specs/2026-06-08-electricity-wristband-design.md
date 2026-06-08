@@ -103,43 +103,65 @@ New, narrow DTO — mirrors the validation style of `WristbandPrintRequest`:
 No `firstName`/`lastName`/`barcodeValue`/`templateId` — this band carries no personal
 identity and no template routing.
 
+### `ElectricityWristbandPrintRequest` — additional code fields
+
+The optional scan-code fields are part of a general capability shared by all band
+types (see "Scan-code capability" below):
+
+| Field            | Required | Notes                                                                 |
+|------------------|----------|-----------------------------------------------------------------------|
+| `codeValue`      | no       | string to encode; when absent, no code block is rendered             |
+| `codeSymbology`  | no       | `CODE128` (default), `QR`, or `CODE39`; ignored when `codeValue` absent |
+
 ### `ElectricityWristbandData`
 
 ```java
-record ElectricityWristbandData(String eventName, String associationName) {}
+record ElectricityWristbandData(
+    String eventName,
+    String associationName,   // null/blank → dots
+    String codeValue,         // null → no scan code block
+    CodeSymbology symbology   // CODE128 | QR | CODE39
+) {}
 ```
-`associationName` is `null`/blank when the dotted line should print; the generator
-decides dots-vs-name at render time (see Layout).
 
 ## Layout
 
 Same physical band as the default: 300 × 3300 dots @ 300 DPI, same orientation.
-Three blocks, vertically centered as one group on the long (Y) axis — directly
-mirroring how the default band centers its logo→barcode→text→logo stack — with a
-configurable margin between each block.
+Up to four blocks (block 3 is optional — present only when `codeValue` is supplied),
+all vertically centered as one group on the long (Y) axis — directly mirroring how
+the default band centers its logo→barcode→text→logo stack.
+
+**All inter-block gaps use a single uniform margin value** (`between-blocks`, default
+≈ 60 dots / ~5 mm at 300 DPI — small and consistent, not too large). The only
+*separate* spacing value is the writing-space gap *inside* block 2, which is a
+different concern (physical writing room, not visual separation between blocks).
 
 ```
 ┌──────────────────────────────┐
-│                              │
 │        [STUP logo]           │  Block 1 — image, pre-rotated 180°
 │                              │           (same asset + LogoConversionService
 │                              │            pipeline as the default band)
-│      ── block margin ──      │
+│      ── between-blocks ──    │  ← same uniform margin everywhere
 │                              │
-│  ⚡  Toelating ELEKTRICITEIT  ⚡│  Block 2 — "permission" group, rotated 270°:
-│                              │    • icon image ×2 (before & after the text),
-│   ── writing-space gap ──    │      both rendered upright/180° like a logo
+│  ⚡ Toelating ELEKTRICITEIT ⚡ │  Block 2 — "permission" group, rotated 270°:
+│   ── writing-space gap ──    │    • icon image ×2 (before & after the text),
+│  ..........................   │      both rendered upright/180° like a logo
 │                              │    • "Toelating ELEKTRICITEIT" as ^A0B text
-│   ..........................  │    • extra configurable gap (writing room)
-│                              │    • dotted line OR associationName — same
-│                              │      field/font/position either way (^A0B)
-│      ── block margin ──      │
+│      ── between-blocks ──    │    • writing-space gap (separate, physical
+│                              │      handwriting room — not the block margin)
+│      [QR / barcode]          │  Block 3 — optional scan code; only rendered
+│                              │            when codeValue is present in request
+│      ── between-blocks ──    │  ← same uniform margin
 │                              │
-│        PUKKELPOP 2026        │  Block 3 — "event" group, both 180°/inverted:
-│        [Pukkelpop logo]      │    • eventName as ^A0I (inverted) text
+│      PUKKELPOP 2026          │  Block 4 — "event" group, both 180°/inverted:
+│      [Pukkelpop logo]        │    • eventName as ^A0I (inverted) text
 │                              │    • event logo image, pre-rotated 180°
 └──────────────────────────────┘
 ```
+
+When `codeValue` is absent, block 3 and its surrounding margins are omitted entirely
+and the three remaining blocks are re-centered as a group — the same vertical-centering
+math handles both cases by summing only the blocks that are present.
 
 Mechanical notes:
 
@@ -154,34 +176,62 @@ Mechanical notes:
   `associationName`. Same font size and field origin either way, so a hand-filled name
   lines up exactly where the dots were. Reuses the existing `sanitize()` approach
   (strip `^`/`~`).
-- **Writing-space gap** — a dedicated, separately configurable margin between the
-  "Toelating ELEKTRICITEIT" line and the dotted line (distinct from the standard
-  inter-line gap), giving staff room to physically write an association name on the
-  printed band.
+- **Writing-space gap** — a dedicated margin between the "Toelating ELEKTRICITEIT"
+  line and the dotted line *inside* block 2 — separate from `between-blocks` and
+  larger than the standard inter-line gap, giving staff room to physically write on
+  the printed band.
 - **Vertical centering / block lengths** — follow the existing pattern in
-  `ZplGeneratorService`: compute each block's Y-extent (text via `lineExtent` /
-  `CHAR_ADVANCE_RATIO`, images via their converted height), sum block extents + margins
-  into a `totalHeight`, then center the whole stack with
-  `topY = (lengthDots - totalHeight) / 2` and derive each block's origin from there.
-- **Horizontal centering** — each block (and each multi-element line within block 2)
-  is group-centered across the band width the same way the default band group-centers
-  its three text lines (`groupX = (widthDots - totalXWidth) / 2`).
+  `ZplGeneratorService`: compute each present block's Y-extent (text via `lineExtent` /
+  `CHAR_ADVANCE_RATIO`, images via their converted height, scan code via its estimated
+  module budget), sum block extents + margins into a `totalHeight`, then center with
+  `topY = (lengthDots - totalHeight) / 2`.
+- **Horizontal centering** — each block is group-centered across the band width the
+  same way the default band group-centers its three text lines
+  (`groupX = (widthDots - totalXWidth) / 2`).
+
+## Scan-code capability (general, applies to all band types)
+
+A lightweight shared building block usable by any band type's generator:
+
+- **`CodeSymbology` enum** — `CODE128`, `QR`, `CODE39`. Lives in `domain/` alongside
+  other shared types.
+- **`ScanCodeRenderer`** (or equivalent helper) — takes a value + symbology and
+  returns a ZPL snippet: `^BCB` for Code 128/Code 39 (bottom-up rotation, same as the
+  crew band today), `^BQN` for QR (square, centered). Extracted as a standalone
+  utility so `ZplGeneratorService`, `ElectricityZplGeneratorService`, and any future
+  generator can call it without duplicating ZPL symbology logic.
+- **Size estimation** — each symbology variant provides a Y-extent estimate (dots)
+  used by the vertical-centering math, matching the existing `estimateBarcodeYLength`
+  pattern in `ZplGeneratorService`.
+
+**Crew band backward compatibility** — `WristbandPrintRequest` gains an optional
+`codeSymbology` field (default `CODE128`). Existing Symfony calls that omit it
+continue printing Code 128 identically. The `barcodeValue` field stays required for
+the crew band (scanning is always needed); `codeSymbology` is just a format override.
+
+This also closes the known CLAUDE.md gap: *"Template renderer emits Code 128
+regardless of selected symbology"* — `ScanCodeRenderer` is available for the template
+renderer follow-up without further design work.
 
 ## Configuration
 
-New `wristband.electricity.*` block in `WristbandProperties` (or a sibling
-`@ConfigurationProperties` class — to be decided during planning, following existing
-conventions), bound in `application.yml`:
+New `wristband.electricity.*` block (sibling `@ConfigurationProperties` class or
+nested class — to be decided during planning, following existing conventions),
+bound in `application.yml`:
 
-- `eventLogoPath` — classpath/filesystem path to the Pukkelpop-style event logo PNG
-  (config-driven per the maintainer's choice — swapped per event by ops, same
-  conversion pipeline as the STUP logo: scale to band width minus margins, pre-rotate
+- `eventLogoPath` — classpath/filesystem path to the Pukkelpop-style event logo PNG;
+  swapped per event by ops (same conversion pipeline as the STUP logo: scale, pre-rotate
   180°, cache the `^GF` command + height).
 - `iconPath` — classpath/filesystem path to the electricity icon PNG (see "Assets").
-- `margins.*` — between-block margins (logo↔permission, permission↔event) and the
-  dedicated writing-space gap, mirroring `WristbandProperties.Margins`.
+- `margins.betweenBlocks` — **single uniform value** applied between every block pair;
+  default ≈ 60 dots (~5 mm at 300 DPI). Intentionally modest.
+- `margins.writingSpaceGap` — the separate internal gap *inside* block 2 between the
+  "Toelating ELEKTRICITEIT" line and the dotted line; larger than `betweenBlocks` to
+  give physical writing room.
 - `text.*` — font sizes for "Toelating ELEKTRICITEIT", the dotted/association line,
-  and the event name; dot count for the fill-in line.
+  the event name, and dot count for the fill-in line.
+- `code.defaultSymbology` — default symbology when the request omits `codeSymbology`;
+  `CODE128` unless overridden.
 - Side margins / icon sizing reuse existing top-level properties (`logoSideMarginDots`,
   `widthDots`, `lengthDots`, `dpi`) where they apply identically.
 
