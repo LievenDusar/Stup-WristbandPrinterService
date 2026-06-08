@@ -41,37 +41,40 @@ public class TemplateZplRenderer {
 
     private String renderWith(TemplateDefinition def, Map<DataBinding, String> data) {
         StringBuilder zpl = new StringBuilder();
+        int bandWidth = def.canvas().widthDots();
         zpl.append("^XA");
-        zpl.append("^PW").append(def.canvas().widthDots());
+        zpl.append("^PW").append(bandWidth);
         zpl.append("^LL").append(def.canvas().lengthDots());
         zpl.append("^CI28");
         for (TemplateElement el : def.elements()) {
-            renderNode(el, el.x(), el.y(), data, zpl, 0);
+            renderNode(el, el.x(), el.y(), data, zpl, 0, bandWidth);
         }
         zpl.append("^XZ");
         return zpl.toString();
     }
 
     private void renderNode(TemplateElement el, int absX, int absY,
-                            Map<DataBinding, String> data, StringBuilder zpl, int depth) {
+                            Map<DataBinding, String> data, StringBuilder zpl, int depth, int bandWidth) {
         if (depth > MAX_DEPTH) {
             throw new IllegalStateException("Template group nesting exceeds " + MAX_DEPTH);
         }
         if (el.type() == ElementType.GROUP) {
-            layoutGroup(el, absX, absY, data, zpl, depth);
+            int originX = Boolean.TRUE.equals(el.centerOnBand())
+                ? (bandWidth - sizeOf(el)[0]) / 2 : absX;
+            layoutGroup(el, originX, absY, data, zpl, depth, bandWidth);
             return;
         }
         switch (el.type()) {
-            case TEXT, STATIC_TEXT -> appendText(zpl, el, absX, absY, data);
-            case BARCODE -> appendBarcode(zpl, el, absX, absY, data);
-            case IMAGE -> appendImage(zpl, el, absX, absY);
-            case SHAPE -> appendShape(zpl, el, absX, absY);
+            case TEXT, STATIC_TEXT -> appendText(zpl, el, absX, absY, data, bandWidth);
+            case BARCODE -> appendBarcode(zpl, el, centeredOriginX(el, absX, bandWidth), absY, data);
+            case IMAGE -> appendImage(zpl, el, centeredOriginX(el, absX, bandWidth), absY);
+            case SHAPE -> appendShape(zpl, el, centeredOriginX(el, absX, bandWidth), absY);
             default -> { /* GROUP handled above */ }
         }
     }
 
     private void layoutGroup(TemplateElement group, int originX, int originY,
-                             Map<DataBinding, String> data, StringBuilder zpl, int depth) {
+                             Map<DataBinding, String> data, StringBuilder zpl, int depth, int bandWidth) {
         StackDirection dir = group.stackDirection() == null ? StackDirection.LENGTH : group.stackDirection();
         int margin = group.marginDots() == null ? 0 : group.marginDots();
         CrossAlign align = group.crossAlign() == null ? CrossAlign.START : group.crossAlign();
@@ -94,7 +97,7 @@ public class TemplateZplRenderer {
             int cx, cy;
             if (dir == StackDirection.LENGTH) { cx = originX + crossOffset; cy = originY + cursor; }
             else { cx = originX + cursor; cy = originY + crossOffset; }
-            renderNode(c, cx, cy, data, zpl, depth + 1);
+            renderNode(c, cx, cy, data, zpl, depth + 1, bandWidth);
             cursor += axis + margin;
         }
     }
@@ -134,9 +137,21 @@ public class TemplateZplRenderer {
         return dir == StackDirection.LENGTH ? new int[]{cross, along} : new int[]{along, cross};
     }
 
+    /** Width-axis extent (dots) used for band-centering: rotation-aware footprint. */
+    private int crossExtentDots(TemplateElement el) {
+        int rot = ((el.rotation() % 360) + 360) % 360;
+        return (rot == 90 || rot == 270) ? el.heightDots() : el.widthDots();
+    }
+
+    /** Centered x if flagged (band-width minus cross extent, halved); else the stored x. */
+    private int centeredOriginX(TemplateElement el, int absX, int bandWidth) {
+        return Boolean.TRUE.equals(el.centerOnBand())
+            ? (bandWidth - crossExtentDots(el)) / 2 : absX;
+    }
+
     // ---- leaf rendering (absolute positions) --------------------------------
 
-    private void appendText(StringBuilder zpl, TemplateElement el, int x, int y, Map<DataBinding, String> data) {
+    private void appendText(StringBuilder zpl, TemplateElement el, int x, int y, Map<DataBinding, String> data, int bandWidth) {
         int size = el.fontSize() == null ? 24 : el.fontSize();
         String font = el.font() == null ? "0" : el.font();
         String text = el.type() == ElementType.STATIC_TEXT ? sanitize(el.value()) : valueFor(el.binding(), data);

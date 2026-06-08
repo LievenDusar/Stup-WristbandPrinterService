@@ -77,6 +77,29 @@ class TemplateZplRendererTest {
     }
 
     @Test
+    void render_centeredShape_centersOnBandWidth() {
+        // shape width 100 on a 203-wide band → x = (203-100)/2 = 51
+        TemplateElement el = new TemplateElement("g", ElementType.SHAPE, 999, 6, 100, 4, 0,
+            null, null, null, null, null, null, null, ShapeType.LINE, 4).withCenterOnBand(true);
+        assertThat(renderer.render(def(el), data)).contains("^FO51,6").contains("^GB100,4,4");
+    }
+
+    @Test
+    void render_centeredShape_rotated90_usesHeightAsCross() {
+        // rotated 90 → cross extent = heightDots (40); x = (203-40)/2 = 81
+        TemplateElement el = new TemplateElement("g", ElementType.SHAPE, 999, 6, 100, 40, 90,
+            null, null, null, null, null, null, null, ShapeType.LINE, 4).withCenterOnBand(true);
+        assertThat(renderer.render(def(el), data)).contains("^FO81,6");
+    }
+
+    @Test
+    void render_notCentered_isByteIdentical_backCompat() {
+        TemplateElement el = new TemplateElement("g", ElementType.SHAPE, 5, 6, 180, 4, 0,
+            null, null, null, null, null, null, null, ShapeType.LINE, 4);
+        assertThat(renderer.render(def(el), data)).contains("^FO5,6").contains("^GB180,4,4");
+    }
+
+    @Test
     void render_image_delegatesToAssetService() {
         UUID assetId = UUID.randomUUID();
         when(assetService.gfCommand(eq(assetId), eq(150), eq(80), eq(0))).thenReturn("^GFA,1,1,1,FF");
