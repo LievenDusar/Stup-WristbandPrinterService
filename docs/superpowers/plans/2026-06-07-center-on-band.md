@@ -312,58 +312,56 @@ git commit -m "feat(editor): center non-rotated text via ZPL field block"
 - Modify: `src/main/java/com/stup/wristbandprinter/editor/service/TemplateZplRenderer.java`
 - Test: `src/test/java/com/stup/wristbandprinter/editor/service/TemplateZplRendererTest.java`
 
-- [ ] **Step 1: Calibrate `FONT0_CELL_RATIO` (one-time measurement, write the result into code)**
+- [ ] **Step 1: Calibration (already performed — constants below are validated)**
 
-Run this measurement to get the exact ratio (renders a single full-height glyph and scans the PNG for the ink bounding box in the cross direction):
+The font-0 rotated cell metrics were measured via Labelary (12 dpmm) by rendering `^A0B/R,<size>,<size>^FDHgjy^FS` at sizes 24/40/60/100/150 and scanning the PNG for the ink column span. Results:
+- **Cross-thickness** = `round(0.94 × fontSize)` for both 90° and 270° (ratio stable 0.917–0.940 across sizes).
+- **Left margin** (ink-left − `^FO.x`): **270° (B)** is a constant **3 dots** at every size; **90° (R)** scales as **`round(0.063 × fontSize + 3.5)`** (measured 5/7/9/13 at sizes 24/60/100/150).
+- **Centering formula:** `^FO.x = (bandWidth − thickness) / 2 − leftMargin`. Verified: three different-size 270° texts render mutually centered on a centerline (no fan-out).
 
-```bash
-cat > /tmp/cal.zpl <<'ZPL'
-^XA^PW400^LL400^CI28^FO40,40^A0B,200,200^FDHg^FS^XZ
-ZPL
-curl -s --data-binary @/tmp/cal.zpl -H "Accept: image/png" \
-  http://api.labelary.com/v1/printers/12dpmm/labels/1.33x1.33/0/ -o /tmp/cal.png
-python3 - <<'PY'
-from PIL import Image
-im = Image.open('/tmp/cal.png').convert('L'); w,h = im.size; px = im.load()
-cols = [x for x in range(w) for y in range(h) if px[x,y] < 128]
-left, right = min(cols), max(cols)
-# ^FO x=40 ; size=200 ; cross-thickness in dots = (right-left+1)
-print("ink left=%d right=%d thickness=%d ratio=%.4f anchorOffset=%d"
-      % (left, right, right-left+1, (right-left+1)/200.0, left-40))
-PY
-```
-Record the printed `ratio` and `anchorOffset`. (If `PIL` is unavailable: `pip install pillow` or use any image tool to read the ink column span.) Write the measured values into the renderer as constants in Step 3. Expected ratio ≈ 0.9–1.05; anchorOffset small (a few dots).
+No further measurement needed; use the constants in Step 3.
 
-- [ ] **Step 2: Write the failing test (use the measured ratio; example uses 1.0 → replace with measured)**
+- [ ] **Step 2: Write the failing tests (both orientations, literal expected `^FO`)**
 
-Assume calibration yields `FONT0_CELL_RATIO = R` and `FONT0_CELL_OFFSET = O`. For fontSize 28, rotated 90, band 203: `thickness = round(R*28)`, `x = (203 - thickness)/2 + O`. Write the literal expected `^FO`:
+For band width 203:
+- 270° size 60: `thickness=round(0.94*60)=56`, `leftMargin=3`, `x=(203-56)/2-3=70`.
+- 90° size 28: `thickness=round(0.94*28)=26`, `leftMargin=round(0.063*28+3.5)=5`, `x=(203-26)/2-5=83`.
 ```java
+@Test
+void render_centeredText_rotated270_centersByCellRatio() {
+    TemplateElement el = new TemplateElement("t", ElementType.TEXT, 999, 70, 60, 600, 270,
+        DataBinding.FULL_NAME, null, 60, "0", null, null, null, null, null).withCenterOnBand(true);
+    String zpl = renderer.render(def(el), data); // band width 203
+    assertThat(zpl).contains("^FO70,70");           // (203-56)/2 - 3
+    assertThat(zpl).contains("^A0B,60,60").contains("^FDJan Janssens^FS");
+}
+
 @Test
 void render_centeredText_rotated90_centersByCellRatio() {
     TemplateElement el = new TemplateElement("t", ElementType.TEXT, 999, 70, 28, 600, 90,
         DataBinding.FULL_NAME, null, 28, "0", null, null, null, null, null).withCenterOnBand(true);
     String zpl = renderer.render(def(el), data); // band width 203
-    int thickness = Math.round(TemplateZplRenderer.FONT0_CELL_RATIO * 28);
-    int x = (203 - thickness) / 2 + TemplateZplRenderer.FONT0_CELL_OFFSET;
-    assertThat(zpl).contains("^FO" + x + ",70");
+    assertThat(zpl).contains("^FO83,70");           // (203-26)/2 - round(0.063*28+3.5)=5
     assertThat(zpl).contains("^A0R,28,28").contains("^FDJan Janssens^FS");
 }
 ```
 
 - [ ] **Step 3: Implement rotated-text centering**
 
-Add the calibrated constants (replace `R`/`O` with the Step-1 measurements) and extend `appendText`'s non-`^FB` branch:
+Add the calibrated constants and extend `appendText`'s non-`^FB` branch:
 ```java
-    /** Font-0 rotated cross-thickness ÷ nominal size (measured via Labelary; see plan Task 4). */
-    static final float FONT0_CELL_RATIO = R;   // e.g. 0.95f
-    static final int   FONT0_CELL_OFFSET = O;  // e.g. 0
+    // Font-0 rotated-text cell metrics, measured via Labelary at 12 dpmm (see plan 2026-06-07 Task 4).
+    // Cross-thickness ≈ 0.94 × size for both 90°/270°. Left margin (ink-left − ^FO): 270° constant 3;
+    // 90° ≈ 0.063 × size + 3.5. Centering: ^FO.x = (bandWidth − thickness)/2 − leftMargin.
+    static final float FONT0_CELL_RATIO = 0.94f;
 ```
 Replace the fall-through `^FO` line in `appendText` with:
 ```java
         int fox = x;
-        if (centered) { // rot 90 or 270
+        if (centered) { // rot is 90 or 270 here (0/180 handled by ^FB above)
             int thickness = Math.round(FONT0_CELL_RATIO * size);
-            fox = (bandWidth - thickness) / 2 + FONT0_CELL_OFFSET;
+            int leftMargin = (rot == 90) ? Math.round(0.063f * size + 3.5f) : 3;
+            fox = (bandWidth - thickness) / 2 - leftMargin;
         }
         zpl.append(String.format("^FO%d,%d", fox, y));
         zpl.append(String.format("^A%s%s,%d,%d", font, orientation(el.rotation()), size, size));
