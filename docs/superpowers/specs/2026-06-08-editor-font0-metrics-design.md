@@ -1,0 +1,110 @@
+# Editor Font-0 Text Metrics — Design Spec
+
+**Date:** 2026-06-08
+**Status:** Approved
+**Feature area:** Template designer editor canvas (`static/js/editor/canvas.js`) + a small renderer alignment
+
+---
+
+## Overview
+
+The template-editor canvas measures text with the **Poppins** web font, but wristbands print with **Zebra font 0** (a proportional CG-Triumvirate-like face). The two have different letter widths, so any position the user sets by dragging or snapping is stored in Poppins-space and **prints shifted** — most visibly for 90°/270°-rotated text, where the mismatch shows on **both** axes (the text *length* runs along the band, the *thickness* across it).
+
+The fix is to make the editor size text using the **same font-0 model the working basic-wristband path already uses**. `ZplGeneratorService` (the legacy `/print` layout, which prints correctly) models font 0 with two calibrated rules:
+
+```java
+static final double CHAR_ADVANCE_RATIO = 0.46; // ^A0 proportional advance ÷ font size, calibrated vs Labelary
+lineExtent(chars, fontSize) = chars * fontSize * CHAR_ADVANCE_RATIO;  // length along the text
+// thickness across the band = fontSize
+```
+
+The editor will mirror this: a text element's box becomes **length = `chars × fontSize × 0.46`**, **thickness = `fontSize`**. Then the on-canvas footprint equals the printed footprint, so snap-to-center, the 25%/75% quarters, free drag, **and the Y axis** all line up with the print. The ZPL renderer already places `^FO` at the stored bbox top-left, so *what you see prints*.
+
+### Non-goals / guardrails
+
+- **No change** to `ZplGeneratorService`, the basic wristband, the ZPL bytes sent to printers, or existing saved templates' rendered output. This is **editor-canvas geometry only** (plus one small renderer-constant alignment, below).
+
+---
+
+## Requirements
+
+| # | Requirement |
+|---|-------------|
+| R1 | A text element's on-canvas **length** (reading direction) is `round(chars × fontSize × CHAR_ADVANCE_RATIO)` dots, with `CHAR_ADVANCE_RATIO = 0.46` (mirroring `ZplGeneratorService`). |
+| R2 | A text element's on-canvas **thickness** (cross direction) is `fontSize` dots (line height = 1). |
+| R3 | The metrics are recomputed whenever the element is created, its **text/binding/sampleText** changes, or its **fontSize** changes (incl. via resize). |
+| R4 | `chars` is the length of the **displayed** string: the static `value` for STATIC_TEXT, or the resolved sample/placeholder for data-bound TEXT (the same string the canvas shows today). |
+| R5 | The element's **bounding box** (used for snapping, the transformer, serialization, rotation) equals this font-0 box — i.e. all existing geometry flows from the new box automatically. |
+| R6 | Canvas text renders in a **Helvetica/Arial-family** face (close to font 0) so glyphs sit naturally in the font-0 box with minimal visual mismatch. |
+| R7 | The center-on-band renderer's **rotated-text** centering is aligned to the same model — cross extent = `fontSize` — matching `ZplGeneratorService.centerX(fontSize)`, replacing the separate `0.94`/`leftMargin` calibration. |
+| R8 | No change to the basic-wristband path, the printed ZPL for existing templates, or `ZplGeneratorService`. |
+
+---
+
+## Architecture
+
+### Editor canvas (`static/js/editor/canvas.js`)
+
+**The shared constant:**
+```js
+// Mirrors ZplGeneratorService.CHAR_ADVANCE_RATIO — Zebra font 0 ^A0 proportional advance ÷ size.
+const CHAR_ADVANCE_RATIO = 0.46;
+```
+
+**Text node creation (`makeLeaf`, TEXT/STATIC_TEXT branch):** create the `Konva.Text` with the printer-like face and a fixed, model-derived box rather than auto-size:
+```js
+node = new Konva.Text({ ...base, fontFamily: 'Arial, Helvetica, sans-serif',
+  fill: '#111', wrap: 'none', align: 'center', verticalAlign: 'middle' });
+// fontSize + box set by applyTextMetrics below
+```
+`wrap: 'none'` keeps it one line; an explicit `width`/`height` makes `getClientRect` return exactly the font-0 box. The **box is authoritative** for all geometry; because Arial's average advance (~0.5) is slightly wider than the font-0 ratio (0.46), long strings may visually overflow their box by a few percent — acceptable, since positioning/snapping uses the box, not the glyph ink. (A later polish could scale glyphs to fit, but that conflicts with the resize-bake logic and is out of scope here.)
+
+**New helper `applyTextMetrics(node)`** (single source of truth for a text node's box):
+```js
+function applyTextMetrics(node) {
+  const fs = node.fontSize();                       // px (already d2p of stored dots)
+  const fsDots = p2d(fs);
+  const chars = (textOf(node) || '').length;
+  node.width(d2p(Math.max(1, Math.round(chars * fsDots * CHAR_ADVANCE_RATIO)))); // length px
+  node.height(fs);                                  // thickness = fontSize, lineHeight 1
+}
+```
+Call it: at the end of `makeLeaf` for text nodes (after `node.text(textOf(node))`), in `applyProp` after any change to `fontSize` / `value` / `sampleText` / `binding`, and in `wireLeaf`'s `transformend` after baking the resize scale into `fontSize`.
+
+**Resize handling (`wireLeaf` transformend, Text branch):** today it bakes `scaleX` into `fontSize`. Keep that, then call `applyTextMetrics(node)` so width/height follow the new font size (the transformer rescaled the box; we re-derive it from the model). Do **not** let the raw transformer width persist.
+
+**Everything else is unchanged** — `bboxTLDots`, `placeAtBboxTL`, snapping, serialization, rotation all read `getClientRect`, which now returns the font-0 box.
+
+### Renderer alignment (`editor/service/TemplateZplRenderer.java`)
+
+Replace the rotated-text centering calibration (the `FONT0_CELL_RATIO = 0.94f` + per-orientation `leftMargin`) with the `ZplGeneratorService` model: cross extent = `fontSize`, centered origin `(bandWidth − fontSize) / 2` — identical to `ZplGeneratorService.centerX`. This keeps the editor, the basic path, and centered template text all on one model. Non-rotated centered text keeps using `^FB,…,C` (unchanged). Update the two rotated-centering unit tests to the new expected `^FO`.
+
+> **Why drop 0.94:** it was an independent ink measurement that disagrees ~6% with the proven `ZplGeneratorService` model. Consistency with the working path (and the now-accurate editor) matters more than the sub-dot ink nuance.
+
+---
+
+## Edge cases & known limits
+
+| Case | Behaviour |
+|------|-----------|
+| Empty text | `chars` clamps to ≥1 so the box never collapses to zero. |
+| Data-bound text, design vs print | The editor box uses the **sample/placeholder** length (best estimate at design time). At print the real data length may differ; for **centered** data fields the renderer re-centers from the real value (center-on-band), so they stay centered. Non-centered data fields whose real length differs from the sample will shift — inherent (true length is unknown at design time). |
+| Resize | Resizing changes `fontSize`; length/thickness re-derive from the model (the box is never a free rectangle for text). |
+| Non-text elements | Unchanged — barcode/image/shape already use explicit dot boxes. |
+| Existing templates | Load and render unchanged; only the editor's *measurement* of text changes, which affects new edits, not stored output. |
+
+---
+
+## Testing
+
+- **Renderer unit tests (`TemplateZplRendererTest`):** update the two rotated centered-text cases to the `(bandWidth − fontSize)/2` model; keep the non-rotated `^FB` and back-compat (no-flag byte-identical) cases. Run `./mvnw test -Dtest=TemplateZplRendererTest`.
+- **Editor (no JS test runner):** `node --check` each changed file. Run-the-app checklist: place two 270° texts of different font sizes, snap one to the 25% quarter + Y-center and the other to X-center + Y-center, **Preview**, and confirm the Labelary preview matches the canvas on both axes (centered text centered; quarter at the quarter). Compare a static text block's canvas footprint to its preview.
+
+---
+
+## Out of scope
+
+- Per-character font-0 width tables (we use the same single average ratio the backend uses).
+- Changing `ZplGeneratorService` or the basic wristband.
+- Making data-bound text exact when real data length differs from the design-time sample (inherent; centered fields are handled by the renderer).
+- Barcode symbol-width accuracy (unchanged; pre-existing limitation).
