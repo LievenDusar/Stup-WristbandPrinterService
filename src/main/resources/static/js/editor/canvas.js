@@ -5,9 +5,34 @@ const Konva = window.Konva;
 const MAX_DISPLAY_HEIGHT = 720;
 const SNAP_THRESHOLD = 10; // screen pixels — distance at which the center locks to a guide line
 const QUARTER_STROKE = '#9bb0c9'; // subtle slate-blue for quarter guides (center stays pink)
-// Mirrors ZplGeneratorService.CHAR_ADVANCE_RATIO — Zebra font 0 (^A0) proportional advance ÷ size.
-// Used to size editor text to the printed font-0 footprint (length = chars × fontSize × ratio).
-const CHAR_ADVANCE_RATIO = 0.46;
+
+// Per-character advance widths of the printer's Zebra font 0 (^A0 / CG Triumvirate), normalised to
+// the nominal font size. Measured from the printer's own rendering (Labelary, 12 dpmm): each value
+// = ink-advance ÷ fontSize. A string's printed length = Σ advance(char) × fontSize. This is exact
+// per-string (validated to ±3 dots on real names), unlike a flat average. Unmapped chars fall back
+// to FONT0_DEFAULT_ADV. The editor uses this so on-canvas text matches the printed footprint.
+const FONT0_ADV = {
+  ' ': 0.296,
+  '0': 0.478, '1': 0.475, '2': 0.478, '3': 0.478, '4': 0.478, '5': 0.478, '6': 0.478, '7': 0.478, '8': 0.478, '9': 0.478,
+  'A': 0.553, 'B': 0.55, 'C': 0.533, 'D': 0.587, 'E': 0.496, 'F': 0.496, 'G': 0.587, 'H': 0.605, 'I': 0.273,
+  'J': 0.441, 'K': 0.551, 'L': 0.478, 'M': 0.753, 'N': 0.605, 'O': 0.569, 'P': 0.551, 'Q': 0.57, 'R': 0.588,
+  'S': 0.533, 'T': 0.497, 'U': 0.605, 'V': 0.534, 'W': 0.811, 'X': 0.552, 'Y': 0.553, 'Z': 0.497,
+  'a': 0.459, 'b': 0.495, 'c': 0.44, 'd': 0.496, 'e': 0.477, 'f': 0.276, 'g': 0.495, 'h': 0.495, 'i': 0.255,
+  'j': 0.256, 'k': 0.441, 'l': 0.255, 'm': 0.753, 'n': 0.495, 'o': 0.478, 'p': 0.495, 'q': 0.496, 'r': 0.33,
+  's': 0.423, 't': 0.275, 'u': 0.496, 'v': 0.442, 'w': 0.663, 'x': 0.441, 'y': 0.441, 'z': 0.386,
+  '.': 0.291, ',': 0.291, '-': 0.45, '–': 0.895, "'": 0.291, '/': 0.295, '&': 0.606, '(': 0.293, ')': 0.293,
+  ':': 0.291, ';': 0.291, '!': 0.291, '?': 0.441, '+': 0.45, '°': 0.477,
+  'é': 0.477, 'è': 0.477, 'ê': 0.477, 'ë': 0.477, 'à': 0.459, 'á': 0.459, 'â': 0.459, 'ä': 0.459,
+  'ï': 0.258, 'î': 0.258, 'í': 0.256, 'ç': 0.44, 'ù': 0.496, 'û': 0.496, 'ü': 0.496, 'ö': 0.478, 'ô': 0.478, 'ó': 0.478,
+};
+const FONT0_DEFAULT_ADV = 0.5; // fallback advance for any unmapped character
+
+// Sum of font-0 advances for a string, in units of fontSize (length = this × fontSize).
+function font0AdvanceUnits(str) {
+  let u = 0;
+  for (const ch of str) u += (FONT0_ADV[ch] !== undefined ? FONT0_ADV[ch] : FONT0_DEFAULT_ADV);
+  return u;
+}
 let stage, layer, tr, bg;
 let vGuide, hGuide, vQ1, vQ2, hQ1, hQ2; // dashed guides (Konva.Line); hidden unless actively snapped
 let vGuides = [], hGuides = [];          // candidate lists: { frac, line } per axis
@@ -201,14 +226,15 @@ function textOf(node) {
     : (node.getAttr('sampleText') || labelFor(node.getAttr('binding')));
 }
 
-// Size a text node to the printer's font-0 footprint: length = chars × fontSize × CHAR_ADVANCE_RATIO,
-// thickness = fontSize. Glyphs are scaled to fill that box so the canvas matches the print.
+// Size a text node to the printer's font-0 footprint: length = Σ font-0 advance × fontSize (exact
+// per-string via the FONT0_ADV table), thickness = fontSize. Glyphs are scaled to fill that box so
+// the canvas matches the print.
 function applyTextMetrics(node) {
   node.scaleX(1); node.scaleY(1);
   node.width('auto'); node.height('auto');                 // measure the natural glyph run
   const fsDots = p2d(node.fontSize());
-  const chars  = Math.max(1, (textOf(node) || '').length);
-  const targetWpx = d2p(Math.round(chars * fsDots * CHAR_ADVANCE_RATIO)); // length along text
+  const units = font0AdvanceUnits(textOf(node) || '');
+  const targetWpx = d2p(Math.max(1, Math.round(units * fsDots)));         // length along text
   const targetHpx = node.fontSize();                                      // thickness = fontSize
   const sx = targetWpx / Math.max(1, node.width());
   const sy = targetHpx / Math.max(1, node.height());       // ≈ 1 (lineHeight 1 ⇒ height = fontSize)
