@@ -28,9 +28,14 @@ The editor will mirror this: a text element's box becomes **length = `chars × f
 
 ## Requirements
 
+> **Update (after testing):** a flat average ratio (`0.46`, as `ZplGeneratorService` uses for its
+> group-centred layout) proved too coarse for centring independent lines — on real names it was off
+> by up to **52 dots** because it ignores per-letter widths. R1 below now uses a **measured
+> per-character font-0 advance table** (`FONT0_ADV`), validated to **±3 dots** on real strings.
+
 | # | Requirement |
 |---|-------------|
-| R1 | A text element's on-canvas **length** (reading direction) is `round(chars × fontSize × CHAR_ADVANCE_RATIO)` dots, with `CHAR_ADVANCE_RATIO = 0.46` (mirroring `ZplGeneratorService`). |
+| R1 | A text element's on-canvas **length** (reading direction) is `round(Σ font0Advance(char) × fontSize)` dots, using a **measured per-character font-0 advance table** (`FONT0_ADV`, normalised to font size; unmapped chars fall back to `0.5`). The table is measured from the printer's own rendering (Labelary, 12 dpmm) and validated to ±3 dots on real names. |
 | R2 | A text element's on-canvas **thickness** (cross direction) is `fontSize` dots (line height = 1). |
 | R3 | The metrics are recomputed whenever the element is created, its **text/binding/sampleText** changes, or its **fontSize** changes (incl. via resize). |
 | R4 | `chars` is the length of the **displayed** string: the static `value` for STATIC_TEXT, or the resolved sample/placeholder for data-bound TEXT (the same string the canvas shows today). |
@@ -45,10 +50,12 @@ The editor will mirror this: a text element's box becomes **length = `chars × f
 
 ### Editor canvas (`static/js/editor/canvas.js`)
 
-**The shared constant:**
+**The metric table:**
 ```js
-// Mirrors ZplGeneratorService.CHAR_ADVANCE_RATIO — Zebra font 0 ^A0 proportional advance ÷ size.
-const CHAR_ADVANCE_RATIO = 0.46;
+// Per-character font-0 advance ÷ fontSize, measured from the printer's rendering (Labelary).
+const FONT0_ADV = { ' ': 0.296, 'A': 0.553, 'I': 0.273, 'M': 0.753, 'W': 0.811, /* … ~95 entries … */ };
+const FONT0_DEFAULT_ADV = 0.5;
+function font0AdvanceUnits(str) { let u = 0; for (const ch of str) u += (FONT0_ADV[ch] ?? FONT0_DEFAULT_ADV); return u; }
 ```
 
 **Text node creation (`makeLeaf`, TEXT/STATIC_TEXT branch):** create the `Konva.Text` with the printer-like face; the box + glyph fit are applied by `applyTextMetrics`:
@@ -64,8 +71,8 @@ function applyTextMetrics(node) {
   node.scaleX(1); node.scaleY(1);
   node.width('auto'); node.height('auto');          // measure natural glyph run
   const fsDots = p2d(node.fontSize());
-  const chars  = Math.max(1, (textOf(node) || '').length);
-  const targetWpx = d2p(Math.round(chars * fsDots * CHAR_ADVANCE_RATIO)); // length
+  const units = font0AdvanceUnits(textOf(node) || '');
+  const targetWpx = d2p(Math.max(1, Math.round(units * fsDots)));          // length (per-char table)
   const targetHpx = node.fontSize();                                      // thickness = fontSize
   const sx = targetWpx / node.width();   // condense Helvetica (~0.5/ch) to the font-0 box (0.46/ch)
   const sy = targetHpx / node.height();  // ≈ 1 (lineHeight 1 ⇒ natural height = fontSize)
