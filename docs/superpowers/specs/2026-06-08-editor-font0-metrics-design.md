@@ -51,28 +51,40 @@ The editor will mirror this: a text element's box becomes **length = `chars × f
 const CHAR_ADVANCE_RATIO = 0.46;
 ```
 
-**Text node creation (`makeLeaf`, TEXT/STATIC_TEXT branch):** create the `Konva.Text` with the printer-like face and a fixed, model-derived box rather than auto-size:
+**Text node creation (`makeLeaf`, TEXT/STATIC_TEXT branch):** create the `Konva.Text` with the printer-like face; the box + glyph fit are applied by `applyTextMetrics`:
 ```js
 // Helvetica/Arial = on-screen stand-in for the printer's resident font 0 (^A0 / CG Triumvirate).
-node = new Konva.Text({ ...base, fontFamily: 'Helvetica, Arial, sans-serif',
-  fill: '#111', wrap: 'none', align: 'center', verticalAlign: 'middle' });
-// fontSize + box set by applyTextMetrics below
+node = new Konva.Text({ ...base, fontFamily: 'Helvetica, Arial, sans-serif', fill: '#111' });
+// fontSize + box + fit set by applyTextMetrics below
 ```
-`wrap: 'none'` keeps it one line; an explicit `width`/`height` makes `getClientRect` return exactly the font-0 box. The **box is authoritative** for all geometry; because Arial's average advance (~0.5) is slightly wider than the font-0 ratio (0.46), long strings may visually overflow their box by a few percent — acceptable, since positioning/snapping uses the box, not the glyph ink. (A later polish could scale glyphs to fit, but that conflicts with the resize-bake logic and is out of scope here.)
 
-**New helper `applyTextMetrics(node)`** (single source of truth for a text node's box):
+**New helper `applyTextMetrics(node)`** — the single source of truth for a text node's box. It measures the natural glyph run, then **scales the glyphs to exactly fill the font-0 box** so the canvas text occupies the printed footprint (same result), not just an accurate empty box:
 ```js
 function applyTextMetrics(node) {
-  const fs = node.fontSize();                       // px (already d2p of stored dots)
-  const fsDots = p2d(fs);
-  const chars = (textOf(node) || '').length;
-  node.width(d2p(Math.max(1, Math.round(chars * fsDots * CHAR_ADVANCE_RATIO)))); // length px
-  node.height(fs);                                  // thickness = fontSize, lineHeight 1
+  node.scaleX(1); node.scaleY(1);
+  node.width('auto'); node.height('auto');          // measure natural glyph run
+  const fsDots = p2d(node.fontSize());
+  const chars  = Math.max(1, (textOf(node) || '').length);
+  const targetWpx = d2p(Math.round(chars * fsDots * CHAR_ADVANCE_RATIO)); // length
+  const targetHpx = node.fontSize();                                      // thickness = fontSize
+  const sx = targetWpx / node.width();   // condense Helvetica (~0.5/ch) to the font-0 box (0.46/ch)
+  const sy = targetHpx / node.height();  // ≈ 1 (lineHeight 1 ⇒ natural height = fontSize)
+  node.scaleX(sx); node.scaleY(sy);
+  node.setAttr('fitScaleY', sy);          // remembered so resize can separate gesture from fit
 }
 ```
-Call it: at the end of `makeLeaf` for text nodes (after `node.text(textOf(node))`), in `applyProp` after any change to `fontSize` / `value` / `sampleText` / `binding`, and in `wireLeaf`'s `transformend` after baking the resize scale into `fontSize`.
+`getClientRect` now returns the scaled box = the font-0 footprint, and the glyphs fill it (lightly condensed, ~8%). All geometry (snap, transformer, serialize, rotation) flows from this.
 
-**Resize handling (`wireLeaf` transformend, Text branch):** today it bakes `scaleX` into `fontSize`. Keep that, then call `applyTextMetrics(node)` so width/height follow the new font size (the transformer rescaled the box; we re-derive it from the model). Do **not** let the raw transformer width persist.
+Call `applyTextMetrics` at the end of `makeLeaf` for text nodes (after `node.text(textOf(node))`), and in `applyProp` after any change to `fontSize` / `value` / `sampleText` / `binding`.
+
+**Resize handling (`wireLeaf` transformend, Text branch):** today it bakes `scaleX` into `fontSize` assuming scale is purely the resize gesture. With scale-to-fit, `scaleX` also carries the condense factor — so the gesture is read from **`scaleY`** instead (which is only the resize, since the fit `sy ≈ 1`). Then re-fit:
+```js
+// Text branch of transformend:
+const gesture = node.scaleY() / (node.getAttr('fitScaleY') || 1);
+node.fontSize(Math.max(2, node.fontSize() * gesture));
+applyTextMetrics(node);   // resets scale, re-derives box + fit from the new fontSize
+```
+This keeps thickness = `fontSize` and length = the model after every resize.
 
 **Everything else is unchanged** — `bboxTLDots`, `placeAtBboxTL`, snapping, serialization, rotation all read `getClientRect`, which now returns the font-0 box.
 
