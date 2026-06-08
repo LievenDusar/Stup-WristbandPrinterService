@@ -1,4 +1,4 @@
-# Permit wristband — design spec
+# Permit wristband + stock color preview — design spec
 
 ## Goal
 
@@ -6,6 +6,12 @@ Add a second, structurally-different wristband type printable via `/api/wristban
 the **permit wristband**, used whenever a guest needs a physical token that identifies
 what they are allowed to do or access (e.g. use a campsite power box, park in a
 reserved area, access catering, etc.).
+
+Also add a **stock color** parameter (optional, default white) to **both** the crew and
+permit print/preview requests. The ZPL sent to the printer is always monochrome; the
+stock color is used exclusively to tint the Labelary PNG preview so staff can judge
+contrast on colored wristband stock. The color palette is fully configurable via
+`application.yml` — new colors can be added without code changes.
 
 The specific permission is **not baked into the band type** — the caller passes a
 `permitLabel` (e.g. `"ELEKTRICITEIT"`, `"PARKING"`, `"CATERING"`) and the band prints
@@ -28,7 +34,7 @@ glance, what each registered band type looks like (thumbnail → click for a lar
 
 ## Non-goals / explicitly out of scope
 
-- Changing the crew band in any way (layout, fields, validation, ZPL).
+- Changing the crew band's layout, ZPL generation, or validation in any way.
 - The template designer / editor (per the maintainer: "the editor logic can be ignored
   for the moment").
 - Letting the gallery preview with user-entered data — it renders fixed sample data
@@ -36,6 +42,8 @@ glance, what each registered band type looks like (thumbnail → click for a lar
 - **Font Awesome → PNG icon rendering** — `iconName` is accepted and stored in this
   implementation but **not rendered**. The icon printing feature is a follow-up (see
   "Future: icon rendering" below).
+- Changing what is actually sent to the printer — the ZPL is always monochrome
+  regardless of `stockColorCode`. Color affects previews only.
 
 ## Architecture
 
@@ -116,6 +124,7 @@ New, narrow DTO — mirrors the validation style of `WristbandPrintRequest`:
 | `codeValue`       | no       | string to encode as a scan code; when absent, no code block is rendered |
 | `codeSymbology`   | no       | `CODE128` (default), `QR`, or `CODE39`; ignored when `codeValue` absent |
 | `iconName`        | no       | Font Awesome icon name (e.g. `"bolt"`); **stored but not rendered** in this implementation — reserved for the FA→PNG follow-up |
+| `stockColorCode`  | no       | integer key into `wristband.stock-colors`; default `1` (white); unknown code → `400` |
 | `printerId`       | no       | same routing semantics as the crew band (defaults to first)             |
 
 No `firstName`/`lastName`/`barcodeValue`/`templateId` — this band carries no personal
@@ -129,7 +138,8 @@ record PermitWristbandData(
     String permitLabel,       // rendered as "Toelating [permitLabel]"
     String associationName,   // null/blank → dots
     String codeValue,         // null → no scan code block
-    CodeSymbology symbology   // CODE128 | QR | CODE39
+    CodeSymbology symbology,  // CODE128 | QR | CODE39
+    String stockColorHex      // resolved from stockColorCode at build time; "#FFFFFF" when absent
     // iconName deliberately excluded: not rendered in this implementation
 ) {}
 ```
@@ -229,6 +239,79 @@ This also closes the known CLAUDE.md gap: *"Template renderer emits Code 128
 regardless of selected symbology"* — `ScanCodeRenderer` is available for the template
 renderer follow-up without further design work.
 
+## Stock color preview (applies to all band types)
+
+Wristband stock comes in multiple colors. The ZPL is always printed monochrome
+(thermal printers only produce black marks on whatever stock is loaded), but the PNG
+preview should reflect the actual stock color so staff can judge contrast before
+printing a batch.
+
+### Palette — config-driven, not hardcoded
+
+The color palette is defined in `application.yml` as a map of integer code → hex
+string. The initial set (all values adjustable by ops without code changes):
+
+```yaml
+wristband:
+  stock-colors:
+    1: "#FFFFFF"   # white (default)
+    2: "#7B2D8B"   # purple
+    3: "#F5D000"   # yellow
+    4: "#1565C0"   # blue
+    5: "#2E7D32"   # green
+    6: "#E53935"   # red / orange / pink
+```
+
+Adding a new color in the future is a one-line YAML entry. No code change is needed.
+The numeric codes are stable API values — do not renumber existing entries.
+
+### `stockColorCode` request field
+
+Added to **both** `WristbandPrintRequest` (crew) and `PermitWristbandPrintRequest`:
+
+| Field            | Required | Notes                                                                     |
+|------------------|----------|---------------------------------------------------------------------------|
+| `stockColorCode` | no       | integer; must be a key present in `wristband.stock-colors`; default `1` (white). Unknown code → `400`. |
+
+`stockColorCode` is also exposed on `PrintableRequest` (the sealed interface) so the
+job-tracking layer can persist it and replay it on the job-detail preview.
+
+### `StockColorCompositor` — shared preview utility
+
+A new small service (lives in `service/`, `@Profile("!worker")`):
+
+1. Receives the white-background PNG bytes from `LabelaryPreviewService`.
+2. Decodes the PNG into a `BufferedImage`.
+3. For each pixel: if brightness is above a configurable threshold (the white
+   background), replaces it with the configured stock hex color; leaves dark pixels
+   (the print marks) untouched.
+4. Re-encodes to PNG bytes and returns.
+
+This is the same tinting concept used by the template designer for color preview,
+now extracted as a shared server-side utility. `LabelaryPreviewService.renderPreview`
+is extended (or wrapped) to accept an optional hex color string; when `null` /
+`"#FFFFFF"`, the compositor is a no-op (no extra allocation).
+
+### Where color is applied
+
+| Endpoint | Color source |
+|---|---|
+| `POST /crew/preview/image` | `stockColorCode` from the request body |
+| `POST /permit/preview/image` | `stockColorCode` from the request body |
+| `GET /jobs/{jobId}/preview` | `stockColorCode` stored with the original print request |
+| `GET /api/wristbands/gallery` thumbnails | Each catalog entry's sample request includes a `stockColorCode`; gallery shows the band on its typical stock color |
+
+### Schema addition
+
+The V6 Flyway migration also adds:
+
+```sql
+ALTER TABLE print_jobs ADD COLUMN stock_color_code INT NOT NULL DEFAULT 1;
+```
+
+Existing rows get `1` (white) automatically. The column is `NOT NULL` with a default
+since every job has a color (even if it was not specified — white is the default).
+
 ## Future: icon rendering (Font Awesome → PNG)
 
 `iconName` is accepted and persisted in this implementation but **not rendered**. A
@@ -272,6 +355,23 @@ class — to be decided during planning, following existing conventions), bound 
 Note: there is no `iconPath` config — the icon is now driven by the per-request
 `iconName` field and will be loaded dynamically by the future FA converter. There is
 no static icon asset required for this implementation.
+
+**Top-level shared config** (not under `wristband.permit.*`):
+
+```yaml
+wristband:
+  stock-colors:          # integer code → CSS hex color
+    1: "#FFFFFF"         # white — default; code 1 must always be present
+    2: "#7B2D8B"         # purple
+    3: "#F5D000"         # yellow
+    4: "#1565C0"         # blue
+    5: "#2E7D32"         # green
+    6: "#E53935"         # red / orange / pink
+```
+
+Bound via a `Map<Integer, String>` field in `WristbandProperties` (or a sibling
+`@ConfigurationProperties`). Validated at startup: code `1` must be present; hex
+values must be valid 6-digit hex strings.
 
 ## Assets needed
 
@@ -360,7 +460,11 @@ Postgres, mocked printer/Labelary):
 - `WorkerProfileContextTest` — verify new beans carry the correct `@Profile("!worker")`
   guard (per the project's load-bearing profile convention).
 - A migration test / Flyway validation that `V6__...` applies cleanly against existing
-  data and defaults pre-existing rows to `wristband_type = 'CREW'`.
+  data and defaults pre-existing rows to `wristband_type = 'CREW'` and
+  `stock_color_code = 1`.
+- `StockColorCompositorTest` — unit tests: white input is tinted to the target color;
+  black pixels are preserved; unknown color code is rejected at request-validation time
+  (400, not at compositor level); no-op when color is white (`#FFFFFF`).
 
 ## Documentation
 
@@ -382,8 +486,10 @@ considered done.
 - Note the temporary `/print` redirect alias (if implemented) and its planned removal.
 
 **`docs/configuration.md`** — add a new `wristband.permit.*` section documenting all
-config keys listed in the Configuration section above, plus note the `codeSymbology`
-override available on all band-type requests.
+config keys listed in the Configuration section above; add a `wristband.stock-colors`
+section explaining the numeric-code → hex map, how to add a new color, and the startup
+validation rules; note the `codeSymbology` and `stockColorCode` fields available on
+all band-type requests.
 
 **`docs/permit-wristband.md`** ← **new file** — create this document covering:
 - Purpose: what this band type is for (general permission/allowance; electricity as the
@@ -411,8 +517,8 @@ all code and the above docs are complete, as a final step:
   model, and the `/{type}/action` URL pattern; update the request flow description to
   reference `/crew/print` and `/permit/print`.
 - Folder structure: add `domain/CodeSymbology.java`, `service/ScanCodeRenderer.java`,
-  `service/PermitZplGeneratorService.java`, the new controller mapping(s), and
-  `WristbandGalleryCatalog` to the relevant packages.
+  `service/PermitZplGeneratorService.java`, `service/StockColorCompositor.java`,
+  the new controller mapping(s), and `WristbandGalleryCatalog` to the relevant packages.
 - Known issues: **close** the "Template renderer emits Code 128 regardless of selected
   symbology" entry — `ScanCodeRenderer` now provides multi-symbology support for
   fixed-layout generators; note the template designer renderer follow-up is still open.
@@ -432,5 +538,11 @@ all code and the above docs are complete, as a final step:
 - The `ScanCodeRenderer` shared helper and why it was extracted.
 - The uniform `betweenBlocks` margin decision.
 - `iconName` stored-but-not-rendered decision and the FA follow-up plan.
+- `stockColorCode` as a config-driven palette (numeric → hex in YAML) rather than
+  hardcoded colors or free-form hex input — why: stable API codes, ops-configurable
+  palette, validation at startup, no client needs to know hex values.
+- `StockColorCompositor` as a shared post-processing step rather than ZPL-level color
+  commands — why: ZPL is monochrome for thermal printing; color is a preview concern only.
 - Notable rejected alternatives (single-DTO with conditional validation, hardcoded
-  `/electricity/print` URL, per-gap margins, shared strategy interface).
+  `/electricity/print` URL, per-gap margins, shared strategy interface, free-form hex
+  color parameter).
