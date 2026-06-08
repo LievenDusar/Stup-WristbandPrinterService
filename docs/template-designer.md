@@ -139,14 +139,22 @@ dragged element's centre snap to the band's 50% (pink) and/or 25%/75% (slate) li
 invisible until an axis snaps, then a dashed line flashes in; each axis snaps independently. The
 toggles are a session preference (not saved).
 
+**Print-accurate text (font-0 metrics):** the editor sizes every text block with the **same font-0
+model the printer uses** (mirroring `ZplGeneratorService`): length along the text = `chars ×
+fontSize × 0.46`, thickness = `fontSize`, drawn in a Helvetica/Arial face (the on-screen stand-in
+for the printer's resident font `^A0`). So a text block on the canvas occupies the footprint it
+will print, and **snap-to-center, the 25%/75% quarters, free placement, and the Y axis all match
+the print** — for upright and rotated text alike. Data-bound fields use the **sample** length at
+design time; their real printed length depends on the data (centred data fields are re-centred from
+the real value by the renderer).
+
 **Center on band:** the **Center on band** button is a persistent toggle (it shows an active
 outline when on). While on, the selected element/group is kept centred across the band **width**
-and its horizontal drag is locked (vertical still moves); the flag is saved with the template. The
-centring is **renderer-authoritative** — the ZPL renderer recomputes the centre at print time so
-what prints is exactly centred, even for rotated text (the editor canvas uses the Poppins web font,
-whose metrics differ from the printer's font, so the renderer — not the stored `x` — is the source
-of truth). Non-rotated text is centred with a ZPL field block (`^FB`); rotated text uses calibrated
-font-0 cell metrics; images/shapes use their exact dimensions.
+and its horizontal drag is locked (vertical still moves); the flag is saved with the template. With
+the font-0 editor metrics above, snapping already centres accurately; this toggle additionally lets
+the renderer re-centre at print time (useful for data-bound text whose real length isn't known at
+design time). Non-rotated text centres via a ZPL field block (`^FB`); rotated text and
+images/shapes centre on the `fontSize`/known dimensions (the same model as the basic wristband).
 
 > **Center-on-band limitation:** a **barcode** is centred on its stored box, not on the exact
 > printed symbol width (the renderer doesn't compute the rendered bar width), so a centred barcode
