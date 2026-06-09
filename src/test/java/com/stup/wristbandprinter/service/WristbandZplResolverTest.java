@@ -1,5 +1,7 @@
 package com.stup.wristbandprinter.service;
 
+import com.stup.wristbandprinter.domain.PermitWristbandData;
+import com.stup.wristbandprinter.domain.PermitWristbandPrintRequest;
 import com.stup.wristbandprinter.domain.WristbandData;
 import com.stup.wristbandprinter.domain.WristbandPrintRequest;
 import com.stup.wristbandprinter.editor.domain.Canvas;
@@ -20,6 +22,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -27,6 +30,8 @@ class WristbandZplResolverTest {
 
     @Mock private ZplGeneratorService zplGeneratorService;
     @Mock private WristbandLayoutService layoutService;
+    @Mock private PermitZplGeneratorService permitZplGeneratorService;
+    @Mock private PermitLayoutService permitLayoutService;
     @Mock private WristbandTemplateRepository templateRepository;
     @Mock private TemplateZplRenderer templateRenderer;
 
@@ -37,10 +42,12 @@ class WristbandZplResolverTest {
     @BeforeEach
     void setUp() {
         resolver = new WristbandZplResolver(zplGeneratorService, layoutService,
+                permitZplGeneratorService, permitLayoutService,
                 templateRepository, templateRenderer);
         // Layout service builds data from the request; return the shared data instance
         // so downstream stubs on zplGeneratorService / templateRenderer still match.
-        when(layoutService.buildData(any())).thenReturn(data);
+        // lenient: not all tests go through the CREW path.
+        lenient().when(layoutService.buildData(any())).thenReturn(data);
     }
 
     private WristbandPrintRequest request(UUID templateId) {
@@ -76,5 +83,21 @@ class WristbandZplResolverTest {
         assertThatThrownBy(() -> resolver.resolve(request(id)))
             .isInstanceOf(IllegalStateException.class)
             .hasMessageContaining("Template not found");
+    }
+
+    @Test
+    void resolve_permitRequest_delegatesToPermitGenerator() {
+        PermitWristbandPrintRequest req = new PermitWristbandPrintRequest();
+        req.setEventName("Pukkelpop 2026");
+        req.setPermitLabel("ELEKTRICITEIT");
+
+        PermitWristbandData permitData = new PermitWristbandData(
+                "Pukkelpop 2026", "ELEKTRICITEIT", null, null,
+                com.stup.wristbandprinter.domain.CodeSymbology.CODE128, "#FFFFFF");
+
+        when(permitLayoutService.buildData(req)).thenReturn(permitData);
+        when(permitZplGeneratorService.generate(permitData)).thenReturn("^XA-permit^XZ");
+
+        assertThat(resolver.resolve(req)).isEqualTo("^XA-permit^XZ");
     }
 }
