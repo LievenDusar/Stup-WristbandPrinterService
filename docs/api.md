@@ -1,76 +1,94 @@
-# API endpoints
+# API Reference
 
-[← Back to README](../README.md)
-
-The REST API for printing wristbands, tracking jobs, and managing templates.
+Base path: `/api/wristbands`  
+Authentication: `X-API-Key` header on all endpoints except `/jobs/stream`.
 
 ---
 
-## Authentication
+## Crew wristband
 
-All endpoints require an API key header, **except** `/api/wristbands/jobs/stream` and `/jobs.html`:
+| Method | URL | Description |
+|--------|-----|-------------|
+| POST | `/crew/print` | Enqueue a crew print job → 202 |
+| POST | `/crew/preview/zpl` | Return ZPL as plain text |
+| POST | `/crew/preview/image` | Return PNG preview via Labelary |
+| POST | `/print` ⚠ | **Deprecated 308 alias** → `/crew/print` |
 
-```
-X-API-Key: <your-api-key>
-```
+### Request body (`WristbandPrintRequest`)
 
-## Wristbands
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `eventName` | string | ✅ | |
+| `firstName` | string | ✅ | |
+| `lastName` | string | ✅ | |
+| `associationName` | string | ✅ | Printed on the band |
+| `barcodeValue` | string | ✅ | Scanned at the event |
+| `templateId` | UUID | ❌ | When set, renders via the named designer template |
+| `codeSymbology` | `CODE128` \| `CODE39` \| `QR` | ❌ | Defaults to `CODE128` |
+| `stockColorCode` | integer | ❌ | Preview-only PNG tint (see stock colors below) |
+| `printerId` | string | ❌ | Defaults to first registered printer |
 
-| Method | Path | Description |
-|---|---|---|
-| `POST` | `/api/wristbands/print` | Enqueue a print job → `202 + jobId`. Optional `printerId` selects the printer (default = first); unknown id → `400`. Response carries `printerId` + `printerName` |
-| `POST` | `/api/wristbands/preview/zpl` | Return generated ZPL as plain text |
-| `POST` | `/api/wristbands/preview/image` | Return rendered PNG via Labelary |
-| `GET` | `/api/wristbands/printers` | List routable printers (`[{id, displayName}]`) |
-| `GET` | `/api/wristbands/jobs` | List all jobs (`?status=PENDING\|PRINTING\|DONE\|FAILED`) |
-| `GET` | `/api/wristbands/jobs/{jobId}` | Get one job (incl. `printerId`/`printerName`) |
-| `GET` | `/api/wristbands/jobs/stream` | SSE stream — real-time updates for **all** jobs |
-| `GET` | `/api/wristbands/jobs/{jobId}/stream` | SSE stream for **one** job; emits its current status, then updates, and closes on a terminal status (for Symfony to follow a single job) |
-| `POST` | `/api/wristbands/jobs/{jobId}/reprint` | Reprint a previous job; optional `?printerId=` re-routes it to another printer |
-| `DELETE` | `/api/wristbands/jobs/completed` | Soft-delete DONE/FAILED/CANCELLED jobs |
+---
 
-## Templates
+## Permit wristband
 
-| Method | Path | Description |
-|---|---|---|
-| `POST` | `/api/templates` | Create a wristband template → `201 + detail` |
-| `PUT` | `/api/templates/{id}` | Update a template → `200` / `404` |
-| `GET` | `/api/templates` | List templates (catalog); `?projectType=` filters |
-| `GET` | `/api/templates/{id}` | Get a template's full definition → `200` / `404` |
-| `DELETE` | `/api/templates/{id}` | Soft-delete a template → `204` / `404` |
-| `GET` | `/api/templates/{id}/preview` | PNG preview with sample data (`?color=` tints stock) |
-| `POST` | `/api/templates/{id}/preview` | PNG preview with supplied `WristbandData` body |
-| `POST` | `/api/templates/assets` | Upload a logo (multipart `file`) → `201 + assetId` |
-| `GET` | `/api/templates/assets/{id}` | Fetch a stored logo PNG |
+| Method | URL | Description |
+|--------|-----|-------------|
+| POST | `/permit/print` | Enqueue a permit print job → 202 |
+| POST | `/permit/preview/zpl` | Return ZPL as plain text |
+| POST | `/permit/preview/image` | Return PNG preview via Labelary |
 
-> 💡 **Wristband Template Designer:** the `/api/templates` endpoints back a visual template designer.
-> `POST /api/wristbands/print` accepts an optional `templateId` — when set, the wristband is rendered
-> from that template instead of the default fixed layout. Architecture, data model, full API and
-> roadmap are in [template-designer.md](template-designer.md).
+### Request body (`PermitWristbandPrintRequest`)
 
-## Examples
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `eventName` | string | ✅ | Printed in block 4 |
+| `permitLabel` | string | ✅ | e.g. `ELEKTRICITEIT`, `PARKING`. Printed as "Toelating [label]" |
+| `associationName` | string | ❌ | If absent, a dotted fill-in line is printed instead |
+| `iconName` | string | ❌ | Font Awesome icon name — stored only, not rendered yet |
+| `codeValue` | string | ❌ | When present, a scan code is printed in block 3 |
+| `codeSymbology` | `CODE128` \| `CODE39` \| `QR` | ❌ | Defaults to `CODE128` |
+| `stockColorCode` | integer | ❌ | Preview-only PNG tint |
+| `printerId` | string | ❌ | Defaults to first registered printer |
 
-### Print a wristband
+---
 
-```bash
-curl -X POST http://localhost:8080/api/wristbands/print \
-  -H "X-API-Key: local-dev-key" -H "Content-Type: application/json" \
-  -d '{
-    "eventName": "Pukkelpop 2026",
-    "firstName": "Annechien",
-    "lastName": "Van De Wall",
-    "associationName": "Chiro Sint-Christina Brustem",
-    "barcodeValue": "12345455244226789"
-  }'
-```
+## Jobs (type-agnostic)
 
-### Preview ZPL
+| Method | URL | Description |
+|--------|-----|-------------|
+| GET | `/jobs` | List jobs; optional `?status=PENDING\|PRINTING\|DONE\|FAILED\|CANCELLED` |
+| GET | `/jobs/{jobId}` | Get full job detail |
+| GET | `/jobs/{jobId}/preview` | PNG preview of the job's wristband |
+| GET | `/jobs/stream` | SSE stream of all job status updates |
+| GET | `/jobs/{jobId}/stream` | SSE stream for one job |
+| POST | `/jobs/{jobId}/reprint` | Re-enqueue a job; optional `?printerId=` |
+| POST | `/jobs/{jobId}/cancel` | Cancel a PENDING job → 409 if already started |
+| DELETE | `/jobs/completed` | Soft-delete all DONE/FAILED/CANCELLED jobs |
 
-Paste the output at [labelary.com/viewer.html](https://labelary.com/viewer.html):
+---
 
-```bash
-curl -X POST http://localhost:8080/api/wristbands/preview/zpl \
-  -H "X-API-Key: local-dev-key" -H "Content-Type: application/json" \
-  -d '{"eventName":"Pukkelpop 2026","firstName":"Annechien","lastName":"Van De Wall","associationName":"Chiro Sint-Christina Brustem","barcodeValue":"12345455244226789"}' \
-  | pbcopy
-```
+## Printers & Gallery
+
+| Method | URL | Description |
+|--------|-----|-------------|
+| GET | `/printers` | List registered printers |
+| GET | `/gallery` | List all wristband types with sample preview data |
+
+---
+
+## Stock color codes
+
+`stockColorCode` in any print or preview request applies a color tint to the
+**PNG preview only**. ZPL output is always monochrome.
+
+Default palette (configurable in `wristband.stock-colors`):
+
+| Code | Color |
+|------|-------|
+| 1 | White (no-op) |
+| 2 | Purple `#800080` |
+| 3 | Yellow `#FFFF00` |
+| 4 | Blue `#0000FF` |
+| 5 | Green `#008000` |
+| 6 | Red `#FF0000` |

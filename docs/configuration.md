@@ -81,3 +81,47 @@ elements; the labels on the right size the elements themselves.
 
 > 💡 **Calibration:** every position derives from the values above — no code changes needed. After a
 > first test print, tune `wristband.margins.*` and `wristband.text.*` in `application-prod.yml`.
+
+---
+
+## Stock colors
+
+`wristband.stock-colors` maps integer codes to hex values. Used by all preview endpoints
+when `stockColorCode` is included in the request. ZPL is always monochrome — the tint is
+applied to the PNG only by `PreviewColorService`.
+
+```yaml
+wristband:
+  stock-colors:
+    1: "#FFFFFF"   # white (default stock — no visual tint)
+    2: "#800080"   # purple
+    3: "#FFFF00"   # yellow
+    4: "#0000FF"   # blue
+    5: "#008000"   # green
+    6: "#FF0000"   # red
+```
+
+To add more colors, append entries and redeploy. There is no reserved range — keep 1 = white.
+
+---
+
+## Permit wristband layout
+
+All values under `wristband.permit.*`:
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `event-logo-path` | `classpath:images/stup-logo.png` | Event logo PNG (classpath: or absolute path) |
+| `event-logo-side-margin-dots` | 30 | Horizontal margin for the event logo in block 4 |
+| `margins.between-blocks` | 60 | Gap between the four top-level layout blocks (dots) |
+| `margins.writing-space-gap` | 150 | Blank space between the permit-label line and the dashes fill-in line |
+| `text.font-size-permit-label` | 52 | Font size for "Toelating [label]" |
+| `text.font-size-association` | 42 | Font size for the optional association name |
+| `text.font-size-event-name` | 52 | Font size for the event name in block 4 |
+| `text.dot-count` | 20 | Number of dashes/dots for the writing-line when no association name is given |
+| `code.default-symbology` | `CODE128` | Scan-code symbology when `codeSymbology` is absent in the request |
+| `code.height-dots` | 200 | Bar height of the optional scan code |
+| `code.module-width-dots` | 2 | Narrow-bar module width for the optional scan code |
+| `code.show-human-readable` | false | Whether to print the human-readable value below the scan code |
+
+Calibrate by using `POST /api/wristbands/permit/preview/image` and adjusting YAML values.
