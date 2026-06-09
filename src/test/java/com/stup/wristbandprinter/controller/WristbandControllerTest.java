@@ -3,9 +3,11 @@ package com.stup.wristbandprinter.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.stup.wristbandprinter.config.AdminProperties;
 import com.stup.wristbandprinter.config.SecurityConfig;
+import com.stup.wristbandprinter.config.WristbandProperties;
 import com.stup.wristbandprinter.cluster.Printer;
 import com.stup.wristbandprinter.cluster.PrinterRegistry;
 import com.stup.wristbandprinter.domain.*;
+import com.stup.wristbandprinter.editor.service.PreviewColorService;
 import com.stup.wristbandprinter.exception.LabelaryUnavailableException;
 import com.stup.wristbandprinter.security.ApiKeyAuthFilter;
 import com.stup.wristbandprinter.security.AuthCookieService;
@@ -27,14 +29,19 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(WristbandController.class)
 @Import({SecurityConfig.class, ApiKeyAuthFilter.class, AuthCookieService.class})
-@EnableConfigurationProperties(AdminProperties.class)
-@TestPropertySource(properties = {"security.api-key=test-key", "security.admin.password=pw"})
+@EnableConfigurationProperties({AdminProperties.class, WristbandProperties.class})
+@TestPropertySource(properties = {
+    "security.api-key=test-key",
+    "security.admin.password=pw",
+    "wristband.stock-colors[2]=#800080"
+})
 class WristbandControllerTest {
 
     @Autowired MockMvc mockMvc;
@@ -44,6 +51,8 @@ class WristbandControllerTest {
     @MockitoBean WristbandZplResolver wristbandZplResolver;
     @MockitoBean LabelaryPreviewService labelaryPreviewService;
     @MockitoBean PrinterRegistry printerRegistry;
+    @MockitoBean PreviewColorService previewColorService;
+    @MockitoBean WristbandGalleryCatalog galleryCatalog;
 
     private static final String API_KEY = "test-key";
 
@@ -53,7 +62,7 @@ class WristbandControllerTest {
         PrintJob job = new PrintJob(jobId, sampleRequest());
         when(printQueueService.enqueue(any())).thenReturn(job);
 
-        mockMvc.perform(post("/api/wristbands/print")
+        mockMvc.perform(post("/api/wristbands/crew/print")
                 .header("X-API-Key", API_KEY)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(sampleRequest())))
@@ -67,7 +76,7 @@ class WristbandControllerTest {
         String body = """
             {"firstName":"Jan","lastName":"Janssens","associationName":"STUP vzw","barcodeValue":"123"}
             """;
-        mockMvc.perform(post("/api/wristbands/print")
+        mockMvc.perform(post("/api/wristbands/crew/print")
                 .header("X-API-Key", API_KEY)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body))
@@ -77,17 +86,35 @@ class WristbandControllerTest {
 
     @Test
     void print_returns401_whenApiKeyMissing() throws Exception {
-        mockMvc.perform(post("/api/wristbands/print")
+        mockMvc.perform(post("/api/wristbands/crew/print")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(sampleRequest())))
             .andExpect(status().isUnauthorized());
     }
 
     @Test
+    void print_returns401_whenApiKeyWrong() throws Exception {
+        mockMvc.perform(post("/api/wristbands/crew/print")
+                .header("X-API-Key", "wrong-key")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(sampleRequest())))
+            .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void crewPrint_oldUrl_redirectsTo308() throws Exception {
+        mockMvc.perform(post("/api/wristbands/print")
+                .header("X-API-Key", API_KEY)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}"))
+            .andExpect(status().is(308));
+    }
+
+    @Test
     void previewZpl_returnsZplString() throws Exception {
         when(wristbandZplResolver.resolve(any())).thenReturn("^XA^XZ");
 
-        mockMvc.perform(post("/api/wristbands/preview/zpl")
+        mockMvc.perform(post("/api/wristbands/crew/preview/zpl")
                 .header("X-API-Key", API_KEY)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(sampleRequest())))
@@ -101,7 +128,7 @@ class WristbandControllerTest {
         when(wristbandZplResolver.resolve(any())).thenReturn("^XA^XZ");
         when(labelaryPreviewService.renderPreview("^XA^XZ")).thenReturn(new byte[]{1, 2, 3});
 
-        mockMvc.perform(post("/api/wristbands/preview/image")
+        mockMvc.perform(post("/api/wristbands/crew/preview/image")
                 .header("X-API-Key", API_KEY)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(sampleRequest())))
@@ -115,12 +142,68 @@ class WristbandControllerTest {
         when(labelaryPreviewService.renderPreview(any()))
             .thenThrow(new LabelaryUnavailableException("Labelary down"));
 
-        mockMvc.perform(post("/api/wristbands/preview/image")
+        mockMvc.perform(post("/api/wristbands/crew/preview/image")
                 .header("X-API-Key", API_KEY)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(sampleRequest())))
             .andExpect(status().isServiceUnavailable())
             .andExpect(jsonPath("$.error").value("Labelary unavailable"));
+    }
+
+    @Test
+    void previewImage_passesTemplateIdToResolver() throws Exception {
+        when(wristbandZplResolver.resolve(any())).thenReturn("^XA^XZ");
+        when(labelaryPreviewService.renderPreview(any())).thenReturn(new byte[]{1});
+
+        UUID templateId = UUID.randomUUID();
+        WristbandPrintRequest req = sampleRequest();
+        req.setTemplateId(templateId);
+
+        mockMvc.perform(post("/api/wristbands/crew/preview/image")
+                .header("X-API-Key", API_KEY)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(req)))
+            .andExpect(status().isOk());
+
+        org.mockito.ArgumentCaptor<WristbandPrintRequest> captor =
+            org.mockito.ArgumentCaptor.forClass(WristbandPrintRequest.class);
+        verify(wristbandZplResolver).resolve(captor.capture());
+        org.assertj.core.api.Assertions.assertThat(captor.getValue().getTemplateId()).isEqualTo(templateId);
+    }
+
+    @Test
+    void crewPreviewImage_withStockColor_tintsPng() throws Exception {
+        byte[] rawPng = new byte[]{1, 2, 3};
+        byte[] tintedPng = new byte[]{4, 5, 6};
+        when(wristbandZplResolver.resolve(any())).thenReturn("^XA^XZ");
+        when(labelaryPreviewService.renderPreview(any())).thenReturn(rawPng);
+        when(previewColorService.tint(rawPng, "#800080")).thenReturn(tintedPng);
+
+        WristbandPrintRequest req = sampleRequest();
+        req.setStockColorCode(2);
+
+        mockMvc.perform(post("/api/wristbands/crew/preview/image")
+                .header("X-API-Key", API_KEY)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(req)))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.IMAGE_PNG));
+
+        verify(previewColorService).tint(rawPng, "#800080");
+    }
+
+    @Test
+    void crewPreviewImage_withoutStockColor_doesNotTint() throws Exception {
+        when(wristbandZplResolver.resolve(any())).thenReturn("^XA^XZ");
+        when(labelaryPreviewService.renderPreview(any())).thenReturn(new byte[]{1, 2, 3});
+
+        mockMvc.perform(post("/api/wristbands/crew/preview/image")
+                .header("X-API-Key", API_KEY)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(sampleRequest())))
+            .andExpect(status().isOk());
+
+        verifyNoInteractions(previewColorService);
     }
 
     @Test
@@ -178,15 +261,6 @@ class WristbandControllerTest {
             .andExpect(status().isNoContent());
 
         verify(printQueueService).clearCompleted();
-    }
-
-    @Test
-    void print_returns401_whenApiKeyWrong() throws Exception {
-        mockMvc.perform(post("/api/wristbands/print")
-                .header("X-API-Key", "wrong-key")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(sampleRequest())))
-            .andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -294,27 +368,6 @@ class WristbandControllerTest {
                 .header("X-API-Key", "test-key"))
             .andExpect(status().isOk())
             .andExpect(content().contentType(MediaType.IMAGE_PNG));
-    }
-
-    @Test
-    void previewImage_passesTemplateIdToResolver() throws Exception {
-        when(wristbandZplResolver.resolve(any())).thenReturn("^XA^XZ");
-        when(labelaryPreviewService.renderPreview(any())).thenReturn(new byte[]{1});
-
-        UUID templateId = UUID.randomUUID();
-        WristbandPrintRequest req = sampleRequest();
-        req.setTemplateId(templateId);
-
-        mockMvc.perform(post("/api/wristbands/preview/image")
-                .header("X-API-Key", API_KEY)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(req)))
-            .andExpect(status().isOk());
-
-        org.mockito.ArgumentCaptor<WristbandPrintRequest> captor =
-            org.mockito.ArgumentCaptor.forClass(WristbandPrintRequest.class);
-        verify(wristbandZplResolver).resolve(captor.capture());
-        org.assertj.core.api.Assertions.assertThat(captor.getValue().getTemplateId()).isEqualTo(templateId);
     }
 
     @Test

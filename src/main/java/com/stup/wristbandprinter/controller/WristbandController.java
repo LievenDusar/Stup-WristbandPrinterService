@@ -1,7 +1,10 @@
 package com.stup.wristbandprinter.controller;
 
 import com.stup.wristbandprinter.cluster.PrinterRegistry;
+import com.stup.wristbandprinter.config.WristbandProperties;
 import com.stup.wristbandprinter.domain.*;
+import com.stup.wristbandprinter.editor.service.PreviewColorService;
+import com.stup.wristbandprinter.exception.InvalidStockColorException;
 import com.stup.wristbandprinter.service.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -24,50 +27,73 @@ import java.util.UUID;
 @SecurityRequirement(name = "ApiKeyAuth")
 public class WristbandController {
 
-    private final PrintQueueService printQueueService;
-    private final WristbandZplResolver wristbandZplResolver;
-    private final LabelaryPreviewService labelaryPreviewService;
-    private final PrinterRegistry printerRegistry;
+    private final PrintQueueService        printQueueService;
+    private final WristbandZplResolver     wristbandZplResolver;
+    private final LabelaryPreviewService   labelaryPreviewService;
+    private final PrinterRegistry          printerRegistry;
+    private final WristbandProperties      wristbandProperties;
+    private final PreviewColorService      previewColorService;
+    private final WristbandGalleryCatalog  galleryCatalog;
 
     public WristbandController(PrintQueueService printQueueService,
-                               WristbandZplResolver wristbandZplResolver,
-                               LabelaryPreviewService labelaryPreviewService,
-                               PrinterRegistry printerRegistry) {
-        this.printQueueService = printQueueService;
+                                WristbandZplResolver wristbandZplResolver,
+                                LabelaryPreviewService labelaryPreviewService,
+                                PrinterRegistry printerRegistry,
+                                WristbandProperties wristbandProperties,
+                                PreviewColorService previewColorService,
+                                WristbandGalleryCatalog galleryCatalog) {
+        this.printQueueService   = printQueueService;
         this.wristbandZplResolver = wristbandZplResolver;
         this.labelaryPreviewService = labelaryPreviewService;
-        this.printerRegistry = printerRegistry;
+        this.printerRegistry     = printerRegistry;
+        this.wristbandProperties  = wristbandProperties;
+        this.previewColorService  = previewColorService;
+        this.galleryCatalog       = galleryCatalog;
     }
 
+    // ── 308 alias: old /print → /crew/print ──────────────────────────────
+
     @PostMapping("/print")
-    @Operation(summary = "Enqueue a wristband print job")
-    public ResponseEntity<PrintJobResponse> print(@Valid @RequestBody WristbandPrintRequest request) {
+    @Operation(summary = "Deprecated alias — redirects 308 to /crew/print")
+    public ResponseEntity<Void> printLegacyRedirect() {
+        return ResponseEntity.status(HttpStatus.PERMANENT_REDIRECT)
+            .header("Location", "/api/wristbands/crew/print")
+            .build();
+    }
+
+    // ── Crew endpoints ────────────────────────────────────────────────────
+
+    @PostMapping("/crew/print")
+    @Operation(summary = "Enqueue a crew wristband print job")
+    public ResponseEntity<PrintJobResponse> crewPrint(@Valid @RequestBody WristbandPrintRequest request) {
         PrintJob job = printQueueService.enqueue(request);
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(job.toResponse());
     }
 
-    @PostMapping(value = "/preview/zpl", produces = "text/plain;charset=UTF-8")
-    @Operation(summary = "Generate and return ZPL code as plain text")
-    public ResponseEntity<String> previewZpl(@Valid @RequestBody WristbandPrintRequest request) {
+    @PostMapping(value = "/crew/preview/zpl", produces = "text/plain;charset=UTF-8")
+    @Operation(summary = "Generate and return ZPL for a crew wristband as plain text")
+    public ResponseEntity<String> crewPreviewZpl(@Valid @RequestBody WristbandPrintRequest request) {
         String zpl = wristbandZplResolver.resolve(request);
         return ResponseEntity.ok(zpl);
     }
 
-    @PostMapping(value = "/preview/image", produces = MediaType.IMAGE_PNG_VALUE)
-    @Operation(summary = "Generate and return a rendered PNG preview via Labelary")
-    public ResponseEntity<byte[]> previewImage(@Valid @RequestBody WristbandPrintRequest request) {
-        String zpl = wristbandZplResolver.resolve(request);
-        byte[] png = labelaryPreviewService.renderPreview(zpl);
-        return ResponseEntity.ok().contentType(MediaType.IMAGE_PNG).body(png);
+    @PostMapping(value = "/crew/preview/image", produces = MediaType.IMAGE_PNG_VALUE)
+    @Operation(summary = "Generate and return a rendered PNG preview of a crew wristband via Labelary")
+    public ResponseEntity<byte[]> crewPreviewImage(@Valid @RequestBody WristbandPrintRequest request) {
+        String zpl  = wristbandZplResolver.resolve(request);
+        byte[] png  = labelaryPreviewService.renderPreview(zpl);
+        byte[] out  = applyStockColor(png, request.getStockColorCode());
+        return ResponseEntity.ok().contentType(MediaType.IMAGE_PNG).body(out);
     }
+
+    // ── Job management (type-agnostic) ────────────────────────────────────
 
     @GetMapping("/jobs")
     @Operation(summary = "List all print jobs, optionally filtered by status")
     public ResponseEntity<List<PrintJobResponse>> getJobs(
             @RequestParam(required = false) PrintJobStatus status) {
-        List<PrintJobResponse> responses = printQueueService.getJobs(status)
-            .stream().map(PrintJob::toResponse).toList();
-        return ResponseEntity.ok(responses);
+        return ResponseEntity.ok(
+            printQueueService.getJobs(status).stream().map(PrintJob::toResponse).toList());
     }
 
     @GetMapping("/jobs/{jobId}")
@@ -85,13 +111,14 @@ public class WristbandController {
             .<ResponseEntity<byte[]>>map(job -> {
                 String zpl = wristbandZplResolver.resolve(job.getRequest());
                 byte[] png = labelaryPreviewService.renderPreview(zpl);
-                return ResponseEntity.ok().contentType(MediaType.IMAGE_PNG).body(png);
+                byte[] out = applyStockColor(png, job.getRequest().getStockColorCode());
+                return ResponseEntity.ok().contentType(MediaType.IMAGE_PNG).body(out);
             })
             .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @GetMapping(value = "/jobs/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    @Operation(summary = "Subscribe to real-time job status updates via SSE (requires admin cookie or API key)")
+    @Operation(summary = "Subscribe to real-time job status updates via SSE")
     public SseEmitter streamJobs() {
         return printQueueService.subscribe();
     }
@@ -104,14 +131,15 @@ public class WristbandController {
     }
 
     @PostMapping("/jobs/{jobId}/reprint")
-    @Operation(summary = "Reprint a previous job using the same data, optionally on a chosen printer")
+    @Operation(summary = "Reprint a previous job, optionally on a different printer")
     public ResponseEntity<PrintJobResponse> reprint(@PathVariable UUID jobId,
-                                                    @RequestParam(required = false) String printerId) {
+                                                     @RequestParam(required = false) String printerId) {
         return printQueueService.getJob(jobId)
             .map(original -> {
-                PrintableRequest req = (printerId != null && !printerId.isBlank())
-                    ? original.getRequest().withPrinterId(printerId)
-                    : original.getRequest();
+                PrintableRequest req = original.getRequest();
+                if (printerId != null && !printerId.isBlank()) {
+                    req = req.withPrinterId(printerId);
+                }
                 PrintJob newJob = printQueueService.enqueue(req);
                 return ResponseEntity.status(HttpStatus.ACCEPTED).body(newJob.toResponse());
             })
@@ -137,9 +165,31 @@ public class WristbandController {
     @GetMapping("/printers")
     @Operation(summary = "List the printers this service can route to")
     public ResponseEntity<List<PrinterSummaryResponse>> printers() {
-        List<PrinterSummaryResponse> list = printerRegistry.all().stream()
+        return ResponseEntity.ok(printerRegistry.all().stream()
             .map(p -> new PrinterSummaryResponse(p.id(), p.displayName()))
-            .toList();
-        return ResponseEntity.ok(list);
+            .toList());
+    }
+
+    // ── Gallery ───────────────────────────────────────────────────────────
+
+    @GetMapping("/gallery")
+    @Operation(summary = "List all registered wristband band types with sample data for the gallery UI")
+    public ResponseEntity<List<WristbandGalleryEntry>> gallery() {
+        return ResponseEntity.ok(galleryCatalog.entries());
+    }
+
+    // ── private helpers ───────────────────────────────────────────────────
+
+    private byte[] applyStockColor(byte[] png, Integer stockColorCode) {
+        if (stockColorCode == null) {
+            return png;
+        }
+        String hex = wristbandProperties.getStockColors().get(stockColorCode);
+        if (hex == null) {
+            throw new InvalidStockColorException(
+                "Unknown stock color code " + stockColorCode
+                    + ". Configured codes: " + wristbandProperties.getStockColors().keySet());
+        }
+        return previewColorService.tint(png, hex);
     }
 }
