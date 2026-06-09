@@ -3,6 +3,7 @@ package com.stup.wristbandprinter.persistence;
 import com.stup.wristbandprinter.domain.PrintJob;
 import com.stup.wristbandprinter.domain.PrintJobStatus;
 import com.stup.wristbandprinter.domain.WristbandPrintRequest;
+import com.stup.wristbandprinter.domain.PrintableRequest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
@@ -47,8 +48,10 @@ class JpaJobStoreTest {
         PrintJob job = loaded.get(0);
         assertThat(job.getJobId()).isEqualTo(id);
         assertThat(job.getStatus()).isEqualTo(PrintJobStatus.DONE);
-        assertThat(job.getRequest().getEventName()).isEqualTo("Pukkelpop 2026");
-        assertThat(job.getRequest().getBarcodeValue()).isEqualTo("123456789");
+        assertThat(job.getRequest()).isInstanceOf(WristbandPrintRequest.class);
+        WristbandPrintRequest req = (WristbandPrintRequest) job.getRequest();
+        assertThat(req.getEventName()).isEqualTo("Pukkelpop 2026");
+        assertThat(req.getBarcodeValue()).isEqualTo("123456789");
     }
 
     @Test

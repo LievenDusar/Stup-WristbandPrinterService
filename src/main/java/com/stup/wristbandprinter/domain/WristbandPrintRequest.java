@@ -4,7 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 
 @Schema(description = "Data required to print or preview a wristband")
-public class WristbandPrintRequest {
+public final class WristbandPrintRequest implements PrintableRequest {
 
     @NotBlank(message = "eventName must not be blank")
     @Schema(example = "Pukkelpop 2026")
@@ -64,4 +64,22 @@ public class WristbandPrintRequest {
 
     public String getPrinterId() { return printerId; }
     public void setPrinterId(String printerId) { this.printerId = printerId; }
+
+    @Override
+    public WristbandType getWristbandType() { return WristbandType.CREW; }
+
+    @Override
+    public PrintableRequest withPrinterId(String printerId) {
+        WristbandPrintRequest copy = new WristbandPrintRequest();
+        copy.eventName      = this.eventName;
+        copy.firstName      = this.firstName;
+        copy.lastName       = this.lastName;
+        copy.associationName = this.associationName;
+        copy.barcodeValue   = this.barcodeValue;
+        copy.templateId     = this.templateId;
+        copy.codeSymbology  = this.codeSymbology;
+        copy.stockColorCode = this.stockColorCode;
+        copy.printerId      = printerId;
+        return copy;
+    }
 }

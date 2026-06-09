@@ -26,17 +26,22 @@ import static org.mockito.Mockito.when;
 class WristbandZplResolverTest {
 
     @Mock private ZplGeneratorService zplGeneratorService;
+    @Mock private WristbandLayoutService layoutService;
     @Mock private WristbandTemplateRepository templateRepository;
     @Mock private TemplateZplRenderer templateRenderer;
 
     private WristbandZplResolver resolver;
 
+    private final WristbandData data = new WristbandData("E", "F", "L", "A", "B");
+
     @BeforeEach
     void setUp() {
-        resolver = new WristbandZplResolver(zplGeneratorService, templateRepository, templateRenderer);
+        resolver = new WristbandZplResolver(zplGeneratorService, layoutService,
+                templateRepository, templateRenderer);
+        // Layout service builds data from the request; return the shared data instance
+        // so downstream stubs on zplGeneratorService / templateRenderer still match.
+        when(layoutService.buildData(any())).thenReturn(data);
     }
-
-    private final WristbandData data = new WristbandData("E", "F", "L", "A", "B");
 
     private WristbandPrintRequest request(UUID templateId) {
         WristbandPrintRequest r = new WristbandPrintRequest();
@@ -49,7 +54,7 @@ class WristbandZplResolverTest {
     @Test
     void resolve_withoutTemplateId_usesLegacyGenerator() {
         when(zplGeneratorService.generate(data)).thenReturn("^XA-legacy^XZ");
-        assertThat(resolver.resolve(request(null), data)).isEqualTo("^XA-legacy^XZ");
+        assertThat(resolver.resolve(request(null))).isEqualTo("^XA-legacy^XZ");
     }
 
     @Test
@@ -61,14 +66,14 @@ class WristbandZplResolverTest {
         when(templateRepository.findByIdAndDeletedFalse(id)).thenReturn(Optional.of(e));
         when(templateRenderer.render(def, data)).thenReturn("^XA-template^XZ");
 
-        assertThat(resolver.resolve(request(id), data)).isEqualTo("^XA-template^XZ");
+        assertThat(resolver.resolve(request(id))).isEqualTo("^XA-template^XZ");
     }
 
     @Test
     void resolve_withUnknownTemplateId_throws() {
         UUID id = UUID.randomUUID();
         when(templateRepository.findByIdAndDeletedFalse(id)).thenReturn(Optional.empty());
-        assertThatThrownBy(() -> resolver.resolve(request(id), data))
+        assertThatThrownBy(() -> resolver.resolve(request(id)))
             .isInstanceOf(IllegalStateException.class)
             .hasMessageContaining("Template not found");
     }

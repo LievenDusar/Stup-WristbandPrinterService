@@ -13,7 +13,7 @@ class ApiKeyValidatorTest {
         // A printer-worker (prod,worker) has no admin UI, so a missing admin password must not block startup.
         StandardEnvironment env = new StandardEnvironment();
         env.setActiveProfiles("prod", "worker");
-        ApiKeyValidator validator = new ApiKeyValidator(env, "a-real-secret-key", new AdminProperties());
+        ApiKeyValidator validator = new ApiKeyValidator(env, "a-real-secret-key", new AdminProperties(), "");
         assertThatCode(validator::afterPropertiesSet).doesNotThrowAnyException();
     }
 
@@ -22,7 +22,7 @@ class ApiKeyValidatorTest {
         // The management service (prod, no worker) still requires an admin password.
         StandardEnvironment env = new StandardEnvironment();
         env.setActiveProfiles("prod");
-        ApiKeyValidator validator = new ApiKeyValidator(env, "a-real-secret-key", new AdminProperties());
+        ApiKeyValidator validator = new ApiKeyValidator(env, "a-real-secret-key", new AdminProperties(), "a-cookie-secret");
         assertThatThrownBy(validator::afterPropertiesSet)
             .isInstanceOf(IllegalStateException.class)
             .hasMessageContaining("admin");
@@ -81,6 +81,25 @@ class ApiKeyValidatorTest {
     @Test
     void nonProdWithBlankAdminPassword_passes() {
         assertThatCode(() -> ApiKeyValidator.validateAdminPassword(false, ""))
+            .doesNotThrowAnyException();
+    }
+
+    @Test
+    void prodWithBlankCookieSecret_throws() {
+        assertThatThrownBy(() -> ApiKeyValidator.validateCookieSecret(true, ""))
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("cookie-secret");
+    }
+
+    @Test
+    void prodWithRealCookieSecret_passes() {
+        assertThatCode(() -> ApiKeyValidator.validateCookieSecret(true, "a-real-secret"))
+            .doesNotThrowAnyException();
+    }
+
+    @Test
+    void nonProdWithBlankCookieSecret_passes() {
+        assertThatCode(() -> ApiKeyValidator.validateCookieSecret(false, ""))
             .doesNotThrowAnyException();
     }
 }

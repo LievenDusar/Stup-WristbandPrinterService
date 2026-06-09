@@ -6,8 +6,7 @@ import com.stup.wristbandprinter.cluster.WorkerClient;
 import com.stup.wristbandprinter.config.QueueProperties;
 import com.stup.wristbandprinter.domain.PrintJob;
 import com.stup.wristbandprinter.domain.PrintJobStatus;
-import com.stup.wristbandprinter.domain.WristbandData;
-import com.stup.wristbandprinter.domain.WristbandPrintRequest;
+import com.stup.wristbandprinter.domain.PrintableRequest;
 import com.stup.wristbandprinter.exception.JobNotCancellableException;
 import com.stup.wristbandprinter.exception.PrinterUnavailableException;
 import com.stup.wristbandprinter.exception.QueueFullException;
@@ -43,7 +42,6 @@ public class PrintQueueService {
     private final java.util.concurrent.ConcurrentHashMap<UUID, java.util.List<SseEmitter>> jobEmitters
         = new java.util.concurrent.ConcurrentHashMap<>();
 
-    private final WristbandLayoutService layoutService;
     private final WristbandZplResolver wristbandZplResolver;
     private final PrinterRegistry printerRegistry;
     private final WorkerClient workerClient;
@@ -56,14 +54,12 @@ public class PrintQueueService {
 
     private ExecutorService worker;
 
-    public PrintQueueService(WristbandLayoutService layoutService,
-                              WristbandZplResolver wristbandZplResolver,
+    public PrintQueueService(WristbandZplResolver wristbandZplResolver,
                               PrinterRegistry printerRegistry,
                               WorkerClient workerClient,
                               QueueProperties queueProperties,
                               JobStore jobStore,
                               MeterRegistry meterRegistry) {
-        this.layoutService = layoutService;
         this.wristbandZplResolver = wristbandZplResolver;
         this.printerRegistry = printerRegistry;
         this.workerClient = workerClient;
@@ -139,17 +135,20 @@ public class PrintQueueService {
         log.info("Print queue worker stopped");
     }
 
-    public PrintJob enqueue(WristbandPrintRequest request) {
+    public PrintJob enqueue(PrintableRequest request) {
         Printer printer = (request.getPrinterId() == null || request.getPrinterId().isBlank())
             ? printerRegistry.getDefault()
             : printerRegistry.get(request.getPrinterId());   // throws UnknownPrinterException -> 400
 
+        // Stamp the resolved printerId onto the request so it's persisted correctly.
+        PrintableRequest stamped = request.withPrinterId(printer.id());
+
         java.util.concurrent.BlockingQueue<PrintJob> q = queueFor(printer.id());
         if (q.size() >= queueProperties.getMaxDepth()) {
-            throw queueFull(request);
+            throw queueFull(stamped);
         }
 
-        PrintJob job = new PrintJob(UUID.randomUUID(), request, printer.id(), printer.displayName());
+        PrintJob job = new PrintJob(UUID.randomUUID(), stamped, printer.id(), printer.displayName());
         // Persist before exposing the job to the worker: otherwise the worker thread can
         // dequeue and save it concurrently with this thread's save, causing duplicate inserts.
         jobStore.save(job);
@@ -159,20 +158,19 @@ public class PrintQueueService {
             // Lost a capacity race against another submitter; undo the persisted row.
             jobs.remove(job.getJobId());
             jobStore.deleteById(job.getJobId());
-            throw queueFull(request);
+            throw queueFull(stamped);
         }
 
         submittedCounter.increment();
         broadcastUpdate(job);
-        log.info("Job {} enqueued for printer {} ({}), event: {}, barcode: {}",
-            job.getJobId(), printer.id(), printer.displayName(),
-            request.getEventName(), request.getBarcodeValue());
+        log.info("Job {} ({}) enqueued for printer {} ({})",
+            job.getJobId(), stamped.getWristbandType(), printer.id(), printer.displayName());
         return job;
     }
 
-    private QueueFullException queueFull(WristbandPrintRequest request) {
-        log.warn("Print queue full (max depth {}); rejecting job for event: {}",
-            queueProperties.getMaxDepth(), request.getEventName());
+    private QueueFullException queueFull(PrintableRequest request) {
+        log.warn("Print queue full (max depth {}); rejecting {} job",
+            queueProperties.getMaxDepth(), request.getWristbandType());
         return new QueueFullException(
             "Print queue is full (" + queueProperties.getMaxDepth()
                 + " jobs pending). Please retry shortly.");
@@ -284,8 +282,7 @@ public class PrintQueueService {
                     jobStore.save(job);
                     broadcastUpdate(job);
                     try {
-                        WristbandData data = layoutService.buildData(job.getRequest());
-                        String zpl = wristbandZplResolver.resolve(job.getRequest(), data);
+                        String zpl = wristbandZplResolver.resolve(job.getRequest());
                         Printer printer = printerRegistry.get(job.getPrinterId());
                         workerClient.print(printer.baseUrl(), job.getJobId(), zpl);
                         job.complete(PrintJobStatus.DONE, null, Instant.now());

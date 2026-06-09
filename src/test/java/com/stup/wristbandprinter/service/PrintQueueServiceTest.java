@@ -3,7 +3,6 @@ package com.stup.wristbandprinter.service;
 import com.stup.wristbandprinter.config.QueueProperties;
 import com.stup.wristbandprinter.domain.PrintJob;
 import com.stup.wristbandprinter.domain.PrintJobStatus;
-import com.stup.wristbandprinter.domain.WristbandData;
 import com.stup.wristbandprinter.domain.WristbandPrintRequest;
 import com.stup.wristbandprinter.exception.JobNotCancellableException;
 import com.stup.wristbandprinter.exception.PrinterUnavailableException;
@@ -37,7 +36,6 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class PrintQueueServiceTest {
 
-    @Mock private WristbandLayoutService layoutService;
     @Mock private WristbandZplResolver wristbandZplResolver;
     @Mock private com.stup.wristbandprinter.cluster.PrinterRegistry printerRegistry;
     @Mock private com.stup.wristbandprinter.cluster.WorkerClient workerClient;
@@ -65,7 +63,7 @@ class PrintQueueServiceTest {
         queueProperties.setMaxDepth(maxDepth);
         jobStore = new InMemoryJobStore();
         meterRegistry = new SimpleMeterRegistry();
-        return new PrintQueueService(layoutService, wristbandZplResolver, printerRegistry, workerClient,
+        return new PrintQueueService(wristbandZplResolver, printerRegistry, workerClient,
             queueProperties, jobStore, meterRegistry);
     }
 
@@ -103,8 +101,7 @@ class PrintQueueServiceTest {
     @Test
     void enqueue_jobBecomesAfterProcessing() throws InterruptedException {
         CountDownLatch latch = new CountDownLatch(1);
-        when(layoutService.buildData(any())).thenReturn(sampleData());
-        when(wristbandZplResolver.resolve(any(), any())).thenReturn("^XA^XZ");
+        when(wristbandZplResolver.resolve(any())).thenReturn("^XA^XZ");
         doAnswer(inv -> { latch.countDown(); return null; }).when(workerClient).print(any(), any(), any());
 
         service.startWorker();
@@ -118,8 +115,7 @@ class PrintQueueServiceTest {
     @Test
     void worker_sendsResolvedZpl() throws InterruptedException {
         CountDownLatch latch = new CountDownLatch(1);
-        when(layoutService.buildData(any())).thenReturn(sampleData());
-        when(wristbandZplResolver.resolve(any(), any())).thenReturn("^XA^XZ-resolved");
+        when(wristbandZplResolver.resolve(any())).thenReturn("^XA^XZ-resolved");
         doAnswer(inv -> { latch.countDown(); return null; }).when(workerClient).print(any(), any(), any());
 
         service.startWorker();
@@ -132,8 +128,7 @@ class PrintQueueServiceTest {
     @Test
     void enqueue_jobBecomesFailed_whenPrinterThrows() throws InterruptedException {
         CountDownLatch latch = new CountDownLatch(1);
-        when(layoutService.buildData(any())).thenReturn(sampleData());
-        when(wristbandZplResolver.resolve(any(), any())).thenReturn("^XA^XZ");
+        when(wristbandZplResolver.resolve(any())).thenReturn("^XA^XZ");
         doAnswer(inv -> {
             latch.countDown();
             throw new PrinterUnavailableException("Printer down");
@@ -208,8 +203,7 @@ class PrintQueueServiceTest {
     @Test
     void clearCompleted_removesOnlyDoneAndFailedJobs() throws InterruptedException {
         CountDownLatch latch = new CountDownLatch(1);
-        when(layoutService.buildData(any())).thenReturn(sampleData());
-        when(wristbandZplResolver.resolve(any(), any())).thenReturn("^XA^XZ");
+        when(wristbandZplResolver.resolve(any())).thenReturn("^XA^XZ");
         doAnswer(inv -> { latch.countDown(); return null; }).when(workerClient).print(any(), any(), any());
 
         service.startWorker();
@@ -294,10 +288,6 @@ class PrintQueueServiceTest {
         r.setAssociationName("STUP vzw");
         r.setBarcodeValue("123456789");
         return r;
-    }
-
-    private WristbandData sampleData() {
-        return new WristbandData("Pukkelpop 2026", "Jan", "Janssens", "STUP vzw", "123456789");
     }
 
     /** Minimal in-memory JobStore so the queue service can be unit-tested without a database. */

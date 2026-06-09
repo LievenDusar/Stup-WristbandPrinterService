@@ -6,7 +6,6 @@ import com.stup.wristbandprinter.controller.WristbandController;
 import com.stup.wristbandprinter.security.ApiKeyAuthFilter;
 import com.stup.wristbandprinter.security.AuthCookieService;
 import com.stup.wristbandprinter.service.PrintQueueService;
-import com.stup.wristbandprinter.service.WristbandLayoutService;
 import com.stup.wristbandprinter.service.WristbandZplResolver;
 import com.stup.wristbandprinter.service.LabelaryPreviewService;
 import org.junit.jupiter.api.Test;
@@ -34,7 +33,6 @@ class GlobalExceptionHandlerTest {
     private MockMvc mockMvc;
 
     @MockitoBean private PrintQueueService printQueueService;
-    @MockitoBean private WristbandLayoutService wristbandLayoutService;
     @MockitoBean private WristbandZplResolver wristbandZplResolver;
     @MockitoBean private LabelaryPreviewService labelaryPreviewService;
     @MockitoBean private com.stup.wristbandprinter.cluster.PrinterRegistry printerRegistry;

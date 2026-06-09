@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class WristbandLayoutService {
 
+    /** Build layout data for a CREW wristband request. */
     public WristbandData buildData(WristbandPrintRequest request) {
         CodeSymbology symbology = request.getCodeSymbology() != null
             ? request.getCodeSymbology()

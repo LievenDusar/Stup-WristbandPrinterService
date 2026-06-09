@@ -69,6 +69,12 @@ public class GlobalExceptionHandler {
         return errorResponse(HttpStatus.BAD_REQUEST, "Unknown printer", ex.getMessage());
     }
 
+    @ExceptionHandler(InvalidStockColorException.class)
+    public ResponseEntity<Map<String, Object>> handleInvalidStockColor(InvalidStockColorException ex) {
+        log.warn("Invalid stock color: {}", ex.getMessage());
+        return errorResponse(HttpStatus.BAD_REQUEST, "Invalid stock color", ex.getMessage());
+    }
+
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
     public ResponseEntity<Map<String, Object>> handleMethodNotSupported(HttpRequestMethodNotSupportedException ex) {
         log.warn("Method not allowed: {}", ex.getMessage());

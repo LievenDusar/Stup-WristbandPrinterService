@@ -12,13 +12,16 @@ public class ApiKeyValidator implements InitializingBean {
     private final Environment environment;
     private final String apiKey;
     private final AdminProperties adminProperties;
+    private final String cookieSecret;
 
     public ApiKeyValidator(Environment environment,
                            @Value("${security.api-key:}") String apiKey,
-                           AdminProperties adminProperties) {
+                           AdminProperties adminProperties,
+                           @Value("${security.cookie-secret:}") String cookieSecret) {
         this.environment = environment;
         this.apiKey = apiKey;
         this.adminProperties = adminProperties;
+        this.cookieSecret = cookieSecret;
     }
 
     @Override
@@ -26,9 +29,10 @@ public class ApiKeyValidator implements InitializingBean {
         boolean prod = environment.acceptsProfiles(Profiles.of("prod"));
         boolean worker = environment.acceptsProfiles(Profiles.of("worker"));
         validate(prod, apiKey);
-        // Printer-workers have no admin UI, so they never need an admin password — even under prod.
+        // Printer-workers have no admin UI — they never need an admin password or cookie secret.
         if (!worker) {
             validateAdminPassword(prod, adminProperties.getPassword());
+            validateCookieSecret(prod, cookieSecret);
         }
     }
 
@@ -54,6 +58,17 @@ public class ApiKeyValidator implements InitializingBean {
             throw new IllegalStateException(
                 "security.admin.password must be set when running with the 'prod' profile. "
                     + "Set the ADMIN_PASSWORD environment variable.");
+        }
+    }
+
+    static void validateCookieSecret(boolean prodProfileActive, String cookieSecret) {
+        if (!prodProfileActive) {
+            return;
+        }
+        if (cookieSecret == null || cookieSecret.isBlank()) {
+            throw new IllegalStateException(
+                "security.cookie-secret must be set when running with the 'prod' profile. "
+                    + "Set the COOKIE_SECRET environment variable.");
         }
     }
 }

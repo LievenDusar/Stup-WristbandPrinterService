@@ -22,7 +22,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @TestPropertySource(properties = {
     "security.api-key=test-key",
     "security.admin.username=admin",
-    "security.admin.password=s3cret",
+    // BCrypt hash of "s3cret"
+    "security.admin.password=$2b$10$f27x2WDGI.sQT1699AAckOBl2TTpkK0VQbXEznwgFWDxAgXzYbX6u",
     "security.cookie-secret=test-signing-secret",
     "security.cookie.secure=false",
     "security.cookie.same-site=Lax"

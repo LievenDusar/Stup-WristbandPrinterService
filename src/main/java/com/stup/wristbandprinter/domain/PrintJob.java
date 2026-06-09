@@ -6,7 +6,7 @@ import java.util.UUID;
 public class PrintJob {
 
     private final UUID jobId;
-    private final WristbandPrintRequest request;
+    private final PrintableRequest request;
     private final String printerId;
     private final String printerName;
     private PrintJobStatus status;
@@ -14,11 +14,11 @@ public class PrintJob {
     private Instant completedAt;
     private String error;
 
-    public PrintJob(UUID jobId, WristbandPrintRequest request) {
+    public PrintJob(UUID jobId, PrintableRequest request) {
         this(jobId, request, null, null);
     }
 
-    public PrintJob(UUID jobId, WristbandPrintRequest request, String printerId, String printerName) {
+    public PrintJob(UUID jobId, PrintableRequest request, String printerId, String printerName) {
         this.jobId = jobId;
         this.request = request;
         this.printerId = printerId;
@@ -27,7 +27,7 @@ public class PrintJob {
         this.submittedAt = Instant.now();
     }
 
-    private PrintJob(UUID jobId, WristbandPrintRequest request, String printerId, String printerName,
+    private PrintJob(UUID jobId, PrintableRequest request, String printerId, String printerName,
                      PrintJobStatus status, Instant submittedAt, Instant completedAt, String error) {
         this.jobId = jobId;
         this.request = request;
@@ -40,20 +40,20 @@ public class PrintJob {
     }
 
     /** Rebuild a job from durable storage (no printer recorded). */
-    public static PrintJob restore(UUID jobId, WristbandPrintRequest request, PrintJobStatus status,
+    public static PrintJob restore(UUID jobId, PrintableRequest request, PrintJobStatus status,
                                    Instant submittedAt, Instant completedAt, String error) {
         return restore(jobId, request, null, null, status, submittedAt, completedAt, error);
     }
 
     /** Rebuild a job from durable storage, preserving its printer and original state. */
-    public static PrintJob restore(UUID jobId, WristbandPrintRequest request, String printerId,
+    public static PrintJob restore(UUID jobId, PrintableRequest request, String printerId,
                                    String printerName, PrintJobStatus status, Instant submittedAt,
                                    Instant completedAt, String error) {
         return new PrintJob(jobId, request, printerId, printerName, status, submittedAt, completedAt, error);
     }
 
     public UUID getJobId() { return jobId; }
-    public WristbandPrintRequest getRequest() { return request; }
+    public PrintableRequest getRequest() { return request; }
     public String getPrinterId() { return printerId; }
     public String getPrinterName() { return printerName; }
 
@@ -80,17 +80,43 @@ public class PrintJob {
     }
 
     public synchronized PrintJobResponse toResponse() {
+        String firstName = null, lastName = null;
+        if (request instanceof WristbandPrintRequest w) {
+            firstName = w.getFirstName();
+            lastName  = w.getLastName();
+        }
+        String eventName = (request instanceof WristbandPrintRequest w) ? w.getEventName()
+                         : (request instanceof PermitWristbandPrintRequest p) ? p.getEventName()
+                         : null;
         return new PrintJobResponse(
-            jobId, status, printerId, printerName,
-            request.getEventName(), request.getFirstName(), request.getLastName(),
+            jobId, status, request.getWristbandType(),
+            printerId, printerName,
+            eventName, firstName, lastName,
             submittedAt, completedAt, error);
     }
 
     public synchronized PrintJobDetailResponse toDetailResponse() {
+        String firstName = null, lastName = null,
+               assocName = null, barcodeValue = null,
+               permitLabel = null;
+        String eventName;
+        if (request instanceof WristbandPrintRequest w) {
+            eventName    = w.getEventName();
+            firstName    = w.getFirstName();
+            lastName     = w.getLastName();
+            assocName    = w.getAssociationName();
+            barcodeValue = w.getBarcodeValue();
+        } else if (request instanceof PermitWristbandPrintRequest p) {
+            eventName   = p.getEventName();
+            permitLabel = p.getPermitLabel();
+        } else {
+            eventName = null;
+        }
         return new PrintJobDetailResponse(
-            jobId, status, printerId, printerName,
-            request.getEventName(), request.getFirstName(), request.getLastName(),
-            request.getAssociationName(), request.getBarcodeValue(),
+            jobId, status, request.getWristbandType(),
+            printerId, printerName,
+            eventName, firstName, lastName,
+            assocName, barcodeValue, permitLabel,
             submittedAt, completedAt, error);
     }
 }

@@ -14,8 +14,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 import org.springframework.context.annotation.Profile;
 
@@ -27,6 +26,8 @@ import org.springframework.context.annotation.Profile;
 public class AuthController {
 
     public record LoginRequest(String username, String password) {}
+
+    private static final BCryptPasswordEncoder PASSWORD_ENCODER = new BCryptPasswordEncoder();
 
     private final AdminProperties admin;
     private final AuthCookieService cookieService;
@@ -75,12 +76,8 @@ public class AuthController {
             || admin.getPassword() == null) {
             return false;
         }
-        boolean userOk = MessageDigest.isEqual(
-            admin.getUsername().getBytes(StandardCharsets.UTF_8),
-            request.username().getBytes(StandardCharsets.UTF_8));
-        boolean passOk = MessageDigest.isEqual(
-            admin.getPassword().getBytes(StandardCharsets.UTF_8),
-            request.password().getBytes(StandardCharsets.UTF_8));
+        boolean userOk = admin.getUsername().equals(request.username());
+        boolean passOk = PASSWORD_ENCODER.matches(request.password(), admin.getPassword());
         return userOk && passOk;
     }
 }

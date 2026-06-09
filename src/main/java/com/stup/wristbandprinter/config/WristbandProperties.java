@@ -2,6 +2,9 @@ package com.stup.wristbandprinter.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 @ConfigurationProperties(prefix = "wristband")
 public class WristbandProperties {
 
@@ -13,6 +16,12 @@ public class WristbandProperties {
     private Margins margins = new Margins();
     private Text text = new Text();
     private Barcode barcode = new Barcode();
+
+    /**
+     * Preview-only stock-color palette. Keys are integer color codes (1 = white is the default);
+     * values are CSS hex strings (e.g. {@code "#FFFFFF"}). Applied via PreviewColorService.tint().
+     */
+    private Map<Integer, String> stockColors = new LinkedHashMap<>();
 
     public int getWidthDots() { return widthDots; }
     public void setWidthDots(int widthDots) { this.widthDots = widthDots; }
@@ -37,6 +46,9 @@ public class WristbandProperties {
 
     public Barcode getBarcode() { return barcode; }
     public void setBarcode(Barcode barcode) { this.barcode = barcode; }
+
+    public Map<Integer, String> getStockColors() { return stockColors; }
+    public void setStockColors(Map<Integer, String> stockColors) { this.stockColors = stockColors; }
 
     /**
      * Vertical gaps in dots, named in band layout order: top logo → barcode → text → bottom logo.

@@ -29,7 +29,8 @@ wristband:
 security:
   api-key: local-dev-key
   admin:
-    password: local-admin
+    # BCrypt hash of "local-admin" — generate a new hash for any real environment
+    password: "$2b$10$4OFfW8WbtJc1qYni/zJByuL.HggdKiGFS.RO3J6KEa5czu3.g1tg6"
   cookie:
     secure: false
     same-site: Lax

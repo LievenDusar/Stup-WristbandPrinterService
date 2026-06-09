@@ -15,7 +15,7 @@ security:
   cookie:
     secure: true       # send cookie only over HTTPS (overridden in local)
     same-site: Strict  # overridden to Lax in local
-  # cookie-secret: optional; if unset the cookie signing key is derived from the admin password
+  # cookie-secret: required in prod (COOKIE_SECRET env var); if unset in dev the signing key falls back to the admin password
 
 printer:
   host: localhost
@@ -58,6 +58,15 @@ wristband:
     height-dots: 270
     module-width-dots: 3   # wider narrow-bar -> longer along the band & reliably scannable
     show-human-readable: false
+  # Preview-only stock-color palette (ZPL is always monochrome).
+  # Keys are integer codes; values are CSS hex strings. Code 1 = white is the default.
+  stock-colors:
+    1: "#FFFFFF"   # white (default / plain stock)
+    2: "#FF8C00"   # orange
+    3: "#009900"   # green
+    4: "#FF3333"   # red
+    5: "#3399FF"   # blue
+    6: "#FFFF00"   # yellow
 
 labelary:
   base-url: http://api.labelary.com

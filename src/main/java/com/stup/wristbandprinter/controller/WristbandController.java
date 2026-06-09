@@ -25,18 +25,15 @@ import java.util.UUID;
 public class WristbandController {
 
     private final PrintQueueService printQueueService;
-    private final WristbandLayoutService wristbandLayoutService;
     private final WristbandZplResolver wristbandZplResolver;
     private final LabelaryPreviewService labelaryPreviewService;
     private final PrinterRegistry printerRegistry;
 
     public WristbandController(PrintQueueService printQueueService,
-                               WristbandLayoutService wristbandLayoutService,
                                WristbandZplResolver wristbandZplResolver,
                                LabelaryPreviewService labelaryPreviewService,
                                PrinterRegistry printerRegistry) {
         this.printQueueService = printQueueService;
-        this.wristbandLayoutService = wristbandLayoutService;
         this.wristbandZplResolver = wristbandZplResolver;
         this.labelaryPreviewService = labelaryPreviewService;
         this.printerRegistry = printerRegistry;
@@ -52,16 +49,14 @@ public class WristbandController {
     @PostMapping(value = "/preview/zpl", produces = "text/plain;charset=UTF-8")
     @Operation(summary = "Generate and return ZPL code as plain text")
     public ResponseEntity<String> previewZpl(@Valid @RequestBody WristbandPrintRequest request) {
-        WristbandData data = wristbandLayoutService.buildData(request);
-        String zpl = wristbandZplResolver.resolve(request, data);
+        String zpl = wristbandZplResolver.resolve(request);
         return ResponseEntity.ok(zpl);
     }
 
     @PostMapping(value = "/preview/image", produces = MediaType.IMAGE_PNG_VALUE)
     @Operation(summary = "Generate and return a rendered PNG preview via Labelary")
     public ResponseEntity<byte[]> previewImage(@Valid @RequestBody WristbandPrintRequest request) {
-        WristbandData data = wristbandLayoutService.buildData(request);
-        String zpl = wristbandZplResolver.resolve(request, data);
+        String zpl = wristbandZplResolver.resolve(request);
         byte[] png = labelaryPreviewService.renderPreview(zpl);
         return ResponseEntity.ok().contentType(MediaType.IMAGE_PNG).body(png);
     }
@@ -88,8 +83,7 @@ public class WristbandController {
     public ResponseEntity<byte[]> jobPreview(@PathVariable UUID jobId) {
         return printQueueService.getJob(jobId)
             .<ResponseEntity<byte[]>>map(job -> {
-                WristbandData data = wristbandLayoutService.buildData(job.getRequest());
-                String zpl = wristbandZplResolver.resolve(job.getRequest(), data);
+                String zpl = wristbandZplResolver.resolve(job.getRequest());
                 byte[] png = labelaryPreviewService.renderPreview(zpl);
                 return ResponseEntity.ok().contentType(MediaType.IMAGE_PNG).body(png);
             })
@@ -115,27 +109,13 @@ public class WristbandController {
                                                     @RequestParam(required = false) String printerId) {
         return printQueueService.getJob(jobId)
             .map(original -> {
-                WristbandPrintRequest req = original.getRequest();
-                if (printerId != null && !printerId.isBlank()) {
-                    req = copyWithPrinter(req, printerId);
-                }
+                PrintableRequest req = (printerId != null && !printerId.isBlank())
+                    ? original.getRequest().withPrinterId(printerId)
+                    : original.getRequest();
                 PrintJob newJob = printQueueService.enqueue(req);
                 return ResponseEntity.status(HttpStatus.ACCEPTED).body(newJob.toResponse());
             })
             .orElse(ResponseEntity.notFound().build());
-    }
-
-    /** Copy a request, overriding only the target printer (leaves the original job's request untouched). */
-    private static WristbandPrintRequest copyWithPrinter(WristbandPrintRequest src, String printerId) {
-        WristbandPrintRequest copy = new WristbandPrintRequest();
-        copy.setEventName(src.getEventName());
-        copy.setFirstName(src.getFirstName());
-        copy.setLastName(src.getLastName());
-        copy.setAssociationName(src.getAssociationName());
-        copy.setBarcodeValue(src.getBarcodeValue());
-        copy.setTemplateId(src.getTemplateId());
-        copy.setPrinterId(printerId);
-        return copy;
     }
 
     @PostMapping("/jobs/{jobId}/cancel")

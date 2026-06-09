@@ -41,7 +41,6 @@ class WristbandControllerTest {
     @Autowired ObjectMapper objectMapper;
 
     @MockitoBean PrintQueueService printQueueService;
-    @MockitoBean WristbandLayoutService wristbandLayoutService;
     @MockitoBean WristbandZplResolver wristbandZplResolver;
     @MockitoBean LabelaryPreviewService labelaryPreviewService;
     @MockitoBean PrinterRegistry printerRegistry;
@@ -86,9 +85,7 @@ class WristbandControllerTest {
 
     @Test
     void previewZpl_returnsZplString() throws Exception {
-        WristbandData data = new WristbandData("Pukkelpop 2026", "Jan", "Janssens", "STUP vzw", "123");
-        when(wristbandLayoutService.buildData(any())).thenReturn(data);
-        when(wristbandZplResolver.resolve(any(), any())).thenReturn("^XA^XZ");
+        when(wristbandZplResolver.resolve(any())).thenReturn("^XA^XZ");
 
         mockMvc.perform(post("/api/wristbands/preview/zpl")
                 .header("X-API-Key", API_KEY)
@@ -101,9 +98,7 @@ class WristbandControllerTest {
 
     @Test
     void previewImage_returnsPngBytes() throws Exception {
-        WristbandData data = new WristbandData("Pukkelpop 2026", "Jan", "Janssens", "STUP vzw", "123");
-        when(wristbandLayoutService.buildData(any())).thenReturn(data);
-        when(wristbandZplResolver.resolve(any(), any())).thenReturn("^XA^XZ");
+        when(wristbandZplResolver.resolve(any())).thenReturn("^XA^XZ");
         when(labelaryPreviewService.renderPreview("^XA^XZ")).thenReturn(new byte[]{1, 2, 3});
 
         mockMvc.perform(post("/api/wristbands/preview/image")
@@ -116,9 +111,7 @@ class WristbandControllerTest {
 
     @Test
     void previewImage_returns503_whenLabelaryUnavailable() throws Exception {
-        WristbandData data = new WristbandData("Pukkelpop 2026", "Jan", "Janssens", "STUP vzw", "123");
-        when(wristbandLayoutService.buildData(any())).thenReturn(data);
-        when(wristbandZplResolver.resolve(any(), any())).thenReturn("^XA^XZ");
+        when(wristbandZplResolver.resolve(any())).thenReturn("^XA^XZ");
         when(labelaryPreviewService.renderPreview(any()))
             .thenThrow(new LabelaryUnavailableException("Labelary down"));
 
@@ -293,9 +286,7 @@ class WristbandControllerTest {
         UUID id = UUID.randomUUID();
         Mockito.when(printQueueService.getJob(id))
             .thenReturn(java.util.Optional.of(new PrintJob(id, r)));
-        Mockito.when(wristbandLayoutService.buildData(Mockito.any()))
-            .thenReturn(new WristbandData("Pukkelpop 2026", "Jan", "Janssens", "STUP vzw", "123456789"));
-        Mockito.when(wristbandZplResolver.resolve(Mockito.any(), Mockito.any())).thenReturn("^XA^XZ");
+        Mockito.when(wristbandZplResolver.resolve(Mockito.any())).thenReturn("^XA^XZ");
         Mockito.when(labelaryPreviewService.renderPreview(Mockito.any()))
             .thenReturn(new byte[]{1, 2, 3});
 
@@ -307,9 +298,7 @@ class WristbandControllerTest {
 
     @Test
     void previewImage_passesTemplateIdToResolver() throws Exception {
-        when(wristbandLayoutService.buildData(any()))
-            .thenReturn(new WristbandData("E", "F", "L", "A", "B"));
-        when(wristbandZplResolver.resolve(any(), any())).thenReturn("^XA^XZ");
+        when(wristbandZplResolver.resolve(any())).thenReturn("^XA^XZ");
         when(labelaryPreviewService.renderPreview(any())).thenReturn(new byte[]{1});
 
         UUID templateId = UUID.randomUUID();
@@ -324,7 +313,7 @@ class WristbandControllerTest {
 
         org.mockito.ArgumentCaptor<WristbandPrintRequest> captor =
             org.mockito.ArgumentCaptor.forClass(WristbandPrintRequest.class);
-        verify(wristbandZplResolver).resolve(captor.capture(), any());
+        verify(wristbandZplResolver).resolve(captor.capture());
         org.assertj.core.api.Assertions.assertThat(captor.getValue().getTemplateId()).isEqualTo(templateId);
     }
 
@@ -368,8 +357,8 @@ class WristbandControllerTest {
                 .header("X-API-Key", API_KEY))
             .andExpect(status().isAccepted());
 
-        org.mockito.ArgumentCaptor<WristbandPrintRequest> captor =
-            org.mockito.ArgumentCaptor.forClass(WristbandPrintRequest.class);
+        org.mockito.ArgumentCaptor<com.stup.wristbandprinter.domain.PrintableRequest> captor =
+            org.mockito.ArgumentCaptor.forClass(com.stup.wristbandprinter.domain.PrintableRequest.class);
         verify(printQueueService).enqueue(captor.capture());
         org.assertj.core.api.Assertions.assertThat(captor.getValue().getPrinterId()).isEqualTo("printer-2");
     }
@@ -390,8 +379,8 @@ class WristbandControllerTest {
                 .header("X-API-Key", API_KEY))
             .andExpect(status().isAccepted());
 
-        org.mockito.ArgumentCaptor<WristbandPrintRequest> captor =
-            org.mockito.ArgumentCaptor.forClass(WristbandPrintRequest.class);
+        org.mockito.ArgumentCaptor<com.stup.wristbandprinter.domain.PrintableRequest> captor =
+            org.mockito.ArgumentCaptor.forClass(com.stup.wristbandprinter.domain.PrintableRequest.class);
         verify(printQueueService).enqueue(captor.capture());
         org.assertj.core.api.Assertions.assertThat(captor.getValue()).isSameAs(originalReq);
     }
