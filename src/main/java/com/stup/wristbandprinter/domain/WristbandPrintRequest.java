@@ -29,6 +29,12 @@ public class WristbandPrintRequest {
     @Schema(description = "Optional template id; when set the wristband is rendered from that template instead of the default layout")
     private java.util.UUID templateId;
 
+    @Schema(description = "Optional scan-code symbology; defaults to CODE128 when omitted")
+    private CodeSymbology codeSymbology;
+
+    @Schema(description = "Optional stock-color code (1 = white). Preview-only tint.")
+    private Integer stockColorCode;
+
     @Schema(description = "Optional id of the printer to use; when omitted the default printer is used")
     private String printerId;
 
@@ -49,6 +55,12 @@ public class WristbandPrintRequest {
 
     public java.util.UUID getTemplateId() { return templateId; }
     public void setTemplateId(java.util.UUID templateId) { this.templateId = templateId; }
+
+    public CodeSymbology getCodeSymbology() { return codeSymbology; }
+    public void setCodeSymbology(CodeSymbology codeSymbology) { this.codeSymbology = codeSymbology; }
+
+    public Integer getStockColorCode() { return stockColorCode; }
+    public void setStockColorCode(Integer stockColorCode) { this.stockColorCode = stockColorCode; }
 
     public String getPrinterId() { return printerId; }
     public void setPrinterId(String printerId) { this.printerId = printerId; }

@@ -1,5 +1,6 @@
 package com.stup.wristbandprinter.service;
 
+import com.stup.wristbandprinter.domain.CodeSymbology;
 import com.stup.wristbandprinter.domain.WristbandData;
 import com.stup.wristbandprinter.domain.WristbandPrintRequest;
 import org.junit.jupiter.api.BeforeEach;
@@ -32,5 +33,29 @@ class WristbandLayoutServiceTest {
         assertThat(data.lastName()).isEqualTo("Janssens");
         assertThat(data.associationName()).isEqualTo("STUP vzw");
         assertThat(data.barcodeValue()).isEqualTo("123456789");
+    }
+
+    @Test
+    void buildData_defaultsCodeSymbologyToCode128_whenNullOnRequest() {
+        WristbandPrintRequest req = new WristbandPrintRequest();
+        req.setEventName("E"); req.setFirstName("F"); req.setLastName("L");
+        req.setAssociationName("A"); req.setBarcodeValue("123");
+        // codeSymbology left null
+
+        WristbandData data = service.buildData(req);
+
+        assertThat(data.codeSymbology()).isEqualTo(CodeSymbology.CODE128);
+    }
+
+    @Test
+    void buildData_preservesCodeSymbologyFromRequest() {
+        WristbandPrintRequest req = new WristbandPrintRequest();
+        req.setEventName("E"); req.setFirstName("F"); req.setLastName("L");
+        req.setAssociationName("A"); req.setBarcodeValue("123");
+        req.setCodeSymbology(CodeSymbology.QR);
+
+        WristbandData data = service.buildData(req);
+
+        assertThat(data.codeSymbology()).isEqualTo(CodeSymbology.QR);
     }
 }
