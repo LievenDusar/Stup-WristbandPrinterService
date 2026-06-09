@@ -2,12 +2,15 @@ package com.stup.wristbandprinter.exception;
 
 import com.stup.wristbandprinter.config.AdminProperties;
 import com.stup.wristbandprinter.config.SecurityConfig;
+import com.stup.wristbandprinter.config.WristbandProperties;
 import com.stup.wristbandprinter.controller.WristbandController;
+import com.stup.wristbandprinter.editor.service.PreviewColorService;
 import com.stup.wristbandprinter.security.ApiKeyAuthFilter;
 import com.stup.wristbandprinter.security.AuthCookieService;
-import com.stup.wristbandprinter.service.PrintQueueService;
-import com.stup.wristbandprinter.service.WristbandZplResolver;
 import com.stup.wristbandprinter.service.LabelaryPreviewService;
+import com.stup.wristbandprinter.service.PrintQueueService;
+import com.stup.wristbandprinter.service.WristbandGalleryCatalog;
+import com.stup.wristbandprinter.service.WristbandZplResolver;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,7 +28,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(WristbandController.class)
 @Import({SecurityConfig.class, ApiKeyAuthFilter.class, AuthCookieService.class})
-@EnableConfigurationProperties(AdminProperties.class)
+@EnableConfigurationProperties({AdminProperties.class, WristbandProperties.class})
 @TestPropertySource(properties = {"security.api-key=test-key", "security.admin.password=pw"})
 class GlobalExceptionHandlerTest {
 
@@ -36,6 +39,8 @@ class GlobalExceptionHandlerTest {
     @MockitoBean private WristbandZplResolver wristbandZplResolver;
     @MockitoBean private LabelaryPreviewService labelaryPreviewService;
     @MockitoBean private com.stup.wristbandprinter.cluster.PrinterRegistry printerRegistry;
+    @MockitoBean private PreviewColorService previewColorService;
+    @MockitoBean private WristbandGalleryCatalog wristbandGalleryCatalog;
 
     @Test
     void missingRequiredField_returns400WithFieldDetails() throws Exception {
@@ -48,7 +53,7 @@ class GlobalExceptionHandlerTest {
             }
             """;
 
-        mockMvc.perform(post("/api/wristbands/preview/zpl")
+        mockMvc.perform(post("/api/wristbands/crew/preview/zpl")
                 .header("X-API-Key", "test-key")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body))
@@ -73,7 +78,7 @@ class GlobalExceptionHandlerTest {
             }
             """;
 
-        mockMvc.perform(post("/api/wristbands/print")
+        mockMvc.perform(post("/api/wristbands/crew/print")
                 .header("X-API-Key", "test-key")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body))
@@ -97,7 +102,7 @@ class GlobalExceptionHandlerTest {
             }
             """;
 
-        mockMvc.perform(post("/api/wristbands/print")
+        mockMvc.perform(post("/api/wristbands/crew/print")
                 .header("X-API-Key", "test-key")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body))
@@ -108,7 +113,8 @@ class GlobalExceptionHandlerTest {
 
     @Test
     void wrongHttpMethod_returns405() throws Exception {
-        mockMvc.perform(get("/api/wristbands/print")
+        // GET /crew/print: only POST is mapped → 405 Method Not Allowed
+        mockMvc.perform(get("/api/wristbands/crew/print")
                 .header("X-API-Key", "test-key"))
             .andExpect(status().isMethodNotAllowed())
             .andExpect(jsonPath("$.status").value(405));
@@ -116,7 +122,7 @@ class GlobalExceptionHandlerTest {
 
     @Test
     void missingApiKey_returns401() throws Exception {
-        mockMvc.perform(post("/api/wristbands/preview/zpl")
+        mockMvc.perform(post("/api/wristbands/crew/preview/zpl")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{}"))
             .andExpect(status().isUnauthorized());

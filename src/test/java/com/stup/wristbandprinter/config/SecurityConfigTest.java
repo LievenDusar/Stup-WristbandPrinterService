@@ -4,8 +4,10 @@ import com.stup.wristbandprinter.controller.AuthController;
 import com.stup.wristbandprinter.controller.WristbandController;
 import com.stup.wristbandprinter.security.ApiKeyAuthFilter;
 import com.stup.wristbandprinter.security.AuthCookieService;
+import com.stup.wristbandprinter.editor.service.PreviewColorService;
 import com.stup.wristbandprinter.service.LabelaryPreviewService;
 import com.stup.wristbandprinter.service.PrintQueueService;
+import com.stup.wristbandprinter.service.WristbandGalleryCatalog;
 import com.stup.wristbandprinter.service.WristbandZplResolver;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,7 +24,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest({WristbandController.class, AuthController.class})
 @Import({SecurityConfig.class, ApiKeyAuthFilter.class, AuthCookieService.class})
-@EnableConfigurationProperties(AdminProperties.class)
+@EnableConfigurationProperties({AdminProperties.class, WristbandProperties.class})
 @TestPropertySource(properties = {"security.api-key=test-key", "security.admin.password=pw"})
 class SecurityConfigTest {
 
@@ -32,6 +34,8 @@ class SecurityConfigTest {
     @MockitoBean private WristbandZplResolver wristbandZplResolver;
     @MockitoBean private LabelaryPreviewService labelaryPreviewService;
     @MockitoBean private com.stup.wristbandprinter.cluster.PrinterRegistry printerRegistry;
+    @MockitoBean private PreviewColorService previewColorService;
+    @MockitoBean private WristbandGalleryCatalog wristbandGalleryCatalog;
 
     @Test
     void sseStream_requiresAuth() throws Exception {
