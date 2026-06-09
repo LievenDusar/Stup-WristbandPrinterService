@@ -184,3 +184,46 @@ Grouped by subsystem, with the source design record.
 
 If horizontally scaling management ever becomes a requirement, the in-memory queue/job model must be
 reworked (DB-backed claim or a broker) — it is explicitly single-instance today.
+
+---
+
+## Permit wristband (added 2026-06-09)
+
+### What it is
+A new wristband type for campsite resource access (electricity, parking, …). Unlike crew
+bands it has no personal details. Any non-blank `permitLabel` creates a valid permit band.
+
+### URL scheme
+- `POST /api/wristbands/permit/print` — enqueue
+- `POST /api/wristbands/permit/preview/zpl` — ZPL text
+- `POST /api/wristbands/permit/preview/image` — PNG preview
+- Crew band: `POST /api/wristbands/crew/print` (old `/print` → 308 redirect)
+
+### Request fields (`PermitWristbandPrintRequest`)
+| Field | Required | Notes |
+|-------|----------|-------|
+| `eventName` | ✅ | Printed in block 4 |
+| `permitLabel` | ✅ | e.g. `ELEKTRICITEIT`, `PARKING` |
+| `associationName` | ❌ | If absent, a dotted fill-in line is printed |
+| `iconName` | ❌ | Stored only — not rendered yet |
+| `codeValue` | ❌ | When present, prints a scan code in block 3 |
+| `codeSymbology` | ❌ | CODE128 (default) / CODE39 / QR |
+| `stockColorCode` | ❌ | Preview-only PNG tint (1=white, 2=purple, …) |
+| `printerId` | ❌ | Defaults to first registered printer |
+
+### Stock color palette
+`wristband.stock-colors` in `application.yml`. Integer codes map to hex strings.
+Tinting is applied to the Labelary PNG only — ZPL stays monochrome.
+
+### Gallery page
+`/wristband-gallery.html` — shows all band types with lazy-loaded PNG previews.
+`GET /api/wristbands/gallery` returns the catalog.
+
+### DB columns added (V6 migration)
+`wristband_type` (CREW/PERMIT), `permit_label`, `icon_name`, `stock_color_code`,
+`code_value`, `code_symbology`.
+
+### Known limitations
+- `iconName` is persisted but not rendered on the band.
+- `PermitEventLogoService` logs a warning and omits the event logo if the configured path
+  doesn't exist at startup (graceful degradation).

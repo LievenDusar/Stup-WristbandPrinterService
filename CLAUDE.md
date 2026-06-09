@@ -22,6 +22,9 @@ important concept to understand before editing anything.
   `prod`). The only role with a UI, admin login, database (Postgres + Flyway), job history, SSE,
   the printer **registry**, ZPL rendering, and template designer. **One instance.** Beans in this
   role are annotated `@Profile("!worker")`.
+  - The management role supports **two wristband types**: CREW (staff/volunteers) and PERMIT
+    (campsite resource access). Both are routed via `PrintableRequest` (sealed interface; permitted
+    types: `WristbandPrintRequest`, `PermitWristbandPrintRequest`).
 - **worker** role (`worker` profile) — a thin, **DB-free, UI-free** service, **one per physical
   printer**. Exposes only the internal `POST /api/internal/print`, opens a raw TCP socket to its
   Zebra at `PRINTER_HOST:9100`, and reports success/failure. Reached only by management over the
@@ -29,14 +32,19 @@ important concept to understand before editing anything.
 
 ### Request flow (print)
 
-1. Symfony (or the UI) → `POST /api/wristbands/print` on **management** (`WristbandController`).
+1. Symfony (or the UI) → `POST /api/wristbands/crew/print` (crew) or
+   `POST /api/wristbands/permit/print` (permit) on **management**. The legacy `POST /api/wristbands/print`
+   issues a **308 permanent redirect** to `/crew/print` for backward compatibility.
 2. `PrintQueueService.enqueue` resolves the target `Printer` from the `PrinterRegistry`
    (`printerId` from the request, or the default = first registered printer), persists the job,
    and offers it to that printer's **own** in-memory `BlockingQueue`.
-3. A dedicated worker thread per printer dequeues, builds `WristbandData`
-   (`WristbandLayoutService`), resolves ZPL (`WristbandZplResolver` → legacy `ZplGeneratorService`
-   *or* `TemplateZplRenderer` when a `templateId` is set), then forwards the ZPL to the printer's
-   worker via `WorkerClient.print(baseUrl, …)`.
+3. A dedicated worker thread per printer dequeues, then calls
+   `WristbandZplResolver.resolve(PrintableRequest)` which internalises layout for both CREW and
+   PERMIT (routing via `WristbandType`): CREW builds `WristbandData` via `WristbandLayoutService`
+   and emits ZPL via `ZplGeneratorService` *or* `TemplateZplRenderer` (when `templateId` is set);
+   PERMIT builds `PermitWristbandData` via `PermitLayoutService` and emits ZPL via
+   `PermitZplGeneratorService`. The ZPL is then forwarded to the printer's worker via
+   `WorkerClient.print(baseUrl, …)`.
 4. The **worker** receives the ZPL (`WorkerPrintController`) and writes it to the Zebra socket
    (`PrinterService`, with retries + optional RAM-cache clear command).
 5. Status changes (PENDING → PRINTING → DONE/FAILED) are persisted and broadcast over **SSE** to
@@ -133,10 +141,19 @@ negotiates with modern daemons — bump if your daemon requires higher.
   every job by default; wipes the printer's **RAM drive (R:)** only — no flash wear.
 - **Print stays monochrome.** Template "colour" tints the **preview only** to judge contrast on
   coloured stock.
-- **Legacy layout is the default.** `/print` without a `templateId` uses the fixed programmatic
+- **Legacy layout is the default.** `/crew/print` without a `templateId` uses the fixed programmatic
   layout (logo → barcode → text → logo); zero breaking change for Symfony.
 - Wristband geometry is fully config-driven (`wristband.*`) — there are no absolute coordinates to
   maintain; calibrate via YAML, not code. See [docs/configuration.md](docs/configuration.md).
+- **Permit bands carry no personal details** — `firstName`, `lastName`, `barcodeValue` are NULL in
+  the DB for permit jobs.
+- **Stock color is preview-only** — ZPL is always monochrome; `stockColorCode` is resolved to hex
+  by `WristbandProperties.stockColors` and passed to `PreviewColorService.tint()` on preview
+  endpoints only.
+- `iconName` is stored but not rendered — reserved for a future Font Awesome icon overlay on permit
+  bands.
+- **Crew URL restructure**: `/crew/print` is the current crew endpoint; `POST /print` is a **308
+  permanent redirect** alias kept for backward compatibility with Symfony.
 
 ## Folder structure
 
@@ -144,18 +161,20 @@ negotiates with modern daemons — bump if your daemon requires higher.
 src/main/java/com/stup/wristbandprinter/
 ├── cluster/        Printer registry + WorkerClient (management→worker forwarding)
 ├── config/         @ConfigurationProperties, SecurityConfig, ApiKeyValidator
-├── controller/     WristbandController, AuthController (management REST)
+├── controller/     WristbandController, PermitWristbandController, AuthController (management REST)
 ├── domain/         PrintJob, request/response DTOs, PrintJobStatus
 ├── editor/         Template designer feature package (domain/persistence/service/controller)
 ├── exception/      Custom exceptions + GlobalExceptionHandler (maps to HTTP status)
 ├── persistence/    JobStore / JpaJobStore, PrintJobEntity, repositories
 ├── security/       ApiKeyAuthFilter, AuthCookieService
-├── service/        Queue, layout, ZPL generation, Labelary, printer socket
+├── service/        Queue, layout, ZPL generation, Labelary, printer socket;
+│                   PermitZplGeneratorService, PermitLayoutService, PermitEventLogoService,
+│                   WristbandGalleryCatalog, ScanCodeRenderer
 └── worker/         worker-profile controller, security, API-key filter
 src/main/resources/
 ├── application*.yml           base + local / prod / worker profiles
-├── db/migration/              Flyway V1–V5
-└── static/                    jobs.html, login.html, template-editor.html, js/, css/
+├── db/migration/              Flyway V1–V6
+└── static/                    jobs.html, login.html, template-editor.html, wristband-gallery.html, js/, css/
 docs/                          README subpages + superpowers/ (specs & plans)
 docker/                        base image + supporting Docker assets
 ```
@@ -182,8 +201,9 @@ docker/                        base image + supporting Docker assets
 
 ## Known issues / limitations
 
-- **Template renderer emits Code 128 regardless of selected symbology.** CODE39/QR are a planned
-  renderer follow-up. (`TemplateZplRenderer`)
+- **Template renderer emits Code 128 regardless of selected symbology** — this applies to
+  `TemplateZplRenderer`. `ScanCodeRenderer` (used by the direct print path) correctly handles
+  CODE128/CODE39/QR.
 - **Barcodes render as a placeholder rectangle** on the editor canvas; the real symbol appears only
   in the PNG preview and on the printer.
 - **In-memory job map + queues.** `PrintQueueService` keeps jobs/queues in memory (rebuilt from the
@@ -193,24 +213,16 @@ docker/                        base image + supporting Docker assets
 
 ## Current work in progress
 
-Recent history (git + `docs/superpowers/plans`) shows the major features are **landed**:
-
-- **Management/worker split** for multi-printer support — merged (plans `2026-06-04-mgmt-printer-split-1..4`).
-- **Template designer** — all three plans implemented (persistence/API, rendering/assets/preview,
-  Konva editor UI).
-- **HTTPS self-signed prod**, **Postgres migration**, **soft-delete jobs**, **jobs detail drawer**.
-
-The most recent commits are **documentation polish** (splitting/restyling README into `docs/`
-subpages, layout diagram tweaks). There is no half-finished feature branch; `main` is clean.
+The permit wristband feature is fully implemented (plans `2026-06-09-permit-wristband-part-1`
+through `part-4`). `main` is clean.
 
 ## Recommended next steps
 
 These are derived from the limitations above and the stated roadmaps — confirm priority with the
 maintainer before starting:
 
-1. **Multi-symbology barcode rendering** in `TemplateZplRenderer` (CODE39/QR) — the clearest open
-   functional gap, already flagged as a planned follow-up.
-2. **Editor canvas barcode rendering** so the designer WYSIWYG matches the printed output.
-3. **Clean the repo root** of stray `wristband copy*.png` working files.
-4. If multi-instance management ever becomes a requirement, move queue/job state out of memory
-   (e.g. DB-backed claim or a broker) — the current model is explicitly single-instance.
+1. Replace the `iconName` stub with real Font Awesome → PNG rendering in `PermitZplGeneratorService`.
+2. **Multi-symbology barcode rendering** in `TemplateZplRenderer` (CODE39/QR — currently always
+   emits CODE128).
+3. **Editor canvas barcode rendering** so the designer WYSIWYG matches printed output.
+4. Replace the placeholder event logo with a real per-event asset in production.
