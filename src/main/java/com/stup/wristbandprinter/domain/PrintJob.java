@@ -80,18 +80,19 @@ public class PrintJob {
     }
 
     public synchronized PrintJobResponse toResponse() {
-        String firstName = null, lastName = null;
+        String firstName = null, lastName = null, permitLabel = null, eventName = null;
         if (request instanceof WristbandPrintRequest w) {
+            eventName = w.getEventName();
             firstName = w.getFirstName();
             lastName  = w.getLastName();
+        } else if (request instanceof PermitWristbandPrintRequest p) {
+            eventName   = p.getEventName();
+            permitLabel = p.getPermitLabel();
         }
-        String eventName = (request instanceof WristbandPrintRequest w) ? w.getEventName()
-                         : (request instanceof PermitWristbandPrintRequest p) ? p.getEventName()
-                         : null;
         return new PrintJobResponse(
             jobId, status, request.getWristbandType(),
             printerId, printerName,
-            eventName, firstName, lastName,
+            eventName, firstName, lastName, permitLabel,
             submittedAt, completedAt, error);
     }
 

@@ -1,5 +1,7 @@
 const jobs = {};
 let statusFilter = '';
+let typeFilter = '';
+let eventFilter = '';
 let printerFilter = '';
 let printers = [];
 let sortKey = 'submittedAt';
@@ -10,6 +12,8 @@ let previewVisible = false;
 const DRAWER_BASE_WIDTH = 500; // keep in sync with .drawer width in app.css
 
 const STATUSES = ['PENDING', 'PRINTING', 'DONE', 'FAILED', 'CANCELLED'];
+const TYPES = ['CREW', 'PERMIT'];
+const TYPE_LABELS = { CREW: 'Crew', PERMIT: 'Permit' };
 
 window.addEventListener('load', init);
 
@@ -23,7 +27,7 @@ async function init() {
   try {
     const pr = await fetch('/api/wristbands/printers');
     if (pr.ok) printers = await pr.json();
-  } catch (e) { /* chips just won't render */ }
+  } catch (e) { /* the printer filter just won't render */ }
   render();
   connectSse();
 }
@@ -53,7 +57,19 @@ function sortBy(key) {
   render();
 }
 
-function setFilter(status) { statusFilter = (statusFilter === status) ? '' : status; render(); }
+// ── Filters ─────────────────────────────────────────────────────────────────
+
+function setStatusFilter(v)  { statusFilter  = v; render(); }
+function setTypeFilter(v)    { typeFilter    = v; render(); }
+function setEventFilter(v)   { eventFilter   = v; render(); }
+function setPrinterFilter(v) { printerFilter = v; render(); }
+
+// Reset every active filter (dropdowns + search) back to "show all".
+function resetFilters() {
+  statusFilter = ''; typeFilter = ''; eventFilter = ''; printerFilter = '';
+  document.getElementById('search').value = '';
+  render();
+}
 
 // Empty the search box (the clear button hides itself again via CSS once the field is empty).
 function clearSearch() {
@@ -63,20 +79,24 @@ function clearSearch() {
   render();
 }
 
-function setPrinterFilter(id) { printerFilter = (printerFilter === id) ? '' : id; render(); }
-
 function render() {
-  renderChips();
-  renderPrinterChips();
+  renderFilters();
   const search = document.getElementById('search').value.trim().toLowerCase();
   const tbody = document.getElementById('jobs-body');
 
+  // Surface the "Clear filters" button only when something is actually filtering.
+  document.getElementById('filter-reset').hidden =
+    !(statusFilter || typeFilter || eventFilter || printerFilter || search);
+
   let list = Object.values(jobs)
-    .filter(j => !statusFilter || j.status === statusFilter)
+    .filter(j => !statusFilter  || j.status === statusFilter)
+    .filter(j => !typeFilter    || j.wristbandType === typeFilter)
+    .filter(j => !eventFilter   || (j.eventName || '') === eventFilter)
     .filter(j => !printerFilter || j.printerId === printerFilter)
     .filter(j => !search
       || j.jobId.toLowerCase().includes(search)
       || (j.eventName || '').toLowerCase().includes(search)
+      || (j.permitLabel || '').toLowerCase().includes(search)
       || ((j.firstName || '') + ' ' + (j.lastName || '')).toLowerCase().includes(search));
 
   list.sort((a, b) => {
@@ -92,50 +112,144 @@ function render() {
   tbody.innerHTML = list.map(rowHtml).join('');
 }
 
+// The whole row opens the detail slide-in; the last cell (the ⋮ menu) stops
+// propagation so its actions don't also trigger the row click.
+// Permit bands carry no person name — fall back to the permit label.
 function rowHtml(job) {
-  const actions = [`<button class="btn btn-sm" onclick="showDetail('${job.jobId}')">Details</button>`];
-  if (job.status === 'PENDING') {
-    actions.push(`<button class="btn btn-sm" onclick="cancelJob('${job.jobId}')">Cancel</button>`);
-  }
-  if (job.status === 'DONE' || job.status === 'FAILED') {
-    actions.push(`<button class="btn btn-sm btn-primary" onclick="reprint('${job.jobId}')">Reprint</button>`);
-  }
-  return `<tr>
-    <td><div class="id-cell">
-      <span class="mono" title="${job.jobId}">${job.jobId.substring(0, 8)}…</span>
-      <button class="copy-btn" title="Copy full ID" onclick="copyId('${job.jobId}')">⧉</button>
-    </div></td>
-    <td>${esc(((job.firstName || '') + ' ' + (job.lastName || '')).trim())}</td>
+  const name = ((job.firstName || '') + ' ' + (job.lastName || '')).trim() || job.permitLabel;
+  return `<tr onclick="showDetail('${job.jobId}')">
+    <td>${name ? esc(name) : '<span class="muted">—</span>'}</td>
+    <td>${typeBadge(job.wristbandType)}</td>
     <td>${esc(job.eventName)}</td>
     <td>${esc(job.printerName || '—')}</td>
     <td><span class="badge ${job.status}">${job.status}</span></td>
     <td title="${fmtDateTime(job.submittedAt)}">${relTime(job.submittedAt)}</td>
     <td title="${job.completedAt ? fmtDateTime(job.completedAt) : ''}">${job.completedAt ? relTime(job.completedAt) : '—'}</td>
-    <td><div style="display:flex;gap:6px">${actions.join('')}</div></td>
+    <td class="actions-cell" onclick="event.stopPropagation()">
+      <button class="kebab" title="Actions" aria-label="Row actions" onclick="openRowMenu(event, '${job.jobId}')">⋮</button>
+    </td>
   </tr>`;
 }
 
-function renderChips() {
-  const counts = {};
-  STATUSES.forEach(s => counts[s] = 0);
-  Object.values(jobs).forEach(j => { counts[j.status] = (counts[j.status] || 0) + 1; });
-  const chips = [`<span class="chip ${statusFilter === '' ? 'active' : ''}" onclick="setFilter('')">All <span class="count">${Object.values(jobs).length}</span></span>`];
-  STATUSES.forEach(s => {
-    chips.push(`<span class="chip ${statusFilter === s ? 'active' : ''}" onclick="setFilter('${s}')">${s} <span class="count">${counts[s]}</span></span>`);
-  });
-  document.getElementById('chips').innerHTML = chips.join('');
+// Small coloured pill marking a job's wristband type (CREW / PERMIT).
+function typeBadge(type) {
+  if (!type) return '<span class="muted">—</span>';
+  return `<span class="badge ${type}">${esc(TYPE_LABELS[type] || type)}</span>`;
 }
 
-function renderPrinterChips() {
-  const el = document.getElementById('printer-chips');
-  if (!printers || printers.length < 2) { el.innerHTML = ''; return; }  // no point with one printer
-  const counts = {};
-  Object.values(jobs).forEach(j => { if (j.printerId) counts[j.printerId] = (counts[j.printerId] || 0) + 1; });
-  const chips = [`<span class="chip ${printerFilter === '' ? 'active' : ''}" onclick="setPrinterFilter('')">All printers</span>`];
-  printers.forEach(p => {
-    chips.push(`<span class="chip ${printerFilter === p.id ? 'active' : ''}" onclick="setPrinterFilter('${esc(p.id)}')">${esc(p.displayName)} <span class="count">${counts[p.id] || 0}</span></span>`);
-  });
-  el.innerHTML = chips.join('');
+// ── Filter dropdowns ──────────────────────────────────────────────────────────
+
+function renderFilters() {
+  const all = Object.values(jobs);
+
+  const sc = {}; STATUSES.forEach(s => sc[s] = 0);
+  all.forEach(j => { sc[j.status] = (sc[j.status] || 0) + 1; });
+  syncSelect('filter-status', [
+    { value: '', label: `All statuses (${all.length})` },
+    ...STATUSES.map(s => ({ value: s, label: `${statusLabel(s)} (${sc[s] || 0})` }))
+  ], statusFilter);
+
+  const tc = {}; TYPES.forEach(t => tc[t] = 0);
+  all.forEach(j => { if (j.wristbandType) tc[j.wristbandType] = (tc[j.wristbandType] || 0) + 1; });
+  syncSelect('filter-type', [
+    { value: '', label: `All types (${all.length})` },
+    ...TYPES.map(t => ({ value: t, label: `${TYPE_LABELS[t]} (${tc[t] || 0})` }))
+  ], typeFilter);
+
+  const ec = {};
+  all.forEach(j => { const e = j.eventName || ''; if (e) ec[e] = (ec[e] || 0) + 1; });
+  const events = Object.keys(ec).sort((a, b) => a.localeCompare(b));
+  syncSelect('filter-event', [
+    { value: '', label: 'All events' },
+    ...events.map(e => ({ value: e, label: `${e} (${ec[e]})` }))
+  ], eventFilter);
+
+  const printerSel = document.getElementById('filter-printer');
+  if (printers && printers.length > 1) {               // no point routing-filtering with one printer
+    printerSel.hidden = false;
+    const pc = {};
+    all.forEach(j => { if (j.printerId) pc[j.printerId] = (pc[j.printerId] || 0) + 1; });
+    syncSelect('filter-printer', [
+      { value: '', label: 'All printers' },
+      ...printers.map(p => ({ value: p.id, label: `${p.displayName} (${pc[p.id] || 0})` }))
+    ], printerFilter);
+  } else {
+    printerSel.hidden = true;
+  }
+}
+
+function statusLabel(s) { return s.charAt(0) + s.slice(1).toLowerCase(); }
+
+// Rebuild a <select>'s options only when they actually changed, and never while the
+// user has it open (focused) — otherwise a live SSE update would collapse the dropdown.
+function syncSelect(id, options, value) {
+  const el = document.getElementById(id);
+  const sig = JSON.stringify(options);
+  if (el.dataset.sig !== sig && el !== document.activeElement) {
+    el.innerHTML = '';
+    options.forEach(o => {
+      const opt = document.createElement('option');
+      opt.value = o.value;
+      opt.textContent = o.label;
+      el.appendChild(opt);
+    });
+    el.dataset.sig = sig;
+  }
+  el.value = value;
+}
+
+// ── Row action menu (⋮ popover) ───────────────────────────────────────────────
+
+function openRowMenu(e, jobId) {
+  e.stopPropagation();              // don't open the drawer, don't let the doc-listener close us
+  closeNavMenu();
+  const job = jobs[jobId];
+  const menu = document.getElementById('row-menu');
+  if (!job) { menu.hidden = true; return; }
+
+  const items = [
+    `<button class="menu-item" onclick="showDetail('${jobId}')">Details</button>`,
+    `<button class="menu-item" onclick="copyId('${jobId}')">Copy job ID</button>`
+  ];
+  if (job.status === 'DONE' || job.status === 'FAILED') {
+    items.push(`<button class="menu-item" onclick="reprint('${jobId}')">Reprint</button>`);
+  }
+  if (job.status === 'PENDING') {
+    items.push(`<button class="menu-item danger" onclick="cancelJob('${jobId}')">Cancel</button>`);
+  }
+  menu.innerHTML = items.join('');
+
+  // Anchor below the button, right-aligned; flip above if it would overflow the viewport.
+  menu.hidden = false;
+  menu.style.visibility = 'hidden';
+  const r = e.currentTarget.getBoundingClientRect();
+  const mh = menu.offsetHeight, mw = menu.offsetWidth;
+  let top = r.bottom + 4;
+  if (top + mh > window.innerHeight - 8) top = Math.max(8, r.top - mh - 4);
+  let left = r.right - mw;
+  if (left < 8) left = 8;
+  menu.style.top = top + 'px';
+  menu.style.left = left + 'px';
+  menu.style.visibility = 'visible';
+}
+
+function closeRowMenu() {
+  const m = document.getElementById('row-menu');
+  if (m && !m.hidden) m.hidden = true;
+}
+
+// ── Top navigation menu ───────────────────────────────────────────────────────
+
+function toggleNavMenu(e) {
+  e.stopPropagation();
+  closeRowMenu();
+  const m = document.getElementById('nav-menu');
+  m.hidden = !m.hidden;
+}
+
+function closeNavMenu() {
+  const m = document.getElementById('nav-menu');
+  if (m && !m.hidden) m.hidden = true;
 }
 
 async function copyId(id) {
@@ -143,23 +257,19 @@ async function copyId(id) {
   catch (e) { toast('Copy failed', 'err'); }
 }
 
-// Build the alert-style status box shown at the top of the drawer.
-function statusBox(d) {
-  const cls = (d.status || '').toLowerCase();
-  const titles = { PENDING: 'Pending', PRINTING: 'Printing', DONE: 'Done', FAILED: 'Failed', CANCELLED: 'Cancelled' };
-  const msgs = {
-    PENDING: 'Waiting in the queue to be printed.',
-    PRINTING: 'Sending the wristband to the printer…',
-    DONE: 'The wristband was printed successfully.',
-    FAILED: d.error ? d.error : 'Printing failed.',
-    CANCELLED: 'This job was cancelled before printing.'
-  };
-  const title = titles[d.status] || (d.status || 'Unknown');
-  const msg = msgs[d.status] || '';
-  return `<div class="status-box ${cls}">
-    <div class="status-box-title">${esc(title)}</div>
-    ${msg ? `<div class="status-box-msg">${esc(String(msg))}</div>` : ''}
-  </div>`;
+// Render key/value detail rows, skipping any with an empty value.
+function detailRows(pairs) {
+  return pairs
+    .filter(([, v]) => v != null && v !== '')
+    .map(([k, v]) => `<div class="detail-row"><span class="k">${k}</span><span class="v">${esc(String(v))}</span></div>`)
+    .join('');
+}
+
+// Wrap rows in a titled section; renders nothing when the section has no rows.
+function detailSection(heading, rowsHtml) {
+  return rowsHtml
+    ? `<div class="detail-section"><div class="detail-section-title">${heading}</div>${rowsHtml}</div>`
+    : '';
 }
 
 async function showDetail(id) {
@@ -168,13 +278,20 @@ async function showDetail(id) {
   if (!res.ok) { toast('Could not load job', 'err'); return; }
   const d = await res.json();
 
-  const rows = [
-    ['Job ID', d.jobId], ['Event', d.eventName],
-    ['Printer', d.printerName || '—'],
-    ['First name', d.firstName], ['Last name', d.lastName],
-    ['Association', d.associationName], ['Barcode', d.barcodeValue],
-    ['Submitted', fmtDateTime(d.submittedAt)], ['Completed', fmtDateTime(d.completedAt)]
-  ].map(([k, v]) => `<div class="detail-row"><span class="k">${k}</span><span class="v">${esc(String(v))}</span></div>`).join('');
+  // The identity (name / permit label + event) is promoted into the header; the
+  // remaining fields are grouped into titled sections, skipping any that don't apply.
+  const name = ((d.firstName || '') + ' ' + (d.lastName || '')).trim();
+  const title = name || d.permitLabel || '—';
+
+  const wristbandRows = detailRows([
+    ['Association', d.associationName],
+    ['Barcode', d.barcodeValue]
+  ]);
+  const printingRows = detailRows([
+    ['Printer', d.printerName],
+    ['Submitted', fmtDateTime(d.submittedAt)],
+    ['Completed', d.completedAt ? fmtDateTime(d.completedAt) : '—']
+  ]);
 
   const actions = [];
   if (d.status === 'PENDING') {
@@ -185,18 +302,36 @@ async function showDetail(id) {
   }
 
   document.getElementById('drawer-content').innerHTML = `
+    <button class="drawer-close-x" onclick="closeDrawer()" aria-label="Close">×</button>
     <div class="drawer-body">
       <div class="drawer-preview"><div id="preview-box"></div></div>
       <div class="drawer-details">
-        
-        <h2>Job detail</h2>
-        ${statusBox(d)}
-        ${rows}
-        <div class="preview-trigger">
-          <button class="btn btn-sm" id="preview-btn" onclick="togglePreview('${d.jobId}')">Show preview</button>
+        <div class="drawer-head">
+          <div class="drawer-eyebrow">
+            ${typeBadge(d.wristbandType)}
+            <span class="badge ${d.status}">${statusLabel(d.status)}</span>
+          </div>
+          <h2 class="drawer-title">${esc(title)}</h2>
+          ${d.eventName ? `<div class="drawer-subtitle">${esc(d.eventName)}</div>` : ''}
         </div>
-        <div class="drawer-actions">${actions.join('')}</div>
-        <button class="btn drawer-close" onclick="closeDrawer()">Close</button>
+
+        <div class="drawer-sections">
+          ${detailSection('Wristband', wristbandRows)}
+          ${detailSection('Printing', printingRows)}
+        </div>
+
+        <div class="drawer-footer">
+          <div class="detail-id">
+            <span class="detail-id-label">Job ID</span>
+            <span class="mono detail-id-value" title="${d.jobId}">${d.jobId}</span>
+            <button class="copy-btn" title="Copy job ID" onclick="copyId('${d.jobId}')">⧉</button>
+          </div>
+          ${d.status === 'FAILED' && d.error ? `<div class="drawer-error">${esc(d.error)}</div>` : ''}
+          <div class="drawer-actions">
+            <button class="btn btn-sm" id="preview-btn" onclick="togglePreview('${d.jobId}')">Show preview</button>
+            ${actions.join('')}
+          </div>
+        </div>
       </div>
     </div>`;
 
@@ -392,4 +527,11 @@ function toast(msg, kind) {
   setTimeout(() => el.remove(), 3000);
 }
 
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDrawer(); });
+// Any click that isn't captured by a menu trigger (those call stopPropagation) closes the menus.
+document.addEventListener('click', () => { closeRowMenu(); closeNavMenu(); });
+// A fixed-positioned popover would detach from its anchor on scroll/resize — just close it.
+window.addEventListener('scroll', closeRowMenu, true);
+window.addEventListener('resize', () => { closeRowMenu(); closeNavMenu(); });
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') { closeDrawer(); closeRowMenu(); closeNavMenu(); }
+});

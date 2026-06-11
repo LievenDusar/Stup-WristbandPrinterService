@@ -14,34 +14,43 @@
       <h1>STUP Print Queue</h1>
       <div style="display:flex;align-items:center;gap:14px">
         <span id="sse-status" class="reconnecting">Connecting…</span>
-        <a class="btn btn-sm" href="/template-editor.html">Template editor</a>
-        <button class="btn btn-sm" onclick="logout()">Sign out</button>
+        <div class="menu-wrap">
+          <button class="btn btn-sm" onclick="toggleNavMenu(event)">Menu ▾</button>
+          <div class="popover nav-menu" id="nav-menu" hidden>
+            <a class="menu-item" href="/wristband-gallery.html">Gallery</a>
+            <a class="menu-item" href="/template-editor.html">Template editor <span class="beta-badge">beta</span></a>
+            <div class="menu-sep"></div>
+            <button class="menu-item danger" onclick="clearCompleted()">Clear completed</button>
+            <button class="menu-item" onclick="logout()">Sign out</button>
+          </div>
+        </div>
       </div>
     </div>
-
-    <div class="chips" id="chips"></div>
-    <div class="chips" id="printer-chips"></div>
 
     <div class="controls">
       <div class="search">
         <input class="input" id="search" type="text" placeholder="Search by name, job ID or event…" oninput="render()">
         <button type="button" class="search-clear" id="search-clear" onclick="clearSearch()" aria-label="Clear search" title="Clear">×</button>
       </div>
-      <button class="btn btn-danger" onclick="clearCompleted()">Clear completed</button>
+      <select class="select" id="filter-status" onchange="setStatusFilter(this.value)" aria-label="Filter by status"></select>
+      <select class="select" id="filter-type" onchange="setTypeFilter(this.value)" aria-label="Filter by type"></select>
+      <select class="select" id="filter-event" onchange="setEventFilter(this.value)" aria-label="Filter by event"></select>
+      <select class="select" id="filter-printer" onchange="setPrinterFilter(this.value)" aria-label="Filter by printer" hidden></select>
+      <button class="btn btn-sm filter-reset" id="filter-reset" onclick="resetFilters()" hidden>✕ Clear filters</button>
     </div>
 
     <div class="glass" style="overflow:hidden">
       <table>
         <thead>
           <tr>
-            <th onclick="sortBy('jobId')">Job ID</th>
             <th onclick="sortBy('firstName')">Name</th>
+            <th onclick="sortBy('wristbandType')">Type</th>
             <th onclick="sortBy('eventName')">Event</th>
             <th onclick="sortBy('printerName')">Printer</th>
             <th onclick="sortBy('status')">Status</th>
             <th onclick="sortBy('submittedAt')">Submitted</th>
             <th onclick="sortBy('completedAt')">Completed</th>
-            <th>Actions</th>
+            <th aria-label="Actions"></th>
           </tr>
         </thead>
         <tbody id="jobs-body">
@@ -65,6 +74,8 @@
       </div>
     </div>
   </div>
+
+  <div class="popover" id="row-menu" hidden></div>
 
   <div id="toasts"></div>
 

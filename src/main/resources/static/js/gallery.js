@@ -69,6 +69,9 @@
       e.currentTarget.classList.remove('open');
     }
   });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') document.getElementById('modal').classList.remove('open');
+  });
 
   async function init() {
     const grid = document.getElementById('galleryGrid');

@@ -48,6 +48,22 @@ class PrintJobTest {
     }
 
     @Test
+    void toResponse_usesPermitLabelForPermitBands() {
+        PermitWristbandPrintRequest r = new PermitWristbandPrintRequest();
+        r.setEventName("Pukkelpop 2026");
+        r.setPermitLabel("Elektriciteit");
+        PrintJob job = new PrintJob(UUID.randomUUID(), r);
+
+        PrintJobResponse resp = job.toResponse();
+
+        assertThat(resp.wristbandType()).isEqualTo(WristbandType.PERMIT);
+        assertThat(resp.permitLabel()).isEqualTo("Elektriciteit");
+        assertThat(resp.eventName()).isEqualTo("Pukkelpop 2026");
+        assertThat(resp.firstName()).isNull();
+        assertThat(resp.lastName()).isNull();
+    }
+
+    @Test
     void toResponse_and_toDetailResponse_carryPrinterIdentity() {
         WristbandPrintRequest r = new WristbandPrintRequest();
         r.setEventName("E"); r.setFirstName("F"); r.setLastName("L");

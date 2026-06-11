@@ -120,7 +120,7 @@ Repeat the same edits for the next index, then redeploy:
    `{"id":"printer-3","display-name":"[printer-3-label]","base-url":"http://printer-worker-3:8080"}` (step 3).
 3. `docker compose -f docker-compose.prod.yml --env-file .env.prod up --build -d`.
 
-The new printer then appears in `GET /api/wristbands/printers`, the jobs-page filter chips, and the
+The new printer then appears in `GET /api/wristbands/printers`, the jobs-page printer filter, and the
 reprint picker. Workers do **not** publish a host port and need no certificate.
 
 ## HTTPS & Symfony certificate trust

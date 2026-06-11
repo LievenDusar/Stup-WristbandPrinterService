@@ -12,6 +12,7 @@ public record PrintJobResponse(
     String eventName,
     String firstName,   // null for PERMIT bands
     String lastName,    // null for PERMIT bands
+    String permitLabel, // null for CREW bands
     Instant submittedAt,
     Instant completedAt,
     String error
