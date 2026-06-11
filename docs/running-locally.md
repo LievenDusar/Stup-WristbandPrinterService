@@ -101,8 +101,49 @@ listeners that log the ZPL they receive).
 
 5. **Stop:** `docker compose -f docker-compose.local-cluster.yml down`.
 
-The jobs page shows the **Printer** column, per-printer **filter chips**, parallel printing and the
+The jobs page shows the **Printer** column, a per-printer **filter dropdown**, parallel printing and the
 **reprint printer picker**.
+
+### Rebuilding after code changes
+
+The application is baked into the `wristband-printer` image at build time — there is **no live
+reload** in the Docker path. After editing **any** application code (Java, `application*.yml`,
+Flyway migrations, or the static `*.html` / `js/` / `css/` files), rebuild the image and recreate
+the containers:
+
+```bash
+docker compose -f docker-compose.local-cluster.yml up --build -d
+```
+
+`--build` rebuilds the `wristband-printer` image once (via the `worker-1` service's `build: .`) and
+recreates the **management** and both **worker** containers from the new image. Postgres and the
+fake printers are left running, and **your job history in Postgres survives** the rebuild.
+
+Common variations:
+
+```bash
+# Watch management come back up after the rebuild
+docker compose -f docker-compose.local-cluster.yml logs -f management
+
+# Rebuild a single service (e.g. after a worker-only change)
+docker compose -f docker-compose.local-cluster.yml up --build -d worker-1 worker-2
+
+# Force a clean rebuild that ignores Docker's layer cache
+docker compose -f docker-compose.local-cluster.yml build --no-cache
+docker compose -f docker-compose.local-cluster.yml up -d
+
+# Rebuild AND wipe the database (fresh Flyway run from V1 — drops all job history)
+docker compose -f docker-compose.local-cluster.yml down -v
+docker compose -f docker-compose.local-cluster.yml up --build -d
+```
+
+> ⚠️ **Changed `docker/base/Dockerfile`?** That edit is *not* picked up by `--build` (it only
+> rebuilds the app image, which is `FROM wristband-base:21`). Rebuild the base image first:
+>
+> ```bash
+> ./build.sh
+> docker compose -f docker-compose.local-cluster.yml up --build -d
+> ```
 
 ### Variations
 

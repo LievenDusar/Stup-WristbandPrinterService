@@ -121,6 +121,23 @@ start](#local-quick-start-virtual-printers) above gets you printing fast.
 Full step-by-step instructions — IntelliJ run configs, the local PostgreSQL, the virtual cluster,
 and troubleshooting — are in **[docs/running-locally.md](docs/running-locally.md)**.
 
+### Rebuilding after code changes (Docker)
+
+The app is baked into the image at build time — there is **no live reload**. After editing any code
+(Java, `application*.yml`, Flyway migrations, or the static `*.html` / `js` / `css` files), rebuild
+the image and recreate the containers in one step:
+
+```bash
+docker compose -f docker-compose.local-cluster.yml up --build -d
+```
+
+This rebuilds `wristband-printer` and recreates management + both workers from it; Postgres and the
+fake printers keep running and your job history survives. To also reset the database, run
+`docker compose -f docker-compose.local-cluster.yml down -v` first. Only re-run `./build.sh` when
+you change `docker/base/Dockerfile`. See
+**[Rebuilding after code changes](docs/running-locally.md#rebuilding-after-code-changes)** for
+single-service rebuilds, no-cache builds, and tailing logs.
+
 ---
 
 ## Production deployment
