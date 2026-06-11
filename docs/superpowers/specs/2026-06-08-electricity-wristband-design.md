@@ -173,8 +173,8 @@ different concern (physical writing room, not visual separation between blocks).
 │                              │
 │      ── between-blocks ──    │  ← same uniform margin
 │                              │
-│      PUKKELPOP 2026          │  Block 4 — "event" group, both 180°/inverted:
-│      [Pukkelpop logo]        │    • eventName as ^A0I (inverted) text
+│      PUKKELPOP 2026          │  Block 4 — "event" group:
+│      [Pukkelpop logo]        │    • eventName as ^A0B (270°, bottom-up) text
 │                              │    • event logo image, pre-rotated 180°
 └──────────────────────────────┘
 ```
@@ -196,6 +196,13 @@ Mechanical notes:
   like the crew band's event/name/association block; `^A0I` (180°, "inverted") for
   `eventName`, matching the visual orientation of the pre-rotated-180° logo images
   beside/below it.
+  > **Correction (post-implementation):** `^A0I` was wrong. The band is narrow × long, and
+  > `^A0N`/`^A0I` run text across the *narrow width*, so any non-trivial event name overflows.
+  > An interim build used `^A0R` (90°, top-down). The shipped code now uses **`^A0B`** (270°,
+  > bottom-up) for `eventName` — the same rotation and reading direction as block 2. `^A0B` and
+  > `^A0R` share an identical field footprint (font height = X extent, string grows in +Y from
+  > `^FO`), so the switch is reading-direction only and leaves the layout math untouched. See
+  > `PermitZplGeneratorService.appendBlock4`.
 - **`permitLabel` rendering** — sanitized (strip `^`/`~`) and rendered in a
   configurable font size. The full first line reads `"Toelating " + sanitize(permitLabel)`.
   Both parts share a single `^FD` field (not separate fields), so they print as one

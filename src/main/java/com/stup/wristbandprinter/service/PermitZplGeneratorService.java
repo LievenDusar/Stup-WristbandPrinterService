@@ -18,7 +18,7 @@ import org.springframework.stereotype.Service;
  *   <li>Block 2 — Permission group: "Toelating [permitLabel]" (^A0B) + writing-space gap +
  *       dotted fill-in line or associationName (^A0B)</li>
  *   <li>Block 3 — Optional scan code (only when {@code codeValue} is present)</li>
- *   <li>Block 4 — Event group: eventName (^A0I, inverted) + event logo (pre-rotated 180°)
+ *   <li>Block 4 — Event group: eventName (^A0B, 270°) + event logo (pre-rotated 180°)
  *       (logo omitted when {@code PermitEventLogoService} has no logo loaded)</li>
  * </ol>
  *
@@ -28,10 +28,13 @@ import org.springframework.stereotype.Service;
  * (logo service reports not available), block 4 contains only the event-name text.
  *
  * <h2>Text rotation conventions</h2>
+ * <p>The band is narrow (width) and long (length). Only the {@code ^A0R}/{@code ^A0B}
+ * rotations run text <em>along the length</em>; {@code ^A0N}/{@code ^A0I} run text across
+ * the narrow width and overflow for anything but the shortest strings.</p>
  * <ul>
  *   <li>Block 2 text: {@code ^A0B} (270°, "bottom-up") — same as the crew band text</li>
- *   <li>Block 4 eventName: {@code ^A0I} (180°, "inverted") — visually upright beside the
- *       inverted logo images</li>
+ *   <li>Block 4 eventName: {@code ^A0B} (270°, "bottom-up") — runs along the band length and
+ *       reads in the same direction as block 2 (^A0N/^A0I would overflow the narrow width)</li>
  * </ul>
  */
 @Slf4j
@@ -192,10 +195,13 @@ public class PermitZplGeneratorService {
     }
 
     /**
-     * Block 4: eventName (^A0I, 180°/inverted) + event logo (pre-rotated 180°).
+     * Block 4: eventName (^A0B, 270°/bottom-up) + event logo (pre-rotated 180°).
      *
-     * With ^A0I the text is printed 180° rotated — visually the same top-down orientation
-     * as the inverted logo images printed beside/below it.
+     * ^A0B runs the text <em>along the band length</em> (Y axis), just like block 2,
+     * so long event names no longer overflow the narrow band width. It reads in the same
+     * (270°, "bottom-up") direction as block 2. ^A0B and ^A0R share an identical field
+     * footprint (font height is the X-direction extent, the string grows in +Y from ^FO);
+     * they differ only in reading direction, so this stays group-centered exactly as before.
      */
     private void appendBlock4(StringBuilder zpl, PermitWristbandData data,
                                int blockY, PermitText text, PermitMargins margins,
@@ -205,7 +211,7 @@ public class PermitZplGeneratorService {
         String eventText = sanitize(data.eventName());
         int eventLen = lineExtent(eventText, h);
 
-        // Center event name across band width (^A0I: font height is in X direction)
+        // Center event name across band width (^A0B: font height is the X-direction extent)
         int x = (bandWidth - h) / 2;
         // Center event name along Y within block 4
         int block4H = eventLen + (hasEventLogo ? insideBlock4Gap + eventLogoService.getLogoHeightDots() : 0);
@@ -214,7 +220,7 @@ public class PermitZplGeneratorService {
 
         // Event name
         zpl.append(String.format("^FO%d,%d", x, nameY));
-        zpl.append(String.format("^A0I,%d,%d", h, h));
+        zpl.append(String.format("^A0B,%d,%d", h, h));
         zpl.append(String.format("^FD%s^FS", eventText));
 
         // Event logo (if available)

@@ -42,10 +42,11 @@ public class JpaJobStore implements JobStore {
             barcodeValue = w.getBarcodeValue();
             codeSymbology = w.getCodeSymbology();
         } else if (r instanceof PermitWristbandPrintRequest p) {
-            eventName   = p.getEventName();
-            permitLabel = p.getPermitLabel();
-            iconName    = p.getIconName();
-            codeValue   = p.getCodeValue();
+            eventName    = p.getEventName();
+            assocName    = p.getAssociationName();
+            permitLabel  = p.getPermitLabel();
+            iconName     = p.getIconName();
+            codeValue    = p.getCodeValue();
             codeSymbology = p.getCodeSymbology();
         }
 
@@ -90,6 +91,7 @@ public class JpaJobStore implements JobStore {
         if (type == WristbandType.PERMIT) {
             PermitWristbandPrintRequest p = new PermitWristbandPrintRequest();
             p.setEventName(e.getEventName());
+            p.setAssociationName(e.getAssociationName());
             p.setPermitLabel(e.getPermitLabel());
             p.setIconName(e.getIconName());
             p.setCodeValue(e.getCodeValue());

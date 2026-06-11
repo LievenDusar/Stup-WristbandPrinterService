@@ -8,7 +8,6 @@ import com.stup.wristbandprinter.exception.InvalidStockColorException;
 import com.stup.wristbandprinter.service.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
-import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatus;
@@ -23,7 +22,6 @@ import java.util.UUID;
 @Profile("!worker")
 @RestController
 @RequestMapping("/api/wristbands")
-@Tag(name = "Wristbands", description = "Print and preview STUP event wristbands")
 @SecurityRequirement(name = "ApiKeyAuth")
 public class WristbandController {
 
@@ -54,7 +52,7 @@ public class WristbandController {
     // ── 308 alias: old /print → /crew/print ──────────────────────────────
 
     @PostMapping("/print")
-    @Operation(summary = "Deprecated alias — redirects 308 to /crew/print")
+    @Operation(summary = "Deprecated alias — redirects 308 to /crew/print", tags = {"Wristbands"})
     public ResponseEntity<Void> printLegacyRedirect() {
         return ResponseEntity.status(HttpStatus.PERMANENT_REDIRECT)
             .header("Location", "/api/wristbands/crew/print")
@@ -64,21 +62,21 @@ public class WristbandController {
     // ── Crew endpoints ────────────────────────────────────────────────────
 
     @PostMapping("/crew/print")
-    @Operation(summary = "Enqueue a crew wristband print job")
+    @Operation(summary = "Enqueue a crew wristband print job", tags = {"Wristbands"})
     public ResponseEntity<PrintJobResponse> crewPrint(@Valid @RequestBody WristbandPrintRequest request) {
         PrintJob job = printQueueService.enqueue(request);
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(job.toResponse());
     }
 
     @PostMapping(value = "/crew/preview/zpl", produces = "text/plain;charset=UTF-8")
-    @Operation(summary = "Generate and return ZPL for a crew wristband as plain text")
+    @Operation(summary = "Generate and return ZPL for a crew wristband as plain text", tags = {"Wristbands"})
     public ResponseEntity<String> crewPreviewZpl(@Valid @RequestBody WristbandPrintRequest request) {
         String zpl = wristbandZplResolver.resolve(request);
         return ResponseEntity.ok(zpl);
     }
 
     @PostMapping(value = "/crew/preview/image", produces = MediaType.IMAGE_PNG_VALUE)
-    @Operation(summary = "Generate and return a rendered PNG preview of a crew wristband via Labelary")
+    @Operation(summary = "Generate and return a rendered PNG preview of a crew wristband via Labelary", tags = {"Wristbands"})
     public ResponseEntity<byte[]> crewPreviewImage(@Valid @RequestBody WristbandPrintRequest request) {
         String zpl  = wristbandZplResolver.resolve(request);
         byte[] png  = labelaryPreviewService.renderPreview(zpl);
@@ -89,7 +87,7 @@ public class WristbandController {
     // ── Job management (type-agnostic) ────────────────────────────────────
 
     @GetMapping("/jobs")
-    @Operation(summary = "List all print jobs, optionally filtered by status")
+    @Operation(summary = "List all print jobs, optionally filtered by status", tags = {"Jobs"})
     public ResponseEntity<List<PrintJobResponse>> getJobs(
             @RequestParam(required = false) PrintJobStatus status) {
         return ResponseEntity.ok(
@@ -97,7 +95,7 @@ public class WristbandController {
     }
 
     @GetMapping("/jobs/{jobId}")
-    @Operation(summary = "Get full detail of a specific print job")
+    @Operation(summary = "Get full detail of a specific print job", tags = {"Jobs"})
     public ResponseEntity<PrintJobDetailResponse> getJob(@PathVariable UUID jobId) {
         return printQueueService.getJob(jobId)
             .map(job -> ResponseEntity.ok(job.toDetailResponse()))
@@ -105,7 +103,7 @@ public class WristbandController {
     }
 
     @GetMapping(value = "/jobs/{jobId}/preview", produces = MediaType.IMAGE_PNG_VALUE)
-    @Operation(summary = "Render a job's wristband as a PNG via Labelary")
+    @Operation(summary = "Render a job's wristband as a PNG via Labelary", tags = {"Jobs"})
     public ResponseEntity<byte[]> jobPreview(@PathVariable UUID jobId) {
         return printQueueService.getJob(jobId)
             .<ResponseEntity<byte[]>>map(job -> {
@@ -118,20 +116,20 @@ public class WristbandController {
     }
 
     @GetMapping(value = "/jobs/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    @Operation(summary = "Subscribe to real-time job status updates via SSE")
+    @Operation(summary = "Subscribe to real-time job status updates via SSE", tags = {"Jobs"})
     public SseEmitter streamJobs() {
         return printQueueService.subscribe();
     }
 
     @GetMapping(value = "/jobs/{jobId}/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    @Operation(summary = "Subscribe to a single job's status updates via SSE")
+    @Operation(summary = "Subscribe to a single job's status updates via SSE", tags = {"Jobs"})
     public ResponseEntity<SseEmitter> streamJob(@PathVariable UUID jobId) {
         SseEmitter emitter = printQueueService.subscribeToJob(jobId);
         return emitter == null ? ResponseEntity.notFound().build() : ResponseEntity.ok(emitter);
     }
 
     @PostMapping("/jobs/{jobId}/reprint")
-    @Operation(summary = "Reprint a previous job, optionally on a different printer")
+    @Operation(summary = "Reprint a previous job, optionally on a different printer", tags = {"Jobs"})
     public ResponseEntity<PrintJobResponse> reprint(@PathVariable UUID jobId,
                                                      @RequestParam(required = false) String printerId) {
         return printQueueService.getJob(jobId)
@@ -147,7 +145,7 @@ public class WristbandController {
     }
 
     @PostMapping("/jobs/{jobId}/cancel")
-    @Operation(summary = "Cancel a pending print job")
+    @Operation(summary = "Cancel a pending print job", tags = {"Jobs"})
     public ResponseEntity<PrintJobResponse> cancel(@PathVariable UUID jobId) {
         PrintJob job = printQueueService.cancel(jobId);
         return job == null
@@ -156,14 +154,14 @@ public class WristbandController {
     }
 
     @DeleteMapping("/jobs/completed")
-    @Operation(summary = "Remove all DONE and FAILED jobs from the queue")
+    @Operation(summary = "Remove all DONE and FAILED jobs from the queue", tags = {"Jobs"})
     public ResponseEntity<Void> clearCompleted() {
         printQueueService.clearCompleted();
         return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/printers")
-    @Operation(summary = "List the printers this service can route to")
+    @Operation(summary = "List the printers this service can route to", tags = {"Printers & Gallery"})
     public ResponseEntity<List<PrinterSummaryResponse>> printers() {
         return ResponseEntity.ok(printerRegistry.all().stream()
             .map(p -> new PrinterSummaryResponse(p.id(), p.displayName()))
@@ -173,7 +171,7 @@ public class WristbandController {
     // ── Gallery ───────────────────────────────────────────────────────────
 
     @GetMapping("/gallery")
-    @Operation(summary = "List all registered wristband band types with sample data for the gallery UI")
+    @Operation(summary = "List all registered wristband band types with sample data for the gallery UI", tags = {"Printers & Gallery"})
     public ResponseEntity<List<WristbandGalleryEntry>> gallery() {
         return ResponseEntity.ok(galleryCatalog.entries());
     }

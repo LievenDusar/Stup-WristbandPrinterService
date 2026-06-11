@@ -7,7 +7,6 @@ import com.stup.wristbandprinter.exception.InvalidStockColorException;
 import com.stup.wristbandprinter.service.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
-import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatus;
@@ -18,7 +17,6 @@ import org.springframework.web.bind.annotation.*;
 @Profile("!worker")
 @RestController
 @RequestMapping("/api/wristbands/permit")
-@Tag(name = "Permit Wristbands", description = "Print and preview STUP permit wristbands")
 @SecurityRequirement(name = "ApiKeyAuth")
 public class PermitWristbandController {
 
@@ -41,21 +39,21 @@ public class PermitWristbandController {
     }
 
     @PostMapping("/print")
-    @Operation(summary = "Enqueue a permit wristband print job")
+    @Operation(summary = "Enqueue a permit wristband print job", tags = {"Wristbands"})
     public ResponseEntity<PrintJobResponse> print(@Valid @RequestBody PermitWristbandPrintRequest request) {
         PrintJob job = printQueueService.enqueue(request);
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(job.toResponse());
     }
 
     @PostMapping(value = "/preview/zpl", produces = "text/plain;charset=UTF-8")
-    @Operation(summary = "Generate and return ZPL for a permit wristband as plain text")
+    @Operation(summary = "Generate and return ZPL for a permit wristband as plain text", tags = {"Wristbands"})
     public ResponseEntity<String> previewZpl(@Valid @RequestBody PermitWristbandPrintRequest request) {
         String zpl = wristbandZplResolver.resolve(request);
         return ResponseEntity.ok(zpl);
     }
 
     @PostMapping(value = "/preview/image", produces = MediaType.IMAGE_PNG_VALUE)
-    @Operation(summary = "Generate and return a rendered PNG preview of a permit wristband via Labelary")
+    @Operation(summary = "Generate and return a rendered PNG preview of a permit wristband via Labelary", tags = {"Wristbands"})
     public ResponseEntity<byte[]> previewImage(@Valid @RequestBody PermitWristbandPrintRequest request) {
         String zpl  = wristbandZplResolver.resolve(request);
         byte[] png  = labelaryPreviewService.renderPreview(zpl);

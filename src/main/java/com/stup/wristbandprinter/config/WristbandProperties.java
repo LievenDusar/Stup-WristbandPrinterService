@@ -1,5 +1,6 @@
 package com.stup.wristbandprinter.config;
 
+import com.stup.wristbandprinter.domain.CodeSymbology;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import java.util.LinkedHashMap;
@@ -16,6 +17,7 @@ public class WristbandProperties {
     private Margins margins = new Margins();
     private Text text = new Text();
     private Barcode barcode = new Barcode();
+    private Permit permit = new Permit();
 
     /**
      * Preview-only stock-color palette. Keys are integer color codes (1 = white is the default);
@@ -49,6 +51,9 @@ public class WristbandProperties {
 
     public Map<Integer, String> getStockColors() { return stockColors; }
     public void setStockColors(Map<Integer, String> stockColors) { this.stockColors = stockColors; }
+
+    public Permit getPermit() { return permit; }
+    public void setPermit(Permit permit) { this.permit = permit; }
 
     /**
      * Vertical gaps in dots, named in band layout order: top logo → barcode → text → bottom logo.
@@ -103,5 +108,83 @@ public class WristbandProperties {
 
         public boolean isShowHumanReadable() { return showHumanReadable; }
         public void setShowHumanReadable(boolean showHumanReadable) { this.showHumanReadable = showHumanReadable; }
+    }
+
+    /** Configuration for the permit wristband layout (wristband.permit.*). */
+    public static class Permit {
+
+        /**
+         * Path to the event logo PNG. May be a classpath: or filesystem path.
+         * When not configured / not found, the event-logo block is omitted gracefully.
+         */
+        private String eventLogoPath = "classpath:images/event-logo.png";
+
+        private PermitMargins margins = new PermitMargins();
+        private PermitText text = new PermitText();
+        private PermitCode code = new PermitCode();
+
+        public String getEventLogoPath() { return eventLogoPath; }
+        public void setEventLogoPath(String eventLogoPath) { this.eventLogoPath = eventLogoPath; }
+
+        public PermitMargins getMargins() { return margins; }
+        public void setMargins(PermitMargins margins) { this.margins = margins; }
+
+        public PermitText getText() { return text; }
+        public void setText(PermitText text) { this.text = text; }
+
+        public PermitCode getCode() { return code; }
+        public void setCode(PermitCode code) { this.code = code; }
+
+        public static class PermitMargins {
+            /** Uniform gap in dots between every adjacent block pair. */
+            private int betweenBlocks = 60;
+            /** Gap inside block 2 between the permit-label line and the dot/association line. */
+            private int writingSpaceGap = 55;
+
+            public int getBetweenBlocks() { return betweenBlocks; }
+            public void setBetweenBlocks(int betweenBlocks) { this.betweenBlocks = betweenBlocks; }
+
+            public int getWritingSpaceGap() { return writingSpaceGap; }
+            public void setWritingSpaceGap(int writingSpaceGap) { this.writingSpaceGap = writingSpaceGap; }
+        }
+
+        public static class PermitText {
+            private int fontSizePermitLabel = 66;
+            private int fontSizeAssociation = 42;
+            private int fontSizeEventName   = 52;
+            /** Number of '.' characters to print when no associationName is supplied. */
+            private int dotCount = 30;
+
+            public int getFontSizePermitLabel() { return fontSizePermitLabel; }
+            public void setFontSizePermitLabel(int f) { this.fontSizePermitLabel = f; }
+
+            public int getFontSizeAssociation() { return fontSizeAssociation; }
+            public void setFontSizeAssociation(int f) { this.fontSizeAssociation = f; }
+
+            public int getFontSizeEventName() { return fontSizeEventName; }
+            public void setFontSizeEventName(int f) { this.fontSizeEventName = f; }
+
+            public int getDotCount() { return dotCount; }
+            public void setDotCount(int dotCount) { this.dotCount = dotCount; }
+        }
+
+        public static class PermitCode {
+            private CodeSymbology defaultSymbology = CodeSymbology.CODE128;
+            private int heightDots = 200;
+            private int moduleWidthDots = 2;
+            private boolean showHumanReadable = false;
+
+            public CodeSymbology getDefaultSymbology() { return defaultSymbology; }
+            public void setDefaultSymbology(CodeSymbology defaultSymbology) { this.defaultSymbology = defaultSymbology; }
+
+            public int getHeightDots() { return heightDots; }
+            public void setHeightDots(int heightDots) { this.heightDots = heightDots; }
+
+            public int getModuleWidthDots() { return moduleWidthDots; }
+            public void setModuleWidthDots(int moduleWidthDots) { this.moduleWidthDots = moduleWidthDots; }
+
+            public boolean isShowHumanReadable() { return showHumanReadable; }
+            public void setShowHumanReadable(boolean showHumanReadable) { this.showHumanReadable = showHumanReadable; }
+        }
     }
 }

@@ -108,9 +108,13 @@ class PermitZplGeneratorServiceTest {
     }
 
     @Test
-    void generate_containsRotationCommand_A0I_forEventName() {
+    void generate_containsRotationCommand_A0B_forEventName() {
+        // Event name runs along the band length (^A0B, 270°/bottom-up), reading the same
+        // direction as block 2, not across the narrow width (^A0R/^A0I), so it never overflows.
         String zpl = service.generate(sampleData(false));
-        assertThat(zpl).contains("^A0I");
+        assertThat(zpl).contains("^A0B");
+        assertThat(zpl).doesNotContain("^A0R");
+        assertThat(zpl).doesNotContain("^A0I");
     }
 
     @Test

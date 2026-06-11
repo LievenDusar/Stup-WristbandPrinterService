@@ -61,12 +61,27 @@ wristband:
   # Preview-only stock-color palette (ZPL is always monochrome).
   # Keys are integer codes; values are CSS hex strings. Code 1 = white is the default.
   stock-colors:
-    1: "#FFFFFF"   # white (default / plain stock)
-    2: "#FF8C00"   # orange
-    3: "#009900"   # green
-    4: "#FF3333"   # red
-    5: "#3399FF"   # blue
-    6: "#FFFF00"   # yellow
+    1: "#FFFFFF"   # white (default / plain stock — no visual tint)
+    2: "#800080"   # purple
+    3: "#FFFF00"   # yellow
+    4: "#0000FF"   # blue
+    5: "#008000"   # green
+    6: "#FF0000"   # red
+  permit:
+    event-logo-path: classpath:images/pkp-logo-short.png
+    margins:
+      between-blocks: 60        # ~5 mm at 300 DPI — uniform gap between every block pair
+      writing-space-gap: 55    # inside block 2; gives room to write by hand
+    text:
+      font-size-permit-label: 66
+      font-size-association: 42
+      font-size-event-name: 52
+      dot-count: 30             # '.' characters when no associationName is supplied
+    code:
+      default-symbology: CODE128
+      height-dots: 200
+      module-width-dots: 2
+      show-human-readable: false
 
 labelary:
   base-url: http://api.labelary.com

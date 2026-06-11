@@ -20,6 +20,9 @@ public final class PermitWristbandPrintRequest implements PrintableRequest {
     @Schema(example = "Elektriciteit")
     private String permitLabel;
 
+    @Schema(description = "Optional association name; when absent a dotted fill-in line is printed instead")
+    private String associationName;
+
     @Schema(description = "Font-Awesome icon name — stored for future rendering; not printed now", example = "bolt")
     private String iconName;
 
@@ -49,13 +52,14 @@ public final class PermitWristbandPrintRequest implements PrintableRequest {
     @Override
     public PrintableRequest withPrinterId(String printerId) {
         PermitWristbandPrintRequest copy = new PermitWristbandPrintRequest();
-        copy.eventName     = this.eventName;
-        copy.permitLabel   = this.permitLabel;
-        copy.iconName      = this.iconName;
-        copy.codeValue     = this.codeValue;
-        copy.codeSymbology = this.codeSymbology;
-        copy.stockColorCode = this.stockColorCode;
-        copy.printerId     = printerId;
+        copy.eventName       = this.eventName;
+        copy.permitLabel     = this.permitLabel;
+        copy.associationName = this.associationName;
+        copy.iconName        = this.iconName;
+        copy.codeValue       = this.codeValue;
+        copy.codeSymbology   = this.codeSymbology;
+        copy.stockColorCode  = this.stockColorCode;
+        copy.printerId       = printerId;
         return copy;
     }
 
@@ -64,6 +68,9 @@ public final class PermitWristbandPrintRequest implements PrintableRequest {
 
     public String getPermitLabel() { return permitLabel; }
     public void setPermitLabel(String permitLabel) { this.permitLabel = permitLabel; }
+
+    public String getAssociationName() { return associationName; }
+    public void setAssociationName(String associationName) { this.associationName = associationName; }
 
     public String getIconName() { return iconName; }
     public void setIconName(String iconName) { this.iconName = iconName; }

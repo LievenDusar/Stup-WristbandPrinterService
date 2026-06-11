@@ -1,5 +1,7 @@
 package com.stup.wristbandprinter.service;
 
+import com.stup.wristbandprinter.domain.PermitWristbandData;
+import com.stup.wristbandprinter.domain.PermitWristbandPrintRequest;
 import com.stup.wristbandprinter.domain.PrintableRequest;
 import com.stup.wristbandprinter.domain.WristbandData;
 import com.stup.wristbandprinter.domain.WristbandPrintRequest;
@@ -26,15 +28,21 @@ public class WristbandZplResolver {
 
     private final ZplGeneratorService zplGeneratorService;
     private final WristbandLayoutService layoutService;
+    private final PermitZplGeneratorService permitZplGeneratorService;
+    private final PermitLayoutService permitLayoutService;
     private final WristbandTemplateRepository templateRepository;
     private final TemplateZplRenderer templateRenderer;
 
     public WristbandZplResolver(ZplGeneratorService zplGeneratorService,
                                 WristbandLayoutService layoutService,
+                                PermitZplGeneratorService permitZplGeneratorService,
+                                PermitLayoutService permitLayoutService,
                                 WristbandTemplateRepository templateRepository,
                                 TemplateZplRenderer templateRenderer) {
         this.zplGeneratorService = zplGeneratorService;
         this.layoutService = layoutService;
+        this.permitZplGeneratorService = permitZplGeneratorService;
+        this.permitLayoutService = permitLayoutService;
         this.templateRepository = templateRepository;
         this.templateRenderer = templateRenderer;
     }
@@ -46,10 +54,14 @@ public class WristbandZplResolver {
      */
     public String resolve(PrintableRequest request) {
         return switch (request.getWristbandType()) {
-            case CREW    -> resolveCrew((WristbandPrintRequest) request);
-            case PERMIT  -> throw new UnsupportedOperationException(
-                "PERMIT ZPL rendering not yet wired (Part 3)");
+            case CREW   -> resolveCrew((WristbandPrintRequest) request);
+            case PERMIT -> resolvePermit((PermitWristbandPrintRequest) request);
         };
+    }
+
+    private String resolvePermit(PermitWristbandPrintRequest request) {
+        PermitWristbandData data = permitLayoutService.buildData(request);
+        return permitZplGeneratorService.generate(data);
     }
 
     private String resolveCrew(WristbandPrintRequest request) {

@@ -114,11 +114,11 @@ All values under `wristband.permit.*`:
 | `event-logo-path` | `classpath:images/stup-logo.png` | Event logo PNG (classpath: or absolute path) |
 | `event-logo-side-margin-dots` | 30 | Horizontal margin for the event logo in block 4 |
 | `margins.between-blocks` | 60 | Gap between the four top-level layout blocks (dots) |
-| `margins.writing-space-gap` | 150 | Blank space between the permit-label line and the dashes fill-in line |
-| `text.font-size-permit-label` | 52 | Font size for "Toelating [label]" |
+| `margins.writing-space-gap` | 55 | Blank space between the permit-label line and the dashes fill-in line |
+| `text.font-size-permit-label` | 66 | Font size for "Toelating [label]" |
 | `text.font-size-association` | 42 | Font size for the optional association name |
 | `text.font-size-event-name` | 52 | Font size for the event name in block 4 |
-| `text.dot-count` | 20 | Number of dashes/dots for the writing-line when no association name is given |
+| `text.dot-count` | 30 | Number of dashes/dots for the writing-line when no association name is given |
 | `code.default-symbology` | `CODE128` | Scan-code symbology when `codeSymbology` is absent in the request |
 | `code.height-dots` | 200 | Bar height of the optional scan code |
 | `code.module-width-dots` | 2 | Narrow-bar module width for the optional scan code |
