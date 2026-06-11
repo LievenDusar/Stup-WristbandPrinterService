@@ -71,10 +71,30 @@ JSON element model (`TemplateDefinition`, stored as `jsonb`) is the source of tr
 `generated_zpl` snapshot is saved alongside for export/audit. Front-end is Konva.js + vanilla JS,
 no build step. Full reference: [docs/template-designer.md](docs/template-designer.md).
 
+### Jobs admin UI
+
+The operator queue is `static/jobs.html` + `static/js/jobs.js`, styled by the shared
+**`static/css/app.css` design system** (deep-purple glass theme — also used by the login, gallery,
+and template-editor pages; no build step). It loads `GET /api/wristbands/jobs`, follows live updates
+over **SSE**, and provides:
+- **Filtering** via dropdown `<select>`s — status, wristband type, event, printer — each with live
+  counts, plus free-text search; a **Clear filters** button appears only when a filter is active.
+  (Dropdowns rebuild options only when the set changes and never while focused, so an SSE refresh
+  can't collapse an open menu.)
+- **Clickable rows** that open a right-hand **detail slide-in** (header type/status badges +
+  identity, grouped sections, footer-pinned actions, corner-× close, no scroll). Per-row actions
+  (Details, Copy job ID, Reprint, Cancel) live in a **⋮ popover** (`#row-menu`, `position:fixed` so
+  it escapes the table's `overflow:hidden`).
+- A top **Menu** dropdown for navigation (Gallery, Template editor) and the destructive
+  **Clear completed** — kept off the main toolbar to avoid accidental clicks (still confirms).
+
+`GET /api/wristbands/gallery` powers `wristband-gallery.html` (a sample of every band type), which
+shares `app.css` and shows each preview in a 90vh modal.
+
 ## Technology stack
 
 - **Java 21**, **Spring Boot 3.4.1** (web, validation, security, data-jpa, actuator)
-- **PostgreSQL** + **Flyway** migrations (`src/main/resources/db/migration`, `V1`–`V5`)
+- **PostgreSQL** + **Flyway** migrations (`src/main/resources/db/migration`, `V1`–`V6`)
 - **Lombok**; **springdoc-openapi** (Swagger UI)
 - **Micrometer** metrics via Actuator
 - **JUnit 5** + **Testcontainers** (real Postgres in tests)
@@ -146,7 +166,8 @@ negotiates with modern daemons — bump if your daemon requires higher.
 - Wristband geometry is fully config-driven (`wristband.*`) — there are no absolute coordinates to
   maintain; calibrate via YAML, not code. See [docs/configuration.md](docs/configuration.md).
 - **Permit bands carry no personal details** — `firstName`, `lastName`, `barcodeValue` are NULL in
-  the DB for permit jobs.
+  the DB for permit jobs. The jobs list response (`PrintJobResponse`) instead carries `permitLabel`,
+  which the jobs table shows in the **Name** column (and search) for permit bands.
 - **Stock color is preview-only** — ZPL is always monochrome; `stockColorCode` is resolved to hex
   by `WristbandProperties.stockColors` and passed to `PreviewColorService.tint()` on preview
   endpoints only.
@@ -196,8 +217,10 @@ docker/                        base image + supporting Docker assets
   Micrometer counters/timers (`wristband.jobs.*`, `wristband.queue.depth`, `wristband.printer.send`).
 - **Docs are part of the change.** Behavioral changes update README/`docs/`; new subsystems get a
   spec + plan under `docs/superpowers/`.
-- Front-end editor is intentionally **build-step-free** vanilla JS — keep it that way; vendored libs
-  go under `static/js/vendor/`.
+- Front-end is intentionally **build-step-free** vanilla JS — keep it that way; vendored libs
+  go under `static/js/vendor/`. All admin pages (jobs, gallery, login, template editor) share the
+  `static/css/app.css` design system and its CSS variables — restyle there, not with per-page
+  `<style>` blocks.
 
 ## Known issues / limitations
 
@@ -214,7 +237,9 @@ docker/                        base image + supporting Docker assets
 ## Current work in progress
 
 The permit wristband feature is fully implemented (plans `2026-06-09-permit-wristband-part-1`
-through `part-4`). `main` is clean.
+through `part-4`). Most recent work (2026-06-11) is a **front-end refresh of the jobs page and
+gallery** plus surfacing `permitLabel` on the jobs list response — see the dated section at the end
+of [HANDOVER.md](HANDOVER.md). No change to the print/route/worker pipeline.
 
 ## Recommended next steps
 

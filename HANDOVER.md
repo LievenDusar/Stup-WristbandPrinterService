@@ -227,3 +227,55 @@ Tinting is applied to the Labelary PNG only — ZPL stays monochrome.
 - `iconName` is persisted but not rendered on the band.
 - `PermitEventLogoService` logs a warning and omits the event logo if the configured path
   doesn't exist at startup (graceful degradation).
+
+---
+
+## Jobs UI & gallery refresh (added 2026-06-11)
+
+A **front-end-only** pass over the operator pages, with one small backend addition. No change to the
+print / routing / worker pipeline or the DB schema.
+
+### What changed
+- **Filters reorganised.** The three rows of status/type/printer **chips** became compact dropdown
+  `<select>`s — **Status, Type, Event (new), Printer** — each with live counts, beside the search
+  box. A subdued **Clear filters** button appears only when a filter or search is active.
+  - The motivating request was a **CREW/PERMIT type filter**; `wristbandType` was already on the
+    list response, so that part needed no backend change.
+- **Clickable rows + ⋮ menu.** The whole row (except the last cell) opens the detail drawer. The
+  **Job ID column was dropped**; per-row actions (Details, Copy job ID, Reprint, Cancel) moved into
+  a **⋮ popover** (`#row-menu`, `position:fixed`, flips above near the viewport edge, lives outside
+  the table's `overflow:hidden`).
+- **Top "Menu" dropdown** in the header: navigation (Gallery; Template editor — badged **beta**) and
+  **Sign out**. **Clear completed** was moved here too, out of the main toolbar, to prevent
+  accidental clicks — it still goes through the themed confirm modal.
+- **Detail slide-in redesigned.** Header carries type + status **badges**, the identity as a title
+  (crew name, or the **permit label** for permit bands) and the event as a subtitle. The body is
+  grouped into titled **sections** (Wristband, Printing) that omit empty fields instead of printing
+  `null`. **Job ID + actions are pinned in a footer**; status moved from a mid-panel alert box to
+  the header badge, with the **error shown as a footer line** for FAILED jobs; the full-width Close
+  button became a subtle **× in the corner**; the panel no longer scrolls (fixed header / flexible
+  middle / fixed footer).
+- **Permit label surfaced.** `permitLabel` was added to **`PrintJobResponse`** (the list endpoint)
+  and populated in `PrintJob.toResponse()`; the detail response already had it. The jobs table shows
+  it in the **Name** column for permit bands (no person name) and it is matched by search.
+- **Gallery restyled.** `wristband-gallery.html` previously linked a **non-existent
+  `/css/admin.css`**; it now uses the shared **`app.css`** design system — glass tiles on the purple
+  gradient, **smaller thumbnails** (responsive grid), and a preview **modal whose image fills 90% of
+  the viewport height**, with a floating × and Esc-to-close.
+
+### Where it lives
+- Front-end: `static/jobs.html`, `static/js/jobs.js`, `static/wristband-gallery.html`,
+  `static/js/gallery.js`, `static/css/app.css` (shared design system — the dead `.chips`,
+  `.status-box`, `admin.css` styles were removed).
+- Backend: `domain/PrintJobResponse.java` (+ `PrintJob.toResponse()`), covered by
+  `PrintJobTest#toResponse_usesPermitLabelForPermitBands`.
+
+### Notes / choices
+- Filter dropdowns rebuild their options only when the option set changes and never while focused,
+  so a live SSE update can't collapse an open dropdown.
+- The detail footer is pinned to the panel bottom, so jobs with few fields show a deliberate gap
+  between the details and the actions — intentional; trivial to switch to "actions directly under
+  the details" if preferred.
+- All verification this session was done by serving the real `app.css`/`jobs.js`/`gallery.js`
+  against a stubbed backend (mock `fetch`/`EventSource`) — the management UI normally needs the
+  admin cookie + Postgres, which a static harness can't provide.
