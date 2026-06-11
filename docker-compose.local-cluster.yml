@@ -33,14 +33,14 @@ services:
     restart: unless-stopped
 
   # --- Fake printers: TCP listeners that log the ZPL bytes they receive ---
-  fakeprinter-1:
-    image: alpine/socat
-    command: -u TCP-LISTEN:9100,fork,reuseaddr OPEN:/dev/stdout
-    restart: unless-stopped
-  fakeprinter-2:
-    image: alpine/socat
-    command: -u TCP-LISTEN:9100,fork,reuseaddr OPEN:/dev/stdout
-    restart: unless-stopped
+  #fakeprinter-1:
+  #  image: alpine/socat
+  #  command: -u TCP-LISTEN:9100,fork,reuseaddr OPEN:/dev/stdout
+  #  restart: unless-stopped
+  #fakeprinter-2:
+  #  image: alpine/socat
+  #  command: -u TCP-LISTEN:9100,fork,reuseaddr OPEN:/dev/stdout
+  #  restart: unless-stopped
 
   # --- One printer-worker per fake printer (no DB, no UI) ---
   worker-1:
@@ -49,19 +49,11 @@ services:
     environment:
       - SPRING_PROFILES_ACTIVE=worker
       - SECURITY_API_KEY=local-dev-key
-      - PRINTER_HOST=fakeprinter-1
+      - PRINTER_HOST=192.168.242.77
       - PRINTER_PORT=9100
-    depends_on:
-      - fakeprinter-1
-  worker-2:
-    <<: *worker-base
-    environment:
-      - SPRING_PROFILES_ACTIVE=worker
-      - SECURITY_API_KEY=local-dev-key
-      - PRINTER_HOST=fakeprinter-2
-      - PRINTER_PORT=9100
-    depends_on:
-      - fakeprinter-2
+    #depends_on:
+    #  - fakeprinter-1
+
 
   # --- Management: UI + DB + routing. Registry points at the two workers. ---
   management:
@@ -73,15 +65,13 @@ services:
       - SPRING_DATASOURCE_PASSWORD=wristbands
       - SECURITY_API_KEY=local-dev-key
       # Override cluster.printers with the in-network worker URLs (one line of JSON).
-      - SPRING_APPLICATION_JSON={"cluster":{"printers":[{"id":"printer-1","display-name":"Secretariaat","base-url":"http://worker-1:8080"},{"id":"printer-2","display-name":"Tap","base-url":"http://worker-2:8080"}]}}
+      - SPRING_APPLICATION_JSON={"cluster":{"printers":[{"id":"printer-1","display-name":"Secretariaat","base-url":"http://worker-1:8080"}]}}
     ports:
       - "8080:8080"
     depends_on:
       postgres:
         condition: service_healthy
       worker-1:
-        condition: service_started
-      worker-2:
         condition: service_started
     healthcheck:
       test: ["CMD", "curl", "-fs", "http://localhost:8080/actuator/health"]
