@@ -279,3 +279,18 @@ print / routing / worker pipeline or the DB schema.
 - All verification this session was done by serving the real `app.css`/`jobs.js`/`gallery.js`
   against a stubbed backend (mock `fetch`/`EventSource`) — the management UI normally needs the
   admin cookie + Postgres, which a static harness can't provide.
+
+## 2026-06-12 — Copies per job + jobs-table column chooser
+
+- **Copies per job.** `copies` (default 1) on crew & permit print requests; the printer
+  prints N bands from one job via `^PQ`, appended on the print path only
+  (`ZplCopies.apply` in `PrintQueueService`), so previews stay single-label. Capped by
+  `print.max-copies` (default 200) → 400 when exceeded. Persisted (Flyway `V7`), surfaced
+  on `PrintJobResponse`/`PrintJobDetailResponse`, and overridable on reprint
+  (`POST /jobs/{id}/reprint?copies=N`).
+- **Jobs table.** Now data-driven from a `COLUMNS` array in `jobs.js`. Added a **Copies**
+  column; removed **Completed** from the table (kept in the detail drawer). New
+  **Columns ▾** chooser toggles visible data columns (max 5 + always-on Actions),
+  persisted in `localStorage` under `jobs.visibleColumns`. Reprint now prompts for a copy
+  count (and printer when more than one is configured).
+- No change to the worker, `PrintForwardRequest`, or the route/forward pipeline.

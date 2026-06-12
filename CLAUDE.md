@@ -44,7 +44,9 @@ important concept to understand before editing anything.
    and emits ZPL via `ZplGeneratorService` *or* `TemplateZplRenderer` (when `templateId` is set);
    PERMIT builds `PermitWristbandData` via `PermitLayoutService` and emits ZPL via
    `PermitZplGeneratorService`. The ZPL is then forwarded to the printer's worker via
-   `WorkerClient.print(baseUrl, …)`.
+   `WorkerClient.print(baseUrl, …)`. Before forwarding, `PrintQueueService` appends
+   `^PQ<copies>` to the resolved ZPL via `ZplCopies` when `copies > 1` (the worker and
+   preview paths are unchanged).
 4. The **worker** receives the ZPL (`WorkerPrintController`) and writes it to the Zebra socket
    (`PrinterService`, with retries + optional RAM-cache clear command).
 5. Status changes (PENDING → PRINTING → DONE/FAILED) are persisted and broadcast over **SSE** to
@@ -87,6 +89,9 @@ over **SSE**, and provides:
   it escapes the table's `overflow:hidden`).
 - A top **Menu** dropdown for navigation (Gallery, Template editor) and the destructive
   **Clear completed** — kept off the main toolbar to avoid accidental clicks (still confirms).
+- A **Copies** column (replacing the old *Completed* column, which now lives only in the
+  detail drawer) and a **Columns ▾** chooser to toggle which data columns are visible
+  (max 5 + always-on Actions), remembered per browser in `localStorage`.
 
 `GET /api/wristbands/gallery` powers `wristband-gallery.html` (a sample of every band type), which
 shares `app.css` and shows each preview in a 90vh modal.
@@ -175,6 +180,11 @@ negotiates with modern daemons — bump if your daemon requires higher.
   bands.
 - **Crew URL restructure**: `/crew/print` is the current crew endpoint; `POST /print` is a **308
   permanent redirect** alias kept for backward compatibility with Symfony.
+- **Copies per job:** a request may set `copies` (default 1). The printer prints that
+  many physical bands from one job via the Zebra `^PQ` command, which is appended **only
+  on the print path** (`PrintQueueService` → `ZplCopies.apply`), never in the shared
+  `WristbandZplResolver` (so previews stay a single label). `copies` must be between 1 and
+  `print.max-copies` (default 200) or the request is rejected with **400**.
 
 ## Folder structure
 

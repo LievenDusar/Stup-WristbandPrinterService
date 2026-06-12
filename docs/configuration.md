@@ -20,6 +20,7 @@ its own [Wristband layout](#wristband-layout) section with an annotated diagram.
 | `printer.clear-cache-enabled` | `true` | Prepend a clear command to every job. Images are sent inline (`^GFA`) and never stored, so this is normally a no-op — it guards against object build-up in printer memory that historically stalled the printer after a number of prints |
 | `printer.clear-command` | `^XA^IDR:*.*^FS^XZ` | ZPL prepended before each label when clearing is enabled. Wipes objects from the printer's **RAM drive (R:)** only — no flash wear. Override if your printer model needs a different command |
 | `queue.max-depth` | `100` | Max pending jobs **per printer** before new submissions are rejected with HTTP 429 |
+| `print.max-copies` | `200` | Maximum number of copies a single print job may request (Zebra `^PQ`). A request with `copies` outside `1..max-copies` is rejected with HTTP 400. Raise it if an event legitimately prints larger batches |
 
 ## Integrations & security
 
