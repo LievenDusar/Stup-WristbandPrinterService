@@ -37,6 +37,10 @@
       <select class="select" id="filter-event" onchange="setEventFilter(this.value)" aria-label="Filter by event"></select>
       <select class="select" id="filter-printer" onchange="setPrinterFilter(this.value)" aria-label="Filter by printer" hidden></select>
       <button class="btn btn-sm filter-reset" id="filter-reset" onclick="resetFilters()" hidden>✕ Clear filters</button>
+      <div class="menu-wrap">
+        <button class="btn btn-sm" onclick="toggleColumnsMenu(event)">Columns ▾</button>
+        <div class="popover nav-menu" id="columns-menu" onclick="event.stopPropagation()" hidden></div>
+      </div>
     </div>
 
     <div class="glass" style="overflow:hidden">

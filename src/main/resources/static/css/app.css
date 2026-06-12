@@ -300,3 +300,7 @@ tbody tr:hover { background: hsla(0, 0%, 100%, 0.03); }
   cursor: pointer; backdrop-filter: blur(8px); transition: background var(--t-fast);
 }
 .modal-close:hover { background: hsla(0, 0%, 100%, 0.15); }
+
+/* Column chooser checkboxes (jobs table) */
+.col-toggle { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.col-toggle input[disabled] { opacity: .4; cursor: not-allowed; }

@@ -67,6 +67,46 @@ function renderHeader() {
     + '<th aria-label="Actions"></th></tr>';
 }
 
+function toggleColumnsMenu(e) {
+  e.stopPropagation();
+  closeRowMenu();
+  closeNavMenu();
+  const m = document.getElementById('columns-menu');
+  if (m.hidden) { renderColumnsMenu(); m.hidden = false; }
+  else { m.hidden = true; }
+}
+
+function closeColumnsMenu() {
+  const m = document.getElementById('columns-menu');
+  if (m && !m.hidden) m.hidden = true;
+}
+
+function renderColumnsMenu() {
+  const atMax = visibleCols.length >= MAX_COLS;
+  const atMin = visibleCols.length <= MIN_COLS;
+  document.getElementById('columns-menu').innerHTML = COLUMNS.map(c => {
+    const on = visibleCols.includes(c.key);
+    const disabled = (!on && atMax) || (on && atMin);
+    return `<label class="menu-item col-toggle">
+      <input type="checkbox" ${on ? 'checked' : ''} ${disabled ? 'disabled' : ''}
+             onchange="toggleColumn('${c.key}')">${c.label}</label>`;
+  }).join('');
+}
+
+function toggleColumn(key) {
+  const on = visibleCols.includes(key);
+  if (on) {
+    if (visibleCols.length <= MIN_COLS) return;        // keep at least one data column
+    visibleCols = visibleCols.filter(k => k !== key);
+  } else {
+    if (visibleCols.length >= MAX_COLS) return;        // cap at five data columns
+    visibleCols.push(key);
+  }
+  saveVisibleCols();
+  renderColumnsMenu();
+  render();                                            // render() also calls renderHeader()
+}
+
 window.addEventListener('load', init);
 
 async function init() {
@@ -248,6 +288,7 @@ function syncSelect(id, options, value) {
 function openRowMenu(e, jobId) {
   e.stopPropagation();              // don't open the drawer, don't let the doc-listener close us
   closeNavMenu();
+  closeColumnsMenu();
   const job = jobs[jobId];
   const menu = document.getElementById('row-menu');
   if (!job) { menu.hidden = true; return; }
@@ -288,6 +329,7 @@ function closeRowMenu() {
 function toggleNavMenu(e) {
   e.stopPropagation();
   closeRowMenu();
+  closeColumnsMenu();
   const m = document.getElementById('nav-menu');
   m.hidden = !m.hidden;
 }
@@ -573,10 +615,10 @@ function toast(msg, kind) {
 }
 
 // Any click that isn't captured by a menu trigger (those call stopPropagation) closes the menus.
-document.addEventListener('click', () => { closeRowMenu(); closeNavMenu(); });
+document.addEventListener('click', () => { closeRowMenu(); closeNavMenu(); closeColumnsMenu(); });
 // A fixed-positioned popover would detach from its anchor on scroll/resize — just close it.
 window.addEventListener('scroll', closeRowMenu, true);
-window.addEventListener('resize', () => { closeRowMenu(); closeNavMenu(); });
+window.addEventListener('resize', () => { closeRowMenu(); closeNavMenu(); closeColumnsMenu(); });
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') { closeDrawer(); closeRowMenu(); closeNavMenu(); }
+  if (e.key === 'Escape') { closeDrawer(); closeRowMenu(); closeNavMenu(); closeColumnsMenu(); }
 });
