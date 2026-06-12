@@ -59,6 +59,7 @@ public class JpaJobStore implements JobStore {
             eventName, firstName, lastName, assocName, barcodeValue,
             permitLabel, iconName,
             r.getStockColorCode(), codeValue, codeSymbology,
+            r.getCopies(),
             job.getSubmittedAt(),
             job.getCompletedAt(),
             job.getError()
@@ -97,6 +98,7 @@ public class JpaJobStore implements JobStore {
             p.setCodeValue(e.getCodeValue());
             p.setCodeSymbology(e.getCodeSymbology());
             p.setStockColorCode(e.getStockColorCode());
+            p.setCopies(e.getCopies());
             p.setPrinterId(e.getPrinterId());
             request = p;
         } else {
@@ -108,6 +110,7 @@ public class JpaJobStore implements JobStore {
             w.setBarcodeValue(e.getBarcodeValue());
             w.setCodeSymbology(e.getCodeSymbology());
             w.setStockColorCode(e.getStockColorCode());
+            w.setCopies(e.getCopies());
             w.setPrinterId(e.getPrinterId());
             request = w;
         }

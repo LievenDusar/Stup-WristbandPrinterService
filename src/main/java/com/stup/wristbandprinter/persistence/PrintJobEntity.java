@@ -48,6 +48,9 @@ public class PrintJobEntity {
     @Enumerated(EnumType.STRING)
     private CodeSymbology codeSymbology;
 
+    @Column(nullable = false)
+    private Integer copies;
+
     private Instant submittedAt;
     private Instant completedAt;
 
@@ -65,6 +68,7 @@ public class PrintJobEntity {
                           String associationName, String barcodeValue,
                           String permitLabel, String iconName,
                           Integer stockColorCode, String codeValue, CodeSymbology codeSymbology,
+                          Integer copies,
                           Instant submittedAt, Instant completedAt, String error) {
         this.jobId          = jobId;
         this.status         = status;
@@ -81,6 +85,7 @@ public class PrintJobEntity {
         this.stockColorCode = stockColorCode;
         this.codeValue      = codeValue;
         this.codeSymbology  = codeSymbology;
+        this.copies         = copies;
         this.submittedAt    = submittedAt;
         this.completedAt    = completedAt;
         this.error          = error;
@@ -101,6 +106,7 @@ public class PrintJobEntity {
     public Integer getStockColorCode(){ return stockColorCode; }
     public String  getCodeValue()    { return codeValue; }
     public CodeSymbology getCodeSymbology() { return codeSymbology; }
+    public int getCopies()           { return copies == null ? 1 : copies; }
     public Instant getSubmittedAt()  { return submittedAt; }
     public Instant getCompletedAt()  { return completedAt; }
     public String getError()         { return error; }

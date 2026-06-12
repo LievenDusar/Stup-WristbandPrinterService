@@ -88,6 +88,24 @@ class JpaJobStoreTest {
         assertThat(loaded.getPrinterName()).isEqualTo("Inkom links");
     }
 
+    @Test
+    void saveAndLoad_roundTripsCopies() {
+        UUID id = UUID.randomUUID();
+        WristbandPrintRequest req = new WristbandPrintRequest();
+        req.setEventName("Pukkelpop 2026");
+        req.setFirstName("Jan");
+        req.setLastName("Janssens");
+        req.setAssociationName("STUP vzw");
+        req.setBarcodeValue("123456789");
+        req.setCopies(120);
+        Instant now = Instant.now();
+        store.save(PrintJob.restore(id, req, PrintJobStatus.DONE, now, now, null));
+
+        PrintJob loaded = store.loadActive().get(0);
+
+        assertThat(loaded.getRequest().getCopies()).isEqualTo(120);
+    }
+
     private WristbandPrintRequest request() {
         WristbandPrintRequest r = new WristbandPrintRequest();
         r.setEventName("Pukkelpop 2026");
