@@ -79,7 +79,7 @@ wristband:
       font-size-permit-label: 66
       font-size-association: 42
       font-size-event-name: 52
-      dot-count: 30             # '.' characters when no associationName is supplied
+      dot-count: 60             # '.' characters when no associationName is supplied
     code:
       default-symbology: CODE128
       height-dots: 200
