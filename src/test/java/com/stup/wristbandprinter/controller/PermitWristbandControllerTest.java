@@ -78,6 +78,23 @@ class PermitWristbandControllerTest {
     }
 
     @Test
+    void permitPrint_returns400_whenCopiesBelowOne() throws Exception {
+        String body = """
+            {
+              "eventName": "Pukkelpop 2026",
+              "permitLabel": "Elektriciteit",
+              "copies": 0
+            }
+            """;
+
+        mockMvc.perform(post("/api/wristbands/permit/print")
+                .header("X-API-Key", API_KEY)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body))
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void permitPrint_returns401_whenApiKeyMissing() throws Exception {
         mockMvc.perform(post("/api/wristbands/permit/print")
                 .contentType(MediaType.APPLICATION_JSON)

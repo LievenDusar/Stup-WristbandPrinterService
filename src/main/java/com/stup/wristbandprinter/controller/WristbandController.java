@@ -129,14 +129,18 @@ public class WristbandController {
     }
 
     @PostMapping("/jobs/{jobId}/reprint")
-    @Operation(summary = "Reprint a previous job, optionally on a different printer", tags = {"Jobs"})
+    @Operation(summary = "Reprint a previous job, optionally on a different printer and/or copy count", tags = {"Jobs"})
     public ResponseEntity<PrintJobResponse> reprint(@PathVariable UUID jobId,
-                                                     @RequestParam(required = false) String printerId) {
+                                                     @RequestParam(required = false) String printerId,
+                                                     @RequestParam(required = false) Integer copies) {
         return printQueueService.getJob(jobId)
             .map(original -> {
                 PrintableRequest req = original.getRequest();
                 if (printerId != null && !printerId.isBlank()) {
                     req = req.withPrinterId(printerId);
+                }
+                if (copies != null) {
+                    req = req.withCopies(copies);
                 }
                 PrintJob newJob = printQueueService.enqueue(req);
                 return ResponseEntity.status(HttpStatus.ACCEPTED).body(newJob.toResponse());

@@ -13,6 +13,7 @@ import com.stup.wristbandprinter.security.ApiKeyAuthFilter;
 import com.stup.wristbandprinter.security.AuthCookieService;
 import com.stup.wristbandprinter.service.*;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -271,6 +272,48 @@ class WristbandControllerTest {
         mockMvc.perform(post("/api/wristbands/jobs/" + jobId + "/reprint")
                 .header("X-API-Key", API_KEY))
             .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void reprint_withCopiesParam_overridesCopies() throws Exception {
+        UUID jobId = UUID.randomUUID();
+        WristbandPrintRequest original = new WristbandPrintRequest();
+        original.setEventName("Pukkelpop 2026");
+        original.setFirstName("Jan"); original.setLastName("Janssens");
+        original.setAssociationName("STUP vzw"); original.setBarcodeValue("123");
+        original.setCopies(1);
+        PrintJob originalJob = new PrintJob(jobId, original, "printer-1", "Inkom");
+        when(printQueueService.getJob(jobId)).thenReturn(java.util.Optional.of(originalJob));
+
+        ArgumentCaptor<PrintableRequest> captor = ArgumentCaptor.forClass(PrintableRequest.class);
+        when(printQueueService.enqueue(captor.capture()))
+            .thenAnswer(inv -> new PrintJob(UUID.randomUUID(), inv.getArgument(0)));
+
+        mockMvc.perform(post("/api/wristbands/jobs/" + jobId + "/reprint?copies=50")
+                .header("X-API-Key", API_KEY))
+            .andExpect(status().isAccepted());
+
+        org.assertj.core.api.Assertions.assertThat(captor.getValue().getCopies()).isEqualTo(50);
+    }
+
+    @Test
+    void crewPrint_returns400_whenCopiesBelowOne() throws Exception {
+        String body = """
+            {
+              "eventName": "Pukkelpop 2026",
+              "firstName": "Jan",
+              "lastName": "Janssens",
+              "associationName": "STUP vzw",
+              "barcodeValue": "123",
+              "copies": 0
+            }
+            """;
+
+        mockMvc.perform(post("/api/wristbands/crew/print")
+                .header("X-API-Key", API_KEY)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body))
+            .andExpect(status().isBadRequest());
     }
 
     @Test
