@@ -376,6 +376,7 @@ async function showDetail(id) {
   ]);
   const printingRows = detailRows([
     ['Printer', d.printerName],
+    ['Copies', d.copies],
     ['Submitted', fmtDateTime(d.submittedAt)],
     ['Completed', d.completedAt ? fmtDateTime(d.completedAt) : '—']
   ]);
@@ -489,38 +490,52 @@ function clearPreview() {
   previewVisible = false;
 }
 
+// Reprint a finished job. Asks for a copy count (defaulting to the original job's copies)
+// and, when more than one printer exists, a target printer.
 async function reprint(id) {
-  let printerId = null;
-  if (printers && printers.length > 1) {
-    printerId = await choosePrinter();
-    if (printerId === null) return;        // cancelled
-  }
-  const url = '/api/wristbands/jobs/' + id + '/reprint'
-    + (printerId ? ('?printerId=' + encodeURIComponent(printerId)) : '');
-  const res = await guarded(fetch(url, { method: 'POST' }));
+  const job = jobs[id];
+  const sel = await reprintDialog(job && job.copies ? job.copies : 1);
+  if (!sel) return;                                  // cancelled
+  const params = new URLSearchParams();
+  if (sel.printerId) params.set('printerId', sel.printerId);
+  if (sel.copies && sel.copies !== 1) params.set('copies', String(sel.copies));
+  const qs = params.toString();
+  const res = await guarded(fetch('/api/wristbands/jobs/' + id + '/reprint' + (qs ? '?' + qs : ''),
+                                  { method: 'POST' }));
   if (!res) return;
   toast(res.ok ? 'Reprint queued' : 'Reprint failed', res.ok ? 'ok' : 'err');
 }
 
-// Ask which printer to reprint on, reusing the confirm overlay. Resolves to a printer id, or null if cancelled.
-function choosePrinter() {
+// Reprint dialog: a copies number-input plus an optional printer <select>, reusing the
+// confirm overlay. Resolves to { copies, printerId } or null (cancel).
+function reprintDialog(defaultCopies) {
   return new Promise(resolve => {
     const overlay = document.getElementById('confirm-overlay');
     const card = overlay.querySelector('.confirm-card');
     const prevHtml = card.innerHTML;
-    const buttons = printers.map(p =>
-      `<button class="btn btn-sm" data-printer="${esc(p.id)}">${esc(p.displayName)}</button>`).join('');
-    card.innerHTML = `<div>Reprint on which printer?</div>
-      <div class="confirm-actions" style="flex-wrap:wrap">${buttons}
-      <button class="btn" data-printer="">Cancel</button></div>`;
+    const printerField = (printers && printers.length > 1)
+      ? `<label class="reprint-field">Printer
+           <select class="select" id="reprint-printer">
+             ${printers.map(p => `<option value="${esc(p.id)}">${esc(p.displayName)}</option>`).join('')}
+           </select></label>`
+      : '';
+    card.innerHTML = `
+      <div style="font-weight:600;margin-bottom:4px">Reprint</div>
+      <label class="reprint-field">Copies
+        <input class="input" id="reprint-copies" type="number" min="1" value="${defaultCopies}"></label>
+      ${printerField}
+      <div class="confirm-actions">
+        <button class="btn" id="reprint-cancel">Cancel</button>
+        <button class="btn btn-primary" id="reprint-go">Reprint</button>
+      </div>`;
     overlay.classList.add('open');
-    const done = (printerId) => {
-      overlay.classList.remove('open');
-      card.innerHTML = prevHtml;   // restore the original confirm markup
-      resolve(printerId);
+    const done = (val) => { overlay.classList.remove('open'); card.innerHTML = prevHtml; resolve(val); };
+    card.querySelector('#reprint-cancel').onclick = () => done(null);
+    card.querySelector('#reprint-go').onclick = () => {
+      const copies = Math.max(1, parseInt(card.querySelector('#reprint-copies').value, 10) || 1);
+      const sel = card.querySelector('#reprint-printer');
+      done({ copies, printerId: sel ? sel.value : null });
     };
-    card.querySelectorAll('button[data-printer]').forEach(b =>
-      b.onclick = () => done(b.getAttribute('data-printer') || null));
   });
 }
 

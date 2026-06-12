@@ -304,3 +304,7 @@ tbody tr:hover { background: hsla(0, 0%, 100%, 0.03); }
 /* Column chooser checkboxes (jobs table) */
 .col-toggle { display: flex; align-items: center; gap: 8px; cursor: pointer; }
 .col-toggle input[disabled] { opacity: .4; cursor: not-allowed; }
+
+/* Reprint dialog fields */
+.reprint-field { display: flex; flex-direction: column; gap: 6px; margin: 10px 0; text-align: left; font-size: 13px; }
+.reprint-field .input, .reprint-field .select { width: 100%; }
