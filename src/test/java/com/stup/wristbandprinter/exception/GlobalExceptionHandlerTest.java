@@ -112,6 +112,30 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    void invalidCopies_returns400() throws Exception {
+        Mockito.when(printQueueService.enqueue(Mockito.any()))
+            .thenThrow(new InvalidCopiesException("copies must be between 1 and 200 (was 999)"));
+
+        String body = """
+            {
+              "eventName": "Pukkelpop 2026",
+              "firstName": "Jan",
+              "lastName": "Janssens",
+              "associationName": "STUP vzw",
+              "barcodeValue": "123",
+              "copies": 999
+            }
+            """;
+
+        mockMvc.perform(post("/api/wristbands/crew/print")
+                .header("X-API-Key", "test-key")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.error").value("Invalid copies"));
+    }
+
+    @Test
     void wrongHttpMethod_returns405() throws Exception {
         // GET /crew/print: only POST is mapped → 405 Method Not Allowed
         mockMvc.perform(get("/api/wristbands/crew/print")

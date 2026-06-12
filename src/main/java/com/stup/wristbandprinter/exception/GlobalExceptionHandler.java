@@ -75,6 +75,11 @@ public class GlobalExceptionHandler {
         return errorResponse(HttpStatus.BAD_REQUEST, "Invalid stock color", ex.getMessage());
     }
 
+    @ExceptionHandler(InvalidCopiesException.class)
+    public ResponseEntity<Map<String, Object>> handleInvalidCopies(InvalidCopiesException ex) {
+        return errorResponse(HttpStatus.BAD_REQUEST, "Invalid copies", ex.getMessage());
+    }
+
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
     public ResponseEntity<Map<String, Object>> handleMethodNotSupported(HttpRequestMethodNotSupportedException ex) {
         log.warn("Method not allowed: {}", ex.getMessage());
