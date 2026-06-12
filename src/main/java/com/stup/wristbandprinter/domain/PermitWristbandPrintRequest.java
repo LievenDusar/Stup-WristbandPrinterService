@@ -1,6 +1,7 @@
 package com.stup.wristbandprinter.domain;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 
 /**
@@ -38,6 +39,10 @@ public final class PermitWristbandPrintRequest implements PrintableRequest {
     @Schema(description = "Optional id of the printer to use; when omitted the default printer is used")
     private String printerId;
 
+    @Schema(description = "Number of copies to print; defaults to 1 when omitted", example = "1")
+    @Min(value = 1, message = "copies must be at least 1")
+    private Integer copies;
+
     @Override
     public String getPrinterId() { return printerId; }
     public void setPrinterId(String printerId) { this.printerId = printerId; }
@@ -50,6 +55,10 @@ public final class PermitWristbandPrintRequest implements PrintableRequest {
     public void setStockColorCode(Integer stockColorCode) { this.stockColorCode = stockColorCode; }
 
     @Override
+    public int getCopies() { return copies == null ? 1 : copies; }
+    public void setCopies(Integer copies) { this.copies = copies; }
+
+    @Override
     public PrintableRequest withPrinterId(String printerId) {
         PermitWristbandPrintRequest copy = new PermitWristbandPrintRequest();
         copy.eventName       = this.eventName;
@@ -60,6 +69,14 @@ public final class PermitWristbandPrintRequest implements PrintableRequest {
         copy.codeSymbology   = this.codeSymbology;
         copy.stockColorCode  = this.stockColorCode;
         copy.printerId       = printerId;
+        copy.copies          = this.copies;
+        return copy;
+    }
+
+    @Override
+    public PrintableRequest withCopies(int copies) {
+        PermitWristbandPrintRequest copy = (PermitWristbandPrintRequest) withPrinterId(this.printerId);
+        copy.copies = copies;
         return copy;
     }
 

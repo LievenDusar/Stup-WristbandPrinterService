@@ -1,6 +1,7 @@
 package com.stup.wristbandprinter.domain;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 
 @Schema(description = "Data required to print or preview a wristband")
@@ -38,6 +39,10 @@ public final class WristbandPrintRequest implements PrintableRequest {
     @Schema(description = "Optional id of the printer to use; when omitted the default printer is used")
     private String printerId;
 
+    @Schema(description = "Number of copies to print; defaults to 1 when omitted", example = "1")
+    @Min(value = 1, message = "copies must be at least 1")
+    private Integer copies;
+
     public String getEventName() { return eventName; }
     public void setEventName(String eventName) { this.eventName = eventName; }
 
@@ -66,6 +71,10 @@ public final class WristbandPrintRequest implements PrintableRequest {
     public void setPrinterId(String printerId) { this.printerId = printerId; }
 
     @Override
+    public int getCopies() { return copies == null ? 1 : copies; }
+    public void setCopies(Integer copies) { this.copies = copies; }
+
+    @Override
     public WristbandType getWristbandType() { return WristbandType.CREW; }
 
     @Override
@@ -80,6 +89,14 @@ public final class WristbandPrintRequest implements PrintableRequest {
         copy.codeSymbology  = this.codeSymbology;
         copy.stockColorCode = this.stockColorCode;
         copy.printerId      = printerId;
+        copy.copies         = this.copies;
+        return copy;
+    }
+
+    @Override
+    public PrintableRequest withCopies(int copies) {
+        WristbandPrintRequest copy = (WristbandPrintRequest) withPrinterId(this.printerId);
+        copy.copies = copies;
         return copy;
     }
 }
