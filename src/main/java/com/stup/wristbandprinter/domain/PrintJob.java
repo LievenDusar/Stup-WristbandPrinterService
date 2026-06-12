@@ -93,6 +93,7 @@ public class PrintJob {
             jobId, status, request.getWristbandType(),
             printerId, printerName,
             eventName, firstName, lastName, permitLabel,
+            request.getCopies(),
             submittedAt, completedAt, error);
     }
 
@@ -118,6 +119,7 @@ public class PrintJob {
             printerId, printerName,
             eventName, firstName, lastName,
             assocName, barcodeValue, permitLabel,
+            request.getCopies(),
             submittedAt, completedAt, error);
     }
 }

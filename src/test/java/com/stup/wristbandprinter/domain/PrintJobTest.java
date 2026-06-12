@@ -64,6 +64,28 @@ class PrintJobTest {
     }
 
     @Test
+    void responses_carryCopies() {
+        WristbandPrintRequest r = new WristbandPrintRequest();
+        r.setEventName("E"); r.setFirstName("F"); r.setLastName("L");
+        r.setAssociationName("A"); r.setBarcodeValue("B");
+        r.setCopies(25);
+        PrintJob job = new PrintJob(UUID.randomUUID(), r);
+
+        assertThat(job.toResponse().copies()).isEqualTo(25);
+        assertThat(job.toDetailResponse().copies()).isEqualTo(25);
+    }
+
+    @Test
+    void responses_defaultCopiesToOne() {
+        WristbandPrintRequest r = new WristbandPrintRequest();
+        r.setEventName("E"); r.setFirstName("F"); r.setLastName("L");
+        r.setAssociationName("A"); r.setBarcodeValue("B");
+        PrintJob job = new PrintJob(UUID.randomUUID(), r);
+
+        assertThat(job.toResponse().copies()).isEqualTo(1);
+    }
+
+    @Test
     void toResponse_and_toDetailResponse_carryPrinterIdentity() {
         WristbandPrintRequest r = new WristbandPrintRequest();
         r.setEventName("E"); r.setFirstName("F"); r.setLastName("L");

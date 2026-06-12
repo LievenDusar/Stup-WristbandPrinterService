@@ -15,6 +15,7 @@ public record PrintJobDetailResponse(
     String associationName, // null for PERMIT bands
     String barcodeValue,    // null for PERMIT bands
     String permitLabel,     // null for CREW bands
+    int copies,
     Instant submittedAt,
     Instant completedAt,
     String error
