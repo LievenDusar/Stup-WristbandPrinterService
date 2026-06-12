@@ -41,18 +41,7 @@
 
     <div class="glass" style="overflow:hidden">
       <table>
-        <thead>
-          <tr>
-            <th onclick="sortBy('firstName')">Name</th>
-            <th onclick="sortBy('wristbandType')">Type</th>
-            <th onclick="sortBy('eventName')">Event</th>
-            <th onclick="sortBy('printerName')">Printer</th>
-            <th onclick="sortBy('status')">Status</th>
-            <th onclick="sortBy('submittedAt')">Submitted</th>
-            <th onclick="sortBy('completedAt')">Completed</th>
-            <th aria-label="Actions"></th>
-          </tr>
-        </thead>
+        <thead id="jobs-head"></thead>
         <tbody id="jobs-body">
           <tr><td colspan="8" class="empty">Loading…</td></tr>
         </tbody>

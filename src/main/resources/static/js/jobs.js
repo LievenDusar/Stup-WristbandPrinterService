@@ -15,6 +15,58 @@ const STATUSES = ['PENDING', 'PRINTING', 'DONE', 'FAILED', 'CANCELLED'];
 const TYPES = ['CREW', 'PERMIT'];
 const TYPE_LABELS = { CREW: 'Crew', PERMIT: 'Permit' };
 
+// Data-driven table columns. `Actions` is always rendered last and is NOT in this list.
+const COLUMNS = [
+  { key: 'name',      label: 'Name',      sort: 'firstName',
+    cell: j => { const n = ((j.firstName || '') + ' ' + (j.lastName || '')).trim() || j.permitLabel;
+                 return n ? esc(n) : '<span class="muted">—</span>'; } },
+  { key: 'type',      label: 'Type',      sort: 'wristbandType',
+    cell: j => typeBadge(j.wristbandType) },
+  { key: 'event',     label: 'Event',     sort: 'eventName',
+    cell: j => esc(j.eventName) },
+  { key: 'printer',   label: 'Printer',   sort: 'printerName',
+    cell: j => esc(j.printerName || '—') },
+  { key: 'copies',    label: 'Copies',    sort: 'copies',
+    cell: j => (j.copies > 1 ? `<strong>${j.copies}</strong>` : `<span class="muted">${j.copies ?? 1}</span>`) },
+  { key: 'status',    label: 'Status',    sort: 'status',
+    cell: j => `<span class="badge ${j.status}">${j.status}</span>` },
+  { key: 'submitted', label: 'Submitted', sort: 'submittedAt',
+    cell: j => `<span title="${fmtDateTime(j.submittedAt)}">${relTime(j.submittedAt)}</span>` },
+];
+
+const MAX_COLS = 5;
+const MIN_COLS = 1;
+const DEFAULT_COLS = ['name', 'type', 'event', 'copies', 'status'];
+const ALL_COL_KEYS = COLUMNS.map(c => c.key);
+let visibleCols = loadVisibleCols();
+
+function loadVisibleCols() {
+  try {
+    const raw = JSON.parse(localStorage.getItem('jobs.visibleColumns'));
+    if (Array.isArray(raw)) {
+      const valid = raw.filter(k => ALL_COL_KEYS.includes(k));
+      if (valid.length >= MIN_COLS && valid.length <= MAX_COLS) return valid;
+    }
+  } catch (e) { /* fall through to default */ }
+  return DEFAULT_COLS.slice();
+}
+
+function saveVisibleCols() {
+  localStorage.setItem('jobs.visibleColumns', JSON.stringify(visibleCols));
+}
+
+// COLUMNS in declared order, filtered to the visible set (keeps a stable column order).
+function visibleColumnDefs() {
+  return COLUMNS.filter(c => visibleCols.includes(c.key));
+}
+
+function renderHeader() {
+  const cols = visibleColumnDefs();
+  document.getElementById('jobs-head').innerHTML =
+    '<tr>' + cols.map(c => `<th onclick="sortBy('${c.sort}')">${c.label}</th>`).join('')
+    + '<th aria-label="Actions"></th></tr>';
+}
+
 window.addEventListener('load', init);
 
 async function init() {
@@ -80,6 +132,7 @@ function clearSearch() {
 }
 
 function render() {
+  renderHeader();
   renderFilters();
   const search = document.getElementById('search').value.trim().toLowerCase();
   const tbody = document.getElementById('jobs-body');
@@ -105,26 +158,18 @@ function render() {
   });
 
   if (list.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="8" class="empty">No jobs.</td></tr>';
+    tbody.innerHTML = `<tr><td colspan="${visibleCols.length + 1}" class="empty">No jobs.</td></tr>`;
     return;
   }
 
   tbody.innerHTML = list.map(rowHtml).join('');
 }
 
-// The whole row opens the detail slide-in; the last cell (the ⋮ menu) stops
-// propagation so its actions don't also trigger the row click.
-// Permit bands carry no person name — fall back to the permit label.
+// Visible data cells (in column order) + the always-present ⋮ actions cell.
+// The whole row opens the detail slide-in; the actions cell stops propagation.
 function rowHtml(job) {
-  const name = ((job.firstName || '') + ' ' + (job.lastName || '')).trim() || job.permitLabel;
-  return `<tr onclick="showDetail('${job.jobId}')">
-    <td>${name ? esc(name) : '<span class="muted">—</span>'}</td>
-    <td>${typeBadge(job.wristbandType)}</td>
-    <td>${esc(job.eventName)}</td>
-    <td>${esc(job.printerName || '—')}</td>
-    <td><span class="badge ${job.status}">${job.status}</span></td>
-    <td title="${fmtDateTime(job.submittedAt)}">${relTime(job.submittedAt)}</td>
-    <td title="${job.completedAt ? fmtDateTime(job.completedAt) : ''}">${job.completedAt ? relTime(job.completedAt) : '—'}</td>
+  const cells = visibleColumnDefs().map(c => `<td>${c.cell(job)}</td>`).join('');
+  return `<tr onclick="showDetail('${job.jobId}')">${cells}
     <td class="actions-cell" onclick="event.stopPropagation()">
       <button class="kebab" title="Actions" aria-label="Row actions" onclick="openRowMenu(event, '${job.jobId}')">⋮</button>
     </td>
