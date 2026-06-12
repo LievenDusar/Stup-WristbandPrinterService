@@ -122,16 +122,39 @@ happens once and the label prints `n` times.
   (applied alongside the existing optional `printerId` override). When omitted, the
   original job's `copies` carries over.
 
-### 8. UI (`static/js/jobs.js`)
+### 8. UI (`static/jobs.html` + `static/js/jobs.js`)
 
-- **Reprint dialog**: extend the existing confirm-overlay reuse (today it only asks for
-  a printer) to also include a number input for copies, pre-filled with the original
-  job's `copies`. Resolves to `{ copies, printerId }` or `null` (cancel). The fetch
-  appends `?copies=N` (and `printerId` when chosen).
-- **Detail drawer**: add a `Copies` row to the "Printing" section.
-- **Table row**: when `job.copies > 1`, render a subtle `×N` pill after the name.
-- No new page-level CSS — reuse `app.css` tokens/classes (e.g. existing pill/badge and
-  input styles). No build step.
+**Table columns.** Today the table has 8 columns:
+`Name · Type · Event · Printer · Status · Submitted · Completed · Actions`.
+A print job is almost always a single instant action, so `Submitted` and `Completed`
+are near-identical and showing both wastes a column. We:
+
+- **Add** a `Copies` column.
+- **Remove** the `Completed` column from the table; keep **`Submitted`** as the single
+  time (the moment the job was given).
+- Both times remain in the **detail drawer** "Printing" section, where `Completed`
+  still matters for failures / queue backlog.
+
+New column order (still 8 columns, so the loading/empty `colspan="8"` is unchanged):
+`Name · Type · Event · Printer · Copies · Status · Submitted · Actions`.
+
+- `jobs.html`: drop the `Completed` `<th>`, add `<th onclick="sortBy('copies')">Copies</th>`
+  after the `Printer` header.
+- `jobs.js` `rowHtml(...)`: drop the `completedAt` `<td>`, add a `copies` `<td>` after the
+  printer cell. The cell shows the number; visually emphasised (e.g. bold) when
+  `copies > 1`, muted when `1`. Sorting uses the existing generic comparator
+  (`copies` is numeric, always ≥ 1).
+
+**Reprint dialog.** Extend the existing confirm-overlay reuse (today it only asks for a
+printer) to also include a number input for copies, pre-filled with the original job's
+`copies`. Resolves to `{ copies, printerId }` or `null` (cancel). The fetch appends
+`?copies=N` (and `printerId` when chosen).
+
+**Detail drawer.** Add a `Copies` row to the "Printing" section (alongside the existing
+`Submitted` and `Completed` rows, which are unchanged).
+
+No new page-level CSS — reuse `app.css` tokens/classes (existing badge/pill, input, and
+muted-text styles). No build step.
 
 ### 9. Tests
 
