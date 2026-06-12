@@ -10,6 +10,7 @@ built-in admin UI, a visual template designer, and support for multiple printers
 - [Architecture](#architecture)
 - [Running locally](#running-locally) → [docs/running-locally.md](docs/running-locally.md)
 - [Production deployment](#production-deployment) → [docs/production-deployment.md](docs/production-deployment.md)
+  - [Adding a printer](#adding-a-printer)
 - [Configuration](#configuration) → [docs/configuration.md](docs/configuration.md)
 - [API endpoints](#api-endpoints) → [docs/api.md](docs/api.md)
 - [Job management UI](#job-management-ui)
@@ -150,6 +151,30 @@ database is a remote `wristbands` Postgres; Flyway migrates it on management's f
 The full guide — `.env.prod` secrets, declaring workers, registering printers, launch & verify,
 adding printers later, and HTTPS / Symfony certificate trust — is in
 **[docs/production-deployment.md](docs/production-deployment.md)**.
+
+### Adding a printer
+
+Each printer is **one worker service + one registry entry**, edited together. To add `printer-2`:
+
+1. **`.env.prod`** — declare its IP:
+
+   ```dotenv
+   PRINTER2_HOST=10.0.0.52
+   ```
+
+2. **`docker-compose.prod.yml`** — uncomment the `printer-worker-2` service template, then add a
+   line to the management `SPRING_APPLICATION_JSON` registry. The `base-url` host must equal the
+   worker's service name; `id` is the `printerId` Symfony sends:
+
+   ```yaml
+   {"id":"printer-2", "display-name":"Inkom", "base-url":"http://printer-worker-2:8080"}
+   ```
+
+3. **Redeploy:** `docker compose -f docker-compose.prod.yml --env-file .env.prod up --build -d`
+
+The printer then shows up in `GET /api/wristbands/printers`, the jobs-page filter, and the reprint
+picker. Full snippets (worker block, `depends_on`, the local-cluster equivalent) are in
+**[docs/production-deployment.md](docs/production-deployment.md#adding-a-printer-later)**.
 
 ---
 

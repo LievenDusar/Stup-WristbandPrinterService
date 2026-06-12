@@ -113,15 +113,58 @@ Then open `https://[management-hostname]:8443/jobs.html` (admin / your `ADMIN_PA
 
 ## Adding a printer later
 
-Repeat the same edits for the next index, then redeploy:
+A printer is **one worker service + one registry entry**, edited together in the same two files,
+then a redeploy. The example below adds a second printer (`printer-2`); bump the index for each
+further printer.
 
-1. `.env.prod`: add `PRINTER3_HOST=[printer-3-ip]`.
-2. `docker-compose.prod.yml`: add a `printer-worker-3` service (step 2) and a registry entry
-   `{"id":"printer-3","display-name":"[printer-3-label]","base-url":"http://printer-worker-3:8080"}` (step 3).
-3. `docker compose -f docker-compose.prod.yml --env-file .env.prod up --build -d`.
+**1. `.env.prod`** — declare the new printer's IP:
+
+```dotenv
+PRINTER2_HOST=10.0.0.52
+```
+
+**2a. `docker-compose.prod.yml`** — add a worker service. The file already ships a commented
+`printer-worker-2` template right after `printer-worker-1`; uncomment it (or copy the block and bump
+the index for a third printer):
+
+```yaml
+  printer-worker-2:
+    <<: *worker-base
+    environment:
+      SPRING_PROFILES_ACTIVE: worker
+      SECURITY_API_KEY: ${API_KEY}
+      PRINTER_HOST: ${PRINTER2_HOST}
+```
+
+**2b. `docker-compose.prod.yml`** — add one line to the **management** printer registry in
+`SPRING_APPLICATION_JSON`. The `base-url` host **must** equal the worker's service name, and `id` is
+the value Symfony sends as `printerId`:
+
+```yaml
+      SPRING_APPLICATION_JSON: '{
+        "cluster":
+          {"printers":[
+            {"id":"printer-1", "display-name":"Secretariaat", "base-url":"http://printer-worker-1:8080"},
+            {"id":"printer-2", "display-name":"Inkom",        "base-url":"http://printer-worker-2:8080"}
+          ]}
+        }'
+```
+
+(Optionally add `printer-worker-2` to the management `depends_on:` list so it starts first.)
+
+**3. Redeploy:**
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env.prod up --build -d
+```
 
 The new printer then appears in `GET /api/wristbands/printers`, the jobs-page printer filter, and the
-reprint picker. Workers do **not** publish a host port and need no certificate.
+reprint picker. Workers do **not** publish a host port and need no certificate. The **first**
+registered printer is the default when a request omits `printerId`; an unknown `printerId` is
+rejected with **400**.
+
+> The local virtual cluster works the same way — `docker-compose.local-cluster.yml` defines its
+> workers and the `cluster.printers` registry (as YAML, not JSON) in exactly this shape.
 
 ## HTTPS & Symfony certificate trust
 
