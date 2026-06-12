@@ -1,9 +1,11 @@
 package com.stup.wristbandprinter.service;
 
+import com.stup.wristbandprinter.config.PrintProperties;
 import com.stup.wristbandprinter.config.QueueProperties;
 import com.stup.wristbandprinter.domain.PrintJob;
 import com.stup.wristbandprinter.domain.PrintJobStatus;
 import com.stup.wristbandprinter.domain.WristbandPrintRequest;
+import com.stup.wristbandprinter.exception.InvalidCopiesException;
 import com.stup.wristbandprinter.exception.JobNotCancellableException;
 import com.stup.wristbandprinter.exception.PrinterUnavailableException;
 import com.stup.wristbandprinter.exception.QueueFullException;
@@ -58,13 +60,16 @@ class PrintQueueServiceTest {
                 new com.stup.wristbandprinter.cluster.Printer("printer-1", "Test Printer", "http://worker:8080")));
     }
 
+    private PrintProperties printProperties;
+
     private PrintQueueService newService(int maxDepth) {
         QueueProperties queueProperties = new QueueProperties();
         queueProperties.setMaxDepth(maxDepth);
+        printProperties = new PrintProperties();
         jobStore = new InMemoryJobStore();
         meterRegistry = new SimpleMeterRegistry();
         return new PrintQueueService(wristbandZplResolver, printerRegistry, workerClient,
-            queueProperties, jobStore, meterRegistry);
+            queueProperties, printProperties, jobStore, meterRegistry);
     }
 
     @AfterEach
@@ -278,6 +283,35 @@ class PrintQueueServiceTest {
         PrintJob job = service.enqueue(r);
         assertThat(job.getPrinterId()).isEqualTo("printer-2");
         assertThat(job.getPrinterName()).isEqualTo("Second");
+    }
+
+    @Test
+    void enqueue_persistsCopies() {
+        WristbandPrintRequest req = sampleRequest();
+        req.setCopies(120);
+
+        PrintJob job = service.enqueue(req);
+
+        assertThat(job.getRequest().getCopies()).isEqualTo(120);
+    }
+
+    @Test
+    void enqueue_rejectsCopiesAboveMax() {
+        printProperties.setMaxCopies(200);
+        WristbandPrintRequest req = sampleRequest();
+        req.setCopies(201);
+
+        assertThatThrownBy(() -> service.enqueue(req))
+            .isInstanceOf(InvalidCopiesException.class);
+    }
+
+    @Test
+    void enqueue_rejectsCopiesBelowOne() {
+        WristbandPrintRequest req = sampleRequest();
+        req.setCopies(0);
+
+        assertThatThrownBy(() -> service.enqueue(req))
+            .isInstanceOf(InvalidCopiesException.class);
     }
 
     private WristbandPrintRequest sampleRequest() {

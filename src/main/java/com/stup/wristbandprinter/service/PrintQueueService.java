@@ -3,10 +3,12 @@ package com.stup.wristbandprinter.service;
 import com.stup.wristbandprinter.cluster.Printer;
 import com.stup.wristbandprinter.cluster.PrinterRegistry;
 import com.stup.wristbandprinter.cluster.WorkerClient;
+import com.stup.wristbandprinter.config.PrintProperties;
 import com.stup.wristbandprinter.config.QueueProperties;
 import com.stup.wristbandprinter.domain.PrintJob;
 import com.stup.wristbandprinter.domain.PrintJobStatus;
 import com.stup.wristbandprinter.domain.PrintableRequest;
+import com.stup.wristbandprinter.exception.InvalidCopiesException;
 import com.stup.wristbandprinter.exception.JobNotCancellableException;
 import com.stup.wristbandprinter.exception.PrinterUnavailableException;
 import com.stup.wristbandprinter.exception.QueueFullException;
@@ -46,6 +48,7 @@ public class PrintQueueService {
     private final PrinterRegistry printerRegistry;
     private final WorkerClient workerClient;
     private final QueueProperties queueProperties;
+    private final PrintProperties printProperties;
     private final JobStore jobStore;
 
     private final Counter submittedCounter;
@@ -58,12 +61,14 @@ public class PrintQueueService {
                               PrinterRegistry printerRegistry,
                               WorkerClient workerClient,
                               QueueProperties queueProperties,
+                              PrintProperties printProperties,
                               JobStore jobStore,
                               MeterRegistry meterRegistry) {
         this.wristbandZplResolver = wristbandZplResolver;
         this.printerRegistry = printerRegistry;
         this.workerClient = workerClient;
         this.queueProperties = queueProperties;
+        this.printProperties = printProperties;
         this.jobStore = jobStore;
 
         this.submittedCounter = Counter.builder("wristband.jobs.submitted")
@@ -136,6 +141,13 @@ public class PrintQueueService {
     }
 
     public PrintJob enqueue(PrintableRequest request) {
+        int copies = request.getCopies();
+        if (copies < 1 || copies > printProperties.getMaxCopies()) {
+            throw new InvalidCopiesException(
+                "copies must be between 1 and " + printProperties.getMaxCopies()
+                    + " (was " + copies + ")");
+        }
+
         Printer printer = (request.getPrinterId() == null || request.getPrinterId().isBlank())
             ? printerRegistry.getDefault()
             : printerRegistry.get(request.getPrinterId());   // throws UnknownPrinterException -> 400
@@ -283,6 +295,7 @@ public class PrintQueueService {
                     broadcastUpdate(job);
                     try {
                         String zpl = wristbandZplResolver.resolve(job.getRequest());
+                        zpl = ZplCopies.apply(zpl, job.getRequest().getCopies());
                         Printer printer = printerRegistry.get(job.getPrinterId());
                         workerClient.print(printer.baseUrl(), job.getJobId(), zpl);
                         job.complete(PrintJobStatus.DONE, null, Instant.now());
