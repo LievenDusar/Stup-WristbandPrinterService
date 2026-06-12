@@ -1,7 +1,11 @@
-# Copies per print job — design
+# Copies per print job (+ jobs-table column chooser) — design
 
 **Date:** 2026-06-12
 **Status:** Approved (pending spec review)
+
+**Scope:** (1) a `copies` count per print job, printed via Zebra `^PQ`; (2) jobs-table
+refresh — a `Copies` column replacing `Completed`, plus an operator column-visibility
+chooser (max 5 data columns + always-on Actions).
 
 ## Problem
 
@@ -135,15 +139,17 @@ are near-identical and showing both wastes a column. We:
 - Both times remain in the **detail drawer** "Printing" section, where `Completed`
   still matters for failures / queue backlog.
 
-New column order (still 8 columns, so the loading/empty `colspan="8"` is unchanged):
-`Name · Type · Event · Printer · Copies · Status · Submitted · Actions`.
+Full column order (Actions always last): `Name · Type · Event · Printer · Copies ·
+Status · Submitted · Actions`. The data columns are now **data-driven** (see §11): the
+`<thead>` and each row are generated from a single `COLUMNS` array in `jobs.js`, so the
+loading/empty `colspan` becomes dynamic (`visibleColumns.length + 1` for Actions).
 
-- `jobs.html`: drop the `Completed` `<th>`, add `<th onclick="sortBy('copies')">Copies</th>`
-  after the `Printer` header.
-- `jobs.js` `rowHtml(...)`: drop the `completedAt` `<td>`, add a `copies` `<td>` after the
-  printer cell. The cell shows the number; visually emphasised (e.g. bold) when
-  `copies > 1`, muted when `1`. Sorting uses the existing generic comparator
-  (`copies` is numeric, always ≥ 1).
+- The `Copies` column renders the number; visually emphasised (e.g. bold) when
+  `copies > 1`, muted when `1`. Sorting (header `sortBy('copies')`) uses the existing
+  generic comparator (`copies` is numeric, always ≥ 1).
+- The static `<thead>` in `jobs.html` is removed; it is generated from the visible
+  `COLUMNS`. `rowHtml(...)` builds only the visible cells, in column order, plus the
+  always-present Actions cell.
 
 **Reprint dialog.** Extend the existing confirm-overlay reuse (today it only asks for a
 printer) to also include a number input for copies, pre-filled with the original job's
@@ -156,7 +162,50 @@ printer) to also include a number input for copies, pre-filled with the original
 No new page-level CSS — reuse `app.css` tokens/classes (existing badge/pill, input, and
 muted-text styles). No build step.
 
-### 9. Tests
+### 9. Column visibility menu (jobs table)
+
+The table now has 7 data columns, which is too wide. Add an operator-controlled column
+chooser so each operator shows only what they need.
+
+**Model.** A single `COLUMNS` array in `jobs.js` is the source of truth for every data
+column:
+
+```
+{ key, label, sortKey, render(job) }   // e.g. key:'copies', label:'Copies', sortKey:'copies'
+```
+
+`Actions` is **not** in this array — it is always rendered as the last column and is
+never toggleable.
+
+**Chooser UI.** A `Columns ▾` button at the right end of the `.controls` bar, reusing
+the existing `.menu-wrap` / `.popover` / `.menu-item` pattern (same as the nav and row
+menus — no new CSS infrastructure). The popover lists one checkbox per `COLUMNS` entry,
+labelled by `label`, checked when visible.
+
+**Rules.**
+- **Max 5** visible data columns (Actions is always-on, on top, so up to 6 columns show).
+  When 5 are checked, the unchecked checkboxes are `disabled`.
+- **Min 1** visible data column: when only one is checked, that checkbox is `disabled`
+  so it can't be unchecked.
+
+**Persistence.** The visible set is stored in `localStorage` under
+`jobs.visibleColumns` (array of column keys) and restored on load. Unknown/corrupt
+values fall back to the default. (Only `apiKey` uses web storage today; this follows the
+same vanilla pattern.)
+
+**Default visible (5):** `Name, Type, Event, Copies, Status`. Rationale: identity
+(Name/Type/Event), the new `Copies`, and `Status` are the operational essentials;
+`Printer` and `Submitted` start hidden but are one click away. This mirrors the existing
+behaviour where the printer **filter** is hidden until more than one printer is
+registered — single-printer sites rarely need the `Printer` column.
+
+**Rendering.** `renderTable()` builds the `<thead>` from the visible `COLUMNS` (in array
+order) and `rowHtml(...)` builds the matching visible cells plus the Actions cell. The
+loading/empty row uses `colspan = visibleColumns.length + 1`. Changing the selection
+re-renders the table immediately. Sorting is unaffected; hiding the current sort column
+is harmless (rows stay sorted, no reset).
+
+### 10. Tests
 
 - `ZplCopiesTest`: `copies=1` → unchanged; `copies=5` → `^PQ5,0,0,Y` before the final
   `^XZ`; placement when multiple `^XZ` present; generators end with `^XZ`.
@@ -166,11 +215,14 @@ muted-text styles). No build step.
 - Controller tests: crew and permit print accept `copies` in the body;
   `copies < 1` → 400; reprint with `?copies=` overrides.
 - Default behaviour: request without `copies` → job has `copies == 1`, ZPL has no `^PQ`.
+- The column menu is front-end-only (vanilla JS, no build step); verified manually in
+  the preview, consistent with the rest of `jobs.js` which has no JS unit tests.
 
-### 10. Docs
+### 11. Docs
 
 - `CLAUDE.md`: business rule (copies default 1, `^PQ` print-path only, cap
-  `print.max-copies`) and a note in the request-flow section.
+  `print.max-copies`) and notes in the request-flow + jobs-UI sections (Copies column,
+  column chooser).
 - `docs/configuration.md`: document `print.max-copies`.
 - `HANDOVER.md`: dated section.
 - `application.yml`: `print.max-copies`.
