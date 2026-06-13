@@ -26,6 +26,8 @@ class WorkerProfileContextTest {
     void workerContextBootsWithoutManagementBeans() {
         assertThat(ctx.getBeanNamesForType(PrinterService.class)).isNotEmpty();
         assertThat(ctx.getBeanNamesForType(WorkerPrintController.class)).isNotEmpty();
+        assertThat(ctx.getBeanNamesForType(ManagementClient.class)).isNotEmpty();
+        assertThat(ctx.getBeanNamesForType(WorkerRegistrationRunner.class)).isNotEmpty();
 
         assertThat(ctx.getBeanNamesForType(JobStore.class)).isEmpty();
         assertThat(ctx.getBeanNamesForType(WristbandController.class)).isEmpty();
