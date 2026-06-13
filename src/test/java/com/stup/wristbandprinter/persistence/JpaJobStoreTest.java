@@ -36,6 +36,9 @@ class JpaJobStoreTest {
     @Autowired
     private PrintJobRepository repository;
 
+    @Autowired
+    private PrinterRepository printerRepository;
+
     @Test
     void saveAndLoad_roundTripsAllFields() {
         UUID id = UUID.randomUUID();
@@ -78,6 +81,7 @@ class JpaJobStoreTest {
 
     @Test
     void save_persistsPrinterIdentity() {
+        printerRepository.save(new PrinterEntity("printer-1", "Inkom links", "http://printer-1:8080"));
         UUID id = UUID.randomUUID();
         store.save(PrintJob.restore(id, request(), "printer-1", "Inkom links",
             PrintJobStatus.DONE, Instant.now(), Instant.now(), null));
@@ -86,6 +90,25 @@ class JpaJobStoreTest {
             .filter(j -> j.getJobId().equals(id)).findFirst().orElseThrow();
         assertThat(loaded.getPrinterId()).isEqualTo("printer-1");
         assertThat(loaded.getPrinterName()).isEqualTo("Inkom links");
+    }
+
+    @Test
+    void loadActive_resolvesPrinterNameFromPrintersTable() {
+        printerRepository.save(new PrinterEntity("printer-9", "Inkom rechts", "http://printer-9:8080"));
+
+        UUID id = UUID.randomUUID();
+        Instant now = Instant.now();
+        WristbandPrintRequest req = new WristbandPrintRequest();
+        req.setEventName("Pukkelpop 2026");
+        req.setCopies(1);
+        req.setPrinterId("printer-9");
+        store.save(PrintJob.restore(id, req, "printer-9", null,
+            PrintJobStatus.DONE, now, now, null));
+
+        PrintJob loaded = store.loadActive().stream()
+            .filter(j -> j.getJobId().equals(id)).findFirst().orElseThrow();
+
+        assertThat(loaded.getPrinterName()).isEqualTo("Inkom rechts");
     }
 
     @Test

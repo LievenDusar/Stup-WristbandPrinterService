@@ -12,16 +12,20 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Profile("!worker")
 @Component
 public class JpaJobStore implements JobStore {
 
     private final PrintJobRepository repository;
+    private final PrinterRepository printerRepository;
 
-    public JpaJobStore(PrintJobRepository repository) {
+    public JpaJobStore(PrintJobRepository repository, PrinterRepository printerRepository) {
         this.repository = repository;
+        this.printerRepository = printerRepository;
     }
 
     @Override
@@ -68,7 +72,11 @@ public class JpaJobStore implements JobStore {
     @Override
     @Transactional(readOnly = true)
     public List<PrintJob> loadActive() {
-        return repository.findByDeletedFalse().stream().map(JpaJobStore::toDomain).toList();
+        Map<String, String> namesById = printerRepository.findAll().stream()
+            .collect(Collectors.toMap(PrinterEntity::getId, PrinterEntity::getDisplayName));
+        return repository.findByDeletedFalse().stream()
+            .map(e -> toDomain(e, namesById.get(e.getPrinterId())))
+            .toList();
     }
 
     @Override
@@ -84,7 +92,7 @@ public class JpaJobStore implements JobStore {
             List.of(PrintJobStatus.DONE, PrintJobStatus.FAILED, PrintJobStatus.CANCELLED));
     }
 
-    private static PrintJob toDomain(PrintJobEntity e) {
+    private static PrintJob toDomain(PrintJobEntity e, String printerName) {
         PrintableRequest request;
         WristbandType type = e.getWristbandType() != null ? e.getWristbandType() : WristbandType.CREW;
 
@@ -118,7 +126,7 @@ public class JpaJobStore implements JobStore {
             e.getJobId(),
             request,
             e.getPrinterId(),
-            null,   // printer name resolved from the printers table in a later task
+            printerName,
             e.getStatus(),
             e.getSubmittedAt(),
             e.getCompletedAt(),
