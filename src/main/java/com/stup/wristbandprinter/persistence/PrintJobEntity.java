@@ -28,7 +28,6 @@ public class PrintJobEntity {
     private WristbandType wristbandType;
 
     private String printerId;
-    private String printerName;
 
     // ── CREW fields ──────────────────────────────────────────────────────────
     private String eventName;
@@ -63,7 +62,7 @@ public class PrintJobEntity {
     }
 
     public PrintJobEntity(UUID jobId, PrintJobStatus status, WristbandType wristbandType,
-                          String printerId, String printerName,
+                          String printerId,
                           String eventName, String firstName, String lastName,
                           String clubName, String barcodeValue,
                           String permitLabel, String iconName,
@@ -74,7 +73,6 @@ public class PrintJobEntity {
         this.status         = status;
         this.wristbandType  = wristbandType;
         this.printerId      = printerId;
-        this.printerName    = printerName;
         this.eventName      = eventName;
         this.firstName      = firstName;
         this.lastName       = lastName;
@@ -95,7 +93,6 @@ public class PrintJobEntity {
     public PrintJobStatus getStatus(){ return status; }
     public WristbandType getWristbandType() { return wristbandType; }
     public String getPrinterId()     { return printerId; }
-    public String getPrinterName()   { return printerName; }
     public String getEventName()     { return eventName; }
     public String getFirstName()     { return firstName; }
     public String getLastName()      { return lastName; }

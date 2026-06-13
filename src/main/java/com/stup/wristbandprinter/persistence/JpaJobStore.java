@@ -55,7 +55,6 @@ public class JpaJobStore implements JobStore {
             job.getStatus(),
             r.getWristbandType(),
             job.getPrinterId(),
-            job.getPrinterName(),
             eventName, firstName, lastName, clubName, barcodeValue,
             permitLabel, iconName,
             r.getStockColorCode(), codeValue, codeSymbology,
@@ -119,7 +118,7 @@ public class JpaJobStore implements JobStore {
             e.getJobId(),
             request,
             e.getPrinterId(),
-            e.getPrinterName(),
+            null,   // printer name resolved from the printers table in a later task
             e.getStatus(),
             e.getSubmittedAt(),
             e.getCompletedAt(),
