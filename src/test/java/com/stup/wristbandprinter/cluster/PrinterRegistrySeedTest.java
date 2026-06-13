@@ -35,7 +35,7 @@ class PrinterRegistrySeedTest {
         PrinterRegistry registry = new PrinterRegistry(
             props(entry("printer-1", "Inkom links", "http://printer-1:8080")), repo);
 
-        registry.seed();
+        registry.init();
 
         verify(repo).save(argThat(e ->
             e.getId().equals("printer-1")
@@ -50,7 +50,7 @@ class PrinterRegistrySeedTest {
         PrinterRegistry registry = new PrinterRegistry(
             props(entry("printer-1", "New name", "http://new:8080")), repo);
 
-        registry.seed();
+        registry.init();
 
         verify(repo).save(eq(existing));
         org.assertj.core.api.Assertions.assertThat(existing.getDisplayName()).isEqualTo("New name");
