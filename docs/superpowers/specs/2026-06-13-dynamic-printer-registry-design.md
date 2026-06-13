@@ -24,6 +24,10 @@ Printers exist today only as **management configuration** (`cluster.printers`: a
 - Make registration **dynamic and container-driven**: a worker registers itself with management on
   startup, so "a printer appears when its container is added" without editing management config or
   restarting it.
+- Give operators a **"Manage printers" modal** in the management UI to view registered printers and
+  **rename** them. *Adding* a printer is not done here — that is registering a new worker container.
+  A rename **propagates live to the jobs table** (the printer-name column updates without a page
+  refresh).
 
 ## Decisions
 
@@ -43,6 +47,17 @@ Printers exist today only as **management configuration** (`cluster.printers`: a
   `PrinterUnavailableException` path; queued jobs are not silently dropped.
 - **D5 — Default printer = earliest-registered printer that is currently online** (fallback:
   earliest-registered). An empty cluster (nothing registered yet) rejects print requests cleanly.
+- **D6 — Printer changes propagate live via a new named SSE `printer` event.** When a printer is
+  renamed (or registers / goes online-offline), management broadcasts a small `printer` event on the
+  existing jobs SSE stream carrying the printer's current `{ id, displayName, online, lastSeenAt }`.
+  The jobs UI keeps a client-side `printersById` map (seeded from `GET /printers`, upserted on each
+  `printer` event) and renders the name column from that map keyed by `job.printerId` — so one event
+  updates every matching row and the filter dropdown label at once, with no refresh and no re-send
+  of jobs. This reuses and reinforces D1 (the displayed name is always the printer's *current* name).
+- **D7 — The modal renames only; it does not add or hard-delete.** Add = a new worker container
+  (D3). Hard delete is excluded (would break the FK / history). Whether the modal also offers a soft
+  **deactivate/hide** for decommissioned offline printers is an open question for review (see *Open
+  questions*).
 
 ## Architecture
 
@@ -90,11 +105,20 @@ printers
   - `enqueue` with an empty cluster throws a new `NoPrintersAvailableException` → **503**.
   - The print loop is unchanged: it still resolves `base_url` per job via `printerRegistry.get(...)`,
     which now returns the current (DB-backed) value.
-- **New endpoint** `POST /api/internal/printers/register` (management, `@Profile("!worker")`),
+- **New internal endpoint** `POST /api/internal/printers/register` (management, `@Profile("!worker")`),
   body `{ id, displayName, baseUrl }`, secured by the existing shared API key
   (`ApiKeyAuthFilter`). Idempotent upsert. Returns 200. A matching heartbeat path (same endpoint,
   re-POST) refreshes liveness; an optional `POST /api/internal/printers/{id}/deregister` marks
-  offline on graceful worker shutdown.
+  offline on graceful worker shutdown. Each register/heartbeat/offline transition that changes the
+  printer's public state broadcasts a `printer` SSE event (D6).
+  - **Note on `displayName` precedence:** registration sets `display_name` only when the row is
+    first created; on subsequent (re)registrations the worker's `PRINTER_DISPLAY_NAME` does **not**
+    overwrite an operator's rename. The worker is the source of identity (`id`) and address
+    (`base_url`); the operator is the source of the label once renamed.
+- **New admin endpoint** `PATCH /api/wristbands/printers/{id}` body `{ displayName }`
+  (management, **admin-cookie** auth like the other jobs-UI endpoints — *not* the API key). Updates
+  `display_name`, then broadcasts a `printer` SSE event so every connected jobs UI updates live
+  (D6). Validates non-blank; unknown id → 404.
 
 ### Printer-worker (data plane, one per printer)
 
@@ -138,13 +162,35 @@ and forwards to `base_url` via `WorkerClient`.
 
 ## API responses
 
-- `GET /api/wristbands/printers` reads the `printers` table (adds `online` / `lastSeenAt`).
+- `GET /api/wristbands/printers` reads the `printers` table; response includes
+  `{ id, displayName, online, lastSeenAt }` (the jobs UI seeds its `printersById` map from this).
+- `PATCH /api/wristbands/printers/{id}` → 200 with the updated printer; 404 unknown; 400 blank name.
 - Jobs list/detail responses unchanged in shape; `printerName` now comes from the join.
+
+## SSE events
+
+The global jobs stream `GET /api/wristbands/jobs/stream` now carries **two** event types:
+- **(existing) unnamed job event** — `data:` is a `PrintJobResponse`; consumed via `onmessage`.
+- **(new) `printer` event** — `event: printer`, `data:` is `{ id, displayName, online, lastSeenAt }`;
+  consumed via `addEventListener('printer', …)`. Backward compatible (named events don't reach
+  `onmessage`).
+
+The per-job stream `GET /api/wristbands/jobs/{jobId}/stream` (Symfony) is **unaffected** — it still
+emits only that job's status; a mid-job rename is an ignorable edge case there.
 
 ## Frontend (management only)
 
-- Jobs UI gains an **online/offline** indicator for printers (the printer filter already exists).
-  Minimal — no new admin CRUD screen in this design (registration is container-driven).
+- **Client-side printers map.** `jobs.js` keeps `printersById`, seeded from `GET /printers` on load
+  and upserted on every `printer` SSE event. The jobs table renders the printer-name column from
+  `printersById[job.printerId]?.displayName` (falling back to the job's value), so a rename or
+  online/offline change repaints all matching rows and the printer-filter option label **without a
+  refresh** and without collapsing an open filter menu (reuse the existing "rebuild options only
+  when the set changes" guard — a rename changes a label in place, not the set).
+- **"Manage printers" modal**, opened from the existing top **Menu** dropdown, styled with
+  `app.css` (deep-purple glass theme, no build step). Lists each printer with its `online/offline`
+  status, `lastSeenAt`, and an inline-editable `displayName` with **Save** (→ `PATCH`). Adding is
+  intentionally absent — a tooltip/hint states "add a printer by starting its worker container."
+- Jobs UI also gains a small **online/offline** indicator for printers (the filter already exists).
 
 ## Packaging & deployment
 
@@ -159,13 +205,16 @@ and forwards to `base_url` via `WorkerClient`.
    `printers` entity/repo; `PrinterRegistry` loads from DB; `JpaJobStore` join; drop `printer_name`.
    Registry is still *seeded from `cluster.printers` on first boot* so behavior is unchanged — no
    self-registration yet. Fully shippable on its own.
-2. **Self-registration + dynamic queues + remove `cluster.printers`.** Registration endpoint;
-   worker registration runner + heartbeat; cached executor + on-demand queue creation; empty-cluster
-   503; default-printer redefinition; compose/env changes; UI online indicator.
+2. **Self-registration + dynamic queues + remove `cluster.printers`.** Registration endpoint
+   (+ `printer` SSE broadcast); worker registration runner + heartbeat; cached executor + on-demand
+   queue creation; empty-cluster 503; default-printer redefinition; compose/env changes.
+3. **Manage-printers modal + live propagation.** `PATCH` rename endpoint; `printer` SSE event end to
+   end; `jobs.js` `printersById` map + name column rendered from it; the modal in the Menu dropdown;
+   online/offline indicator.
 
 ## Out of scope (YAGNI)
 
-- Admin CRUD UI for printers (rename/delete from the browser).
+- *Adding* a printer from the browser (add = a worker container) and **hard delete** of a printer.
 - Operator-settable default printer (a `is_default` flag).
 - Tearing down queues/threads when a printer is removed.
 - Multi-instance / horizontally-scaled management (still single-instance; in-memory queues).
@@ -190,3 +239,15 @@ and forwards to `base_url` via `WorkerClient`.
 - Dynamic queue creation: a registration for a new id makes `enqueue` route to it.
 - Empty cluster → 503; default-printer selection per D5.
 - Jobs response resolves `printerName` via join after `printer_name` is dropped.
+- `PATCH` rename: persists `display_name`, 404 unknown, 400 blank; re-registration does not
+  overwrite an operator rename (displayName precedence).
+- `printer` SSE event is broadcast on rename/register/offline and is a named event (does not reach
+  `onmessage`). Front-end behavior (modal + live cell/filter update) verified via the preview tools
+  (vanilla JS, no JS test harness).
+
+## Open questions
+
+- **Soft deactivate/hide in the modal (D7).** Should the modal let an operator hide a decommissioned
+  offline printer from the filter and default selection (a soft `active=false`, row kept for FK /
+  history)? Without it, retired printers linger in the list forever as "offline." Recommendation:
+  include a simple "hide" toggle in Phase 3; confirm during spec review.
