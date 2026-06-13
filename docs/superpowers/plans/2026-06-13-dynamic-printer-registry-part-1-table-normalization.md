@@ -124,12 +124,13 @@ FROM print_jobs
 WHERE printer_id IS NOT NULL
 GROUP BY printer_id;
 
--- Jobs now reference a printer by id; the duplicated name column is dropped.
+-- Jobs now reference a printer by id (FK). The duplicated printer_name column is
+-- dropped in V10 (Task 2), together with the matching PrintJobEntity change, so each
+-- migration leaves the JPA entity model and the schema consistent (@DataJpaTest
+-- validates the whole entity model against the live schema on boot).
 ALTER TABLE print_jobs
     ADD CONSTRAINT fk_print_jobs_printer
     FOREIGN KEY (printer_id) REFERENCES printers (id);
-
-ALTER TABLE print_jobs DROP COLUMN printer_name;
 ```
 
 - [ ] **Step 4: Create the entity**
@@ -231,15 +232,27 @@ git commit -m "feat(printers): add printers table, entity, repository (V9)"
 
 ---
 
-## Task 2: Drop `printer_name` from the job entity
+## Task 2: Drop `printer_name` (V10 migration + entity)
 
 **Files:**
+- Create: `src/main/resources/db/migration/V10__drop_print_jobs_printer_name.sql`
 - Modify: `src/main/java/com/stup/wristbandprinter/persistence/PrintJobEntity.java`
 - Modify: `src/main/java/com/stup/wristbandprinter/persistence/JpaJobStore.java:54` (the `repository.save(new PrintJobEntity(...))` call)
 
-This task only removes the now-dropped column from the entity and its single caller. Name *resolution* on load is Task 3.
+The DB column and the entity mapping must change **together** in one commit, because `@DataJpaTest` validates the whole entity model against the live schema on boot. V9 (Task 1) is additive (table + FK); this task drops the column (V10) and removes the entity field in the same commit. Name *resolution* on load is Task 3.
 
-- [ ] **Step 1: Remove the field, getter, and constructor param from `PrintJobEntity`**
+- [ ] **Step 1: Create the V10 migration**
+
+Create `src/main/resources/db/migration/V10__drop_print_jobs_printer_name.sql`:
+
+```sql
+-- printers.display_name is now the source of truth and PrintJobEntity no longer maps
+-- printer_name (this commit), so drop the duplicated column. The FK on printer_id was
+-- already added in V9.
+ALTER TABLE print_jobs DROP COLUMN printer_name;
+```
+
+- [ ] **Step 2: Remove the field, getter, and constructor param from `PrintJobEntity`**
 
 In `src/main/java/com/stup/wristbandprinter/persistence/PrintJobEntity.java`:
 
@@ -283,7 +296,7 @@ Delete the getter:
     public String getPrinterName()   { return printerName; }
 ```
 
-- [ ] **Step 2: Update the single caller in `JpaJobStore.save`**
+- [ ] **Step 3: Update the single caller in `JpaJobStore.save`**
 
 In `src/main/java/com/stup/wristbandprinter/persistence/JpaJobStore.java`, change the constructor call from:
 
@@ -308,7 +321,7 @@ to (remove the `job.getPrinterName(),` line):
             eventName, firstName, lastName, clubName, barcodeValue,
 ```
 
-- [ ] **Step 3: Compile to verify nothing else references the removed members**
+- [ ] **Step 4: Compile to verify nothing else references the removed members**
 
 Run: `./mvnw -q compile`
 Expected: BUILD SUCCESS. (`toDomain` still calls `e.getPrinterName()` — Task 3 fixes that; if compile fails there, proceed to Task 3 in the same change. To keep this task self-contained, temporarily pass `null` for the name in `toDomain`'s `PrintJob.restore(...)` call, which Task 3 replaces.)
@@ -338,17 +351,18 @@ to:
 Run again: `./mvnw -q compile`
 Expected: BUILD SUCCESS.
 
-- [ ] **Step 4: Run the persistence tests**
+- [ ] **Step 5: Run the persistence tests**
 
 Run: `./mvnw test -Dtest=JpaJobStoreTest,PrinterRepositoryTest`
-Expected: PASS. (Existing `JpaJobStoreTest` saves jobs with a null `printerId`, so the new FK — which permits NULLs — is satisfied; the name is not asserted there.)
+Expected: PASS. (Existing `JpaJobStoreTest` saves jobs with a null `printerId`, so the FK — which permits NULLs — is satisfied; the name is not asserted there. V10 has now removed the column, matching the entity.)
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
-git add src/main/java/com/stup/wristbandprinter/persistence/PrintJobEntity.java \
+git add src/main/resources/db/migration/V10__drop_print_jobs_printer_name.sql \
+        src/main/java/com/stup/wristbandprinter/persistence/PrintJobEntity.java \
         src/main/java/com/stup/wristbandprinter/persistence/JpaJobStore.java
-git commit -m "refactor(persistence): drop denormalized printer_name from print job entity"
+git commit -m "refactor(persistence): drop denormalized printer_name from print job entity (V10)"
 ```
 
 ---
@@ -388,6 +402,23 @@ Then add the test method:
             .filter(j -> j.getJobId().equals(id)).findFirst().orElseThrow();
 
         assertThat(loaded.getPrinterName()).isEqualTo("Inkom rechts");
+    }
+```
+
+Also **fix the existing `save_persistsPrinterIdentity` test** in the same file. Since V9 added the FK, it must create the `printers` row first; and now that the name is resolved from the table, the name assertion stays valid. Replace its body so it reads:
+
+```java
+    @Test
+    void save_persistsPrinterIdentity() {
+        printerRepository.save(new PrinterEntity("printer-1", "Inkom links", "http://printer-1:8080"));
+        UUID id = UUID.randomUUID();
+        store.save(PrintJob.restore(id, request(), "printer-1", "Inkom links",
+            PrintJobStatus.DONE, Instant.now(), Instant.now(), null));
+
+        PrintJob loaded = store.loadActive().stream()
+            .filter(j -> j.getJobId().equals(id)).findFirst().orElseThrow();
+        assertThat(loaded.getPrinterId()).isEqualTo("printer-1");
+        assertThat(loaded.getPrinterName()).isEqualTo("Inkom links");
     }
 ```
 
