@@ -77,7 +77,7 @@ public class WristbandProperties {
     public static class Text {
         private int fontSizeEvent = 20;
         private int fontSizeName = 28;
-        private int fontSizeAssociation = 20;
+        private int fontSizeClub = 20;
 
         public int getFontSizeEvent() { return fontSizeEvent; }
         public void setFontSizeEvent(int fontSizeEvent) { this.fontSizeEvent = fontSizeEvent; }
@@ -85,8 +85,8 @@ public class WristbandProperties {
         public int getFontSizeName() { return fontSizeName; }
         public void setFontSizeName(int fontSizeName) { this.fontSizeName = fontSizeName; }
 
-        public int getFontSizeAssociation() { return fontSizeAssociation; }
-        public void setFontSizeAssociation(int fontSizeAssociation) { this.fontSizeAssociation = fontSizeAssociation; }
+        public int getFontSizeClub() { return fontSizeClub; }
+        public void setFontSizeClub(int fontSizeClub) { this.fontSizeClub = fontSizeClub; }
     }
 
     public static class Barcode {
@@ -138,7 +138,7 @@ public class WristbandProperties {
         public static class PermitMargins {
             /** Uniform gap in dots between every adjacent block pair. */
             private int betweenBlocks = 60;
-            /** Gap inside block 2 between the permit-label line and the dot/association line. */
+            /** Gap inside block 2 between the permit-label line and the dot/club line. */
             private int writingSpaceGap = 55;
 
             public int getBetweenBlocks() { return betweenBlocks; }
@@ -150,16 +150,16 @@ public class WristbandProperties {
 
         public static class PermitText {
             private int fontSizePermitLabel = 66;
-            private int fontSizeAssociation = 42;
+            private int fontSizeClub = 42;
             private int fontSizeEventName   = 52;
-            /** Number of '.' characters to print when no associationName is supplied. */
+            /** Number of '.' characters to print when no clubName is supplied. */
             private int dotCount = 30;
 
             public int getFontSizePermitLabel() { return fontSizePermitLabel; }
             public void setFontSizePermitLabel(int f) { this.fontSizePermitLabel = f; }
 
-            public int getFontSizeAssociation() { return fontSizeAssociation; }
-            public void setFontSizeAssociation(int f) { this.fontSizeAssociation = f; }
+            public int getFontSizeClub() { return fontSizeClub; }
+            public void setFontSizeClub(int f) { this.fontSizeClub = f; }
 
             public int getFontSizeEventName() { return fontSizeEventName; }
             public void setFontSizeEventName(int f) { this.fontSizeEventName = f; }

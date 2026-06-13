@@ -48,7 +48,7 @@ class GlobalExceptionHandlerTest {
             {
               "firstName": "Jan",
               "lastName": "Janssens",
-              "associationName": "STUP vzw",
+              "clubName": "STUP vzw",
               "barcodeValue": "123"
             }
             """;
@@ -73,7 +73,7 @@ class GlobalExceptionHandlerTest {
               "eventName": "Pukkelpop 2026",
               "firstName": "Jan",
               "lastName": "Janssens",
-              "associationName": "STUP vzw",
+              "clubName": "STUP vzw",
               "barcodeValue": "123"
             }
             """;
@@ -96,7 +96,7 @@ class GlobalExceptionHandlerTest {
               "eventName": "Pukkelpop 2026",
               "firstName": "Jan",
               "lastName": "Janssens",
-              "associationName": "STUP vzw",
+              "clubName": "STUP vzw",
               "barcodeValue": "123",
               "printerId": "nope"
             }
@@ -121,7 +121,7 @@ class GlobalExceptionHandlerTest {
               "eventName": "Pukkelpop 2026",
               "firstName": "Jan",
               "lastName": "Janssens",
-              "associationName": "STUP vzw",
+              "clubName": "STUP vzw",
               "barcodeValue": "123",
               "copies": 999
             }

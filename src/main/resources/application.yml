@@ -55,7 +55,7 @@ wristband:
   text:
     font-size-event: 45
     font-size-name: 74
-    font-size-association: 45
+    font-size-club: 45
   barcode:
     type: CODE128
     height-dots: 270
@@ -77,9 +77,9 @@ wristband:
       writing-space-gap: 55    # inside block 2; gives room to write by hand
     text:
       font-size-permit-label: 66
-      font-size-association: 42
+      font-size-club: 42
       font-size-event-name: 52
-      dot-count: 60             # '.' characters when no associationName is supplied
+      dot-count: 60             # '.' characters when no clubName is supplied
     code:
       default-symbology: CODE128
       height-dots: 200

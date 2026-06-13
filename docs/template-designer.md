@@ -14,7 +14,7 @@ feature — its goals, architecture, data model, API, and roadmap.
 
 Until now the service printed a single **hardcoded** layout (logo → barcode → text → logo),
 built by `ZplGeneratorService` from `WristbandProperties`. The designer lets staff create their
-own layouts: a fixed wristband canvas, a toolbox of draggable blocks (name, event, association,
+own layouts: a fixed wristband canvas, a toolbox of draggable blocks (name, event, club,
 barcode, static text, logo, shapes), positioned/resized/rotated freely, saved, previewed, and
 selectable from the Symfony event app — including a different template per project type.
 
@@ -22,7 +22,7 @@ selectable from the Symfony event app — including a different template per pro
 
 | Decision | Choice |
 |---|---|
-| Data blocks | Fixed set (event, first/last/full name, association, barcode) + static extras (free text, logo, shapes). No user-defined field names. |
+| Data blocks | Fixed set (event, first/last/full name, club, barcode) + static extras (free text, logo, shapes). No user-defined field names. |
 | Colour support | **Preview background only** — colour tints the preview to judge contrast on coloured stock. Print stays monochrome (thermal). Default white. |
 | Symfony integration | Catalog + template ID — Symfony lists templates (filterable by project type), can fetch a PNG preview, and prints by passing a `templateId`/`slug`. |
 | Project types | Optional, **non-unique** `projectType` tag — multiple templates can share a type; the catalog API filters by it. |
@@ -76,7 +76,7 @@ Element common fields: `id`, `type`, `x`, `y`, `widthDots`, `heightDots`,
 
 | `type` | Extra fields |
 |---|---|
-| `TEXT` (data-bound) | `binding` ∈ {EVENT_NAME, FIRST_NAME, LAST_NAME, FULL_NAME, ASSOCIATION_NAME}, `fontSize`, `font` |
+| `TEXT` (data-bound) | `binding` ∈ {EVENT_NAME, FIRST_NAME, LAST_NAME, FULL_NAME, CLUB_NAME}, `fontSize`, `font` |
 | `STATIC_TEXT` | `value`, `fontSize`, `font` |
 | `BARCODE` | `binding` = BARCODE_VALUE, `symbology` (e.g. CODE128), `showHumanReadable` |
 | `IMAGE` | `assetId` (uploaded logo) |

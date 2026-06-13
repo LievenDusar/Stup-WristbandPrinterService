@@ -85,19 +85,19 @@ class PermitZplGeneratorServiceTest {
     }
 
     @Test
-    void generate_noAssociation_containsDots() {
+    void generate_noClub_containsDots() {
         String zpl = service.generate(sampleData(false));
         // Default dot count is 20 — check at least 5 consecutive dots
         assertThat(zpl).contains(".....");
     }
 
     @Test
-    void generate_withAssociation_containsAssocName() {
+    void generate_withClub_containsClubName() {
         PermitWristbandData data = new PermitWristbandData(
             "Pukkelpop 2026", "PARKING", "STUP vzw", null, CodeSymbology.CODE128, "#FFFFFF");
         String zpl = service.generate(data);
         assertThat(zpl).contains("STUP vzw");
-        // Dots should NOT appear when an association name is given
+        // Dots should NOT appear when an club name is given
         assertThat(zpl).doesNotContain(".....");
     }
 

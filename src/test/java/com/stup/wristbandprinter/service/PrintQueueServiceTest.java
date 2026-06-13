@@ -319,7 +319,7 @@ class PrintQueueServiceTest {
         r.setEventName("Pukkelpop 2026");
         r.setFirstName("Jan");
         r.setLastName("Janssens");
-        r.setAssociationName("STUP vzw");
+        r.setClubName("STUP vzw");
         r.setBarcodeValue("123456789");
         return r;
     }

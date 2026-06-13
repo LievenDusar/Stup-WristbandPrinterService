@@ -179,7 +179,7 @@ class WristbandIntegrationTest {
               "eventName": "Pukkelpop 2026",
               "firstName": "Jan",
               "lastName": "Janssens",
-              "associationName": "STUP vzw",
+              "clubName": "STUP vzw",
               "barcodeValue": "987654321",
               "printerId": "printer-2"
             }
@@ -256,7 +256,7 @@ class WristbandIntegrationTest {
               "eventName": "Pukkelpop 2026",
               "firstName": "Jan",
               "lastName": "Janssens",
-              "associationName": "STUP vzw",
+              "clubName": "STUP vzw",
               "barcodeValue": "123456789"
             }
             """;

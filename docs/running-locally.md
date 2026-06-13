@@ -86,11 +86,11 @@ listeners that log the ZPL they receive).
    ```bash
    curl -s -X POST http://localhost:8080/api/wristbands/print \
      -H "Content-Type: application/json" -H "X-API-Key: local-dev-key" \
-     -d '{"eventName":"Test","firstName":"Jan","lastName":"Janssen","associationName":"STUP","barcodeValue":"111"}'
+     -d '{"eventName":"Test","firstName":"Jan","lastName":"Janssen","clubName":"STUP","barcodeValue":"111"}'
 
    curl -s -X POST http://localhost:8080/api/wristbands/print \
      -H "Content-Type: application/json" -H "X-API-Key: local-dev-key" \
-     -d '{"eventName":"Test","firstName":"An","lastName":"Peeters","associationName":"STUP","barcodeValue":"222","printerId":"printer-2"}'
+     -d '{"eventName":"Test","firstName":"An","lastName":"Peeters","clubName":"STUP","barcodeValue":"222","printerId":"printer-2"}'
    ```
 
 4. **Watch the ZPL arrive** at each fake printer:

@@ -53,7 +53,7 @@ class WristbandZplResolverTest {
     private WristbandPrintRequest request(UUID templateId) {
         WristbandPrintRequest r = new WristbandPrintRequest();
         r.setEventName("E"); r.setFirstName("F"); r.setLastName("L");
-        r.setAssociationName("A"); r.setBarcodeValue("B");
+        r.setClubName("A"); r.setBarcodeValue("B");
         r.setTemplateId(templateId);
         return r;
     }

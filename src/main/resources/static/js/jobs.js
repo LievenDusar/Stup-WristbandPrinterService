@@ -371,7 +371,7 @@ async function showDetail(id) {
   const title = name || d.permitLabel || '—';
 
   const wristbandRows = detailRows([
-    ['Association', d.associationName],
+    ['Club', d.clubName],
     ['Barcode', d.barcodeValue]
   ]);
   const printingRows = detailRows([

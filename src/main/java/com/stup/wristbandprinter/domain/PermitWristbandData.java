@@ -7,7 +7,7 @@ package com.stup.wristbandprinter.domain;
 public record PermitWristbandData(
     String eventName,
     String permitLabel,
-    String associationName,  // null or blank → dotted fill-in line
+    String clubName,  // null or blank → dotted fill-in line
     String codeValue,        // null → no scan-code block rendered
     CodeSymbology symbology,
     String stockColorHex     // "#FFFFFF" when absent; resolved from stockColorCode at build time

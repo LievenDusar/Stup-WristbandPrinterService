@@ -19,9 +19,9 @@ public final class WristbandPrintRequest implements PrintableRequest {
     @Schema(example = "Van De Wall")
     private String lastName;
 
-    @NotBlank(message = "associationName must not be blank")
+    @NotBlank(message = "clubName must not be blank")
     @Schema(example = "Chiro Sint-Christina Brustem")
-    private String associationName;
+    private String clubName;
 
     @NotBlank(message = "barcodeValue must not be blank")
     @Schema(example = "12345654245524789")
@@ -52,8 +52,8 @@ public final class WristbandPrintRequest implements PrintableRequest {
     public String getLastName() { return lastName; }
     public void setLastName(String lastName) { this.lastName = lastName; }
 
-    public String getAssociationName() { return associationName; }
-    public void setAssociationName(String associationName) { this.associationName = associationName; }
+    public String getClubName() { return clubName; }
+    public void setClubName(String clubName) { this.clubName = clubName; }
 
     public String getBarcodeValue() { return barcodeValue; }
     public void setBarcodeValue(String barcodeValue) { this.barcodeValue = barcodeValue; }
@@ -83,7 +83,7 @@ public final class WristbandPrintRequest implements PrintableRequest {
         copy.eventName      = this.eventName;
         copy.firstName      = this.firstName;
         copy.lastName       = this.lastName;
-        copy.associationName = this.associationName;
+        copy.clubName       = this.clubName;
         copy.barcodeValue   = this.barcodeValue;
         copy.templateId     = this.templateId;
         copy.codeSymbology  = this.codeSymbology;

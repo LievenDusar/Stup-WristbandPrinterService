@@ -82,7 +82,7 @@ async function refreshTemplateList() {
 // Assemble a WristbandData body from each block's sampleText (falling back to sensible defaults).
 function sampleDataFromElements(elements) {
   const data = { eventName: 'Pukkelpop 2026', firstName: 'Annechien', lastName: 'Van De Wall',
-    associationName: 'Chiro Sint-Christina Brustem', barcodeValue: '12345654245524789' };
+    clubName: 'Chiro Sint-Christina Brustem', barcodeValue: '12345654245524789' };
   const visit = (els) => els.forEach(el => {
     if (el.type === 'GROUP') { visit(el.children || []); return; }
     const s = el.sampleText;
@@ -91,7 +91,7 @@ function sampleDataFromElements(elements) {
       case 'EVENT_NAME': data.eventName = s; break;
       case 'FIRST_NAME': data.firstName = s; break;
       case 'LAST_NAME': data.lastName = s; break;
-      case 'ASSOCIATION_NAME': data.associationName = s; break;
+      case 'CLUB_NAME': data.clubName = s; break;
       case 'BARCODE_VALUE': data.barcodeValue = s; break;
       case 'FULL_NAME': { const [f, ...r] = s.split(' '); data.firstName = f; data.lastName = r.join(' '); break; }
       default: break;

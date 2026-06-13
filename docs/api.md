@@ -21,7 +21,7 @@ Authentication: `X-API-Key` header on all endpoints except `/jobs/stream`.
 | `eventName` | string | ✅ | |
 | `firstName` | string | ✅ | |
 | `lastName` | string | ✅ | |
-| `associationName` | string | ✅ | Printed on the band |
+| `clubName` | string | ✅ | Printed on the band |
 | `barcodeValue` | string | ✅ | Scanned at the event |
 | `templateId` | UUID | ❌ | When set, renders via the named designer template |
 | `codeSymbology` | `CODE128` \| `CODE39` \| `QR` | ❌ | Defaults to `CODE128` |
@@ -44,7 +44,7 @@ Authentication: `X-API-Key` header on all endpoints except `/jobs/stream`.
 |-------|------|----------|-------|
 | `eventName` | string | ✅ | Printed in block 4 |
 | `permitLabel` | string | ✅ | e.g. `ELEKTRICITEIT`, `PARKING`. Printed as "Toelating [label]" |
-| `associationName` | string | ❌ | If absent, a dotted fill-in line is printed instead |
+| `clubName` | string | ❌ | If absent, a dotted fill-in line is printed instead |
 | `iconName` | string | ❌ | Font Awesome icon name — stored only, not rendered yet |
 | `codeValue` | string | ❌ | When present, a scan code is printed in block 3 |
 | `codeSymbology` | `CODE128` \| `CODE39` \| `QR` | ❌ | Defaults to `CODE128` |

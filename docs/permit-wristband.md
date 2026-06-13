@@ -17,7 +17,7 @@ Block 1 – STUP logo (180° rotated)
 [betweenBlocks gap]
 Block 2 – "Toelating [permitLabel]"  (permitTextFontSize)
            [writingSpaceGap blank space]
-           associationName  OR  dotted fill-in line  (associationFontSize / dashes)
+           clubName  OR  dotted fill-in line  (clubFontSize / dashes)
 [betweenBlocks gap]
 Block 3 (optional) – scan code (CODE128 / CODE39 / QR)
 [betweenBlocks gap, only if block 3 present]

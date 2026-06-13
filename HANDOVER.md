@@ -204,7 +204,7 @@ bands it has no personal details. Any non-blank `permitLabel` creates a valid pe
 |-------|----------|-------|
 | `eventName` | ✅ | Printed in block 4 |
 | `permitLabel` | ✅ | e.g. `ELEKTRICITEIT`, `PARKING` |
-| `associationName` | ❌ | If absent, a dotted fill-in line is printed |
+| `clubName` | ❌ | If absent, a dotted fill-in line is printed |
 | `iconName` | ❌ | Stored only — not rendered yet |
 | `codeValue` | ❌ | When present, prints a scan code in block 3 |
 | `codeSymbology` | ❌ | CODE128 (default) / CODE39 / QR |
@@ -294,3 +294,23 @@ print / routing / worker pipeline or the DB schema.
   persisted in `localStorage` under `jobs.visibleColumns`. Reprint now prompts for a copy
   count (and printer when more than one is configured).
 - No change to the worker, `PrintForwardRequest`, or the route/forward pipeline.
+
+## 2026-06-13 — Rename `associationName` → `clubName`
+
+The wristband property is now **`clubName`** everywhere, matching the Symfony app's field
+name. Applies to both crew (`WristbandPrintRequest`) and permit
+(`PermitWristbandPrintRequest`) requests, `WristbandData`/`PermitWristbandData`, the
+entity/response DTOs, the layout/ZPL services, the jobs UI + template designer, Swagger
+schemas, config, docs, and tests. No endpoint **URL** changed (paths are `/crew/print`,
+`/permit/print`, …).
+
+- **DB.** Flyway **`V8__rename_association_name_to_club_name.sql`** does
+  `ALTER TABLE print_jobs RENAME COLUMN association_name TO club_name` — existing rows preserved.
+- **Template binding.** `DataBinding.ASSOCIATION_NAME` → **`CLUB_NAME`**. A
+  `@JsonAlias("ASSOCIATION_NAME")` keeps templates saved before the rename (jsonb) deserialising;
+  they re-serialise as `CLUB_NAME` on next save.
+- **Config (operator action).** The YAML keys `wristband.text.font-size-association` and
+  `wristband.permit.text.font-size-association` are renamed to **`…font-size-club`**. Any prod
+  override of the old keys must be updated or it silently falls back to the default.
+- **Caller action.** Symfony / API clients must send `clubName` (was `associationName`).
+- Historical specs/plans under `docs/superpowers/` were left as-is (point-in-time records).

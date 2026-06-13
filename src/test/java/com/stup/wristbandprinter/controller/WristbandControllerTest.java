@@ -75,7 +75,7 @@ class WristbandControllerTest {
     @Test
     void print_returns400_whenFieldMissing() throws Exception {
         String body = """
-            {"firstName":"Jan","lastName":"Janssens","associationName":"STUP vzw","barcodeValue":"123"}
+            {"firstName":"Jan","lastName":"Janssens","clubName":"STUP vzw","barcodeValue":"123"}
             """;
         mockMvc.perform(post("/api/wristbands/crew/print")
                 .header("X-API-Key", API_KEY)
@@ -280,7 +280,7 @@ class WristbandControllerTest {
         WristbandPrintRequest original = new WristbandPrintRequest();
         original.setEventName("Pukkelpop 2026");
         original.setFirstName("Jan"); original.setLastName("Janssens");
-        original.setAssociationName("STUP vzw"); original.setBarcodeValue("123");
+        original.setClubName("STUP vzw"); original.setBarcodeValue("123");
         original.setCopies(1);
         PrintJob originalJob = new PrintJob(jobId, original, "printer-1", "Inkom");
         when(printQueueService.getJob(jobId)).thenReturn(java.util.Optional.of(originalJob));
@@ -303,7 +303,7 @@ class WristbandControllerTest {
               "eventName": "Pukkelpop 2026",
               "firstName": "Jan",
               "lastName": "Janssens",
-              "associationName": "STUP vzw",
+              "clubName": "STUP vzw",
               "barcodeValue": "123",
               "copies": 0
             }
@@ -339,7 +339,7 @@ class WristbandControllerTest {
         r.setEventName("Pukkelpop 2026");
         r.setFirstName("Jan");
         r.setLastName("Janssens");
-        r.setAssociationName("STUP vzw");
+        r.setClubName("STUP vzw");
         r.setBarcodeValue("123456789");
         UUID id = UUID.randomUUID();
         PrintJob job = new PrintJob(id, r);
@@ -359,7 +359,7 @@ class WristbandControllerTest {
         r.setEventName("Pukkelpop 2026");
         r.setFirstName("Jan");
         r.setLastName("Janssens");
-        r.setAssociationName("STUP vzw");
+        r.setClubName("STUP vzw");
         r.setBarcodeValue("123456789");
         UUID id = UUID.randomUUID();
         PrintJob job = new PrintJob(id, r);
@@ -398,7 +398,7 @@ class WristbandControllerTest {
         r.setEventName("Pukkelpop 2026");
         r.setFirstName("Jan");
         r.setLastName("Janssens");
-        r.setAssociationName("STUP vzw");
+        r.setClubName("STUP vzw");
         r.setBarcodeValue("123456789");
         UUID id = UUID.randomUUID();
         Mockito.when(printQueueService.getJob(id))
@@ -486,7 +486,7 @@ class WristbandControllerTest {
         r.setEventName("Pukkelpop 2026");
         r.setFirstName("Jan");
         r.setLastName("Janssens");
-        r.setAssociationName("STUP vzw");
+        r.setClubName("STUP vzw");
         r.setBarcodeValue("123456789");
         return r;
     }

@@ -29,7 +29,7 @@ public class JpaJobStore implements JobStore {
     public void save(PrintJob job) {
         PrintableRequest r = job.getRequest();
         String eventName = null, firstName = null, lastName = null,
-               assocName = null, barcodeValue = null,
+               clubName = null, barcodeValue = null,
                permitLabel = null, iconName = null,
                codeValue = null;
         CodeSymbology codeSymbology = null;
@@ -38,12 +38,12 @@ public class JpaJobStore implements JobStore {
             eventName    = w.getEventName();
             firstName    = w.getFirstName();
             lastName     = w.getLastName();
-            assocName    = w.getAssociationName();
+            clubName     = w.getClubName();
             barcodeValue = w.getBarcodeValue();
             codeSymbology = w.getCodeSymbology();
         } else if (r instanceof PermitWristbandPrintRequest p) {
             eventName    = p.getEventName();
-            assocName    = p.getAssociationName();
+            clubName     = p.getClubName();
             permitLabel  = p.getPermitLabel();
             iconName     = p.getIconName();
             codeValue    = p.getCodeValue();
@@ -56,7 +56,7 @@ public class JpaJobStore implements JobStore {
             r.getWristbandType(),
             job.getPrinterId(),
             job.getPrinterName(),
-            eventName, firstName, lastName, assocName, barcodeValue,
+            eventName, firstName, lastName, clubName, barcodeValue,
             permitLabel, iconName,
             r.getStockColorCode(), codeValue, codeSymbology,
             r.getCopies(),
@@ -92,7 +92,7 @@ public class JpaJobStore implements JobStore {
         if (type == WristbandType.PERMIT) {
             PermitWristbandPrintRequest p = new PermitWristbandPrintRequest();
             p.setEventName(e.getEventName());
-            p.setAssociationName(e.getAssociationName());
+            p.setClubName(e.getClubName());
             p.setPermitLabel(e.getPermitLabel());
             p.setIconName(e.getIconName());
             p.setCodeValue(e.getCodeValue());
@@ -106,7 +106,7 @@ public class JpaJobStore implements JobStore {
             w.setEventName(e.getEventName());
             w.setFirstName(e.getFirstName());
             w.setLastName(e.getLastName());
-            w.setAssociationName(e.getAssociationName());
+            w.setClubName(e.getClubName());
             w.setBarcodeValue(e.getBarcodeValue());
             w.setCodeSymbology(e.getCodeSymbology());
             w.setStockColorCode(e.getStockColorCode());

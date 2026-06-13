@@ -32,7 +32,7 @@ public class PermitLayoutService {
         return new PermitWristbandData(
             request.getEventName(),
             request.getPermitLabel(),
-            request.getAssociationName(),
+            request.getClubName(),
             request.getCodeValue(),
             symbology,
             stockHex

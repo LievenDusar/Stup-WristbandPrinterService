@@ -12,7 +12,7 @@ public record PrintJobDetailResponse(
     String eventName,
     String firstName,    // null for PERMIT bands
     String lastName,     // null for PERMIT bands
-    String associationName, // null for PERMIT bands
+    String clubName, // null for PERMIT bands
     String barcodeValue,    // null for PERMIT bands
     String permitLabel,     // null for CREW bands
     int copies,

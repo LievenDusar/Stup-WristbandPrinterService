@@ -210,7 +210,7 @@ Open **http://localhost:8080/jobs.html** (you'll be redirected to `/login.html` 
   relative timestamps, and per-job actions. Status chips give live counts and filter; columns sort.
 - With more than one printer configured, a second chip row **filters by printer**.
 - The search box shows a clear (×) button once it holds text.
-- Clicking a row opens a **slide-in detail drawer** with the full wristband data (name, association,
+- Clicking a row opens a **slide-in detail drawer** with the full wristband data (name, club,
   barcode, printer, timestamps) and a **Show preview** button that renders the wristband via Labelary
   on demand.
 - **Cancel** stops a PENDING job. **Reprint** re-queues a DONE/FAILED job — with several printers it

@@ -14,7 +14,7 @@ class PrintJobTest {
         r.setEventName("Pukkelpop 2026");
         r.setFirstName("Jan");
         r.setLastName("Janssens");
-        r.setAssociationName("STUP vzw");
+        r.setClubName("STUP vzw");
         r.setBarcodeValue("123456789");
         PrintJob job = new PrintJob(UUID.randomUUID(), r);
 
@@ -25,7 +25,7 @@ class PrintJobTest {
         assertThat(detail.eventName()).isEqualTo("Pukkelpop 2026");
         assertThat(detail.firstName()).isEqualTo("Jan");
         assertThat(detail.lastName()).isEqualTo("Janssens");
-        assertThat(detail.associationName()).isEqualTo("STUP vzw");
+        assertThat(detail.clubName()).isEqualTo("STUP vzw");
         assertThat(detail.barcodeValue()).isEqualTo("123456789");
         assertThat(detail.submittedAt()).isEqualTo(job.getSubmittedAt());
     }
@@ -36,7 +36,7 @@ class PrintJobTest {
         r.setEventName("Pukkelpop 2026");
         r.setFirstName("Jan");
         r.setLastName("Janssens");
-        r.setAssociationName("STUP vzw");
+        r.setClubName("STUP vzw");
         r.setBarcodeValue("123456789");
         PrintJob job = new PrintJob(java.util.UUID.randomUUID(), r);
 
@@ -67,7 +67,7 @@ class PrintJobTest {
     void responses_carryCopies() {
         WristbandPrintRequest r = new WristbandPrintRequest();
         r.setEventName("E"); r.setFirstName("F"); r.setLastName("L");
-        r.setAssociationName("A"); r.setBarcodeValue("B");
+        r.setClubName("A"); r.setBarcodeValue("B");
         r.setCopies(25);
         PrintJob job = new PrintJob(UUID.randomUUID(), r);
 
@@ -79,7 +79,7 @@ class PrintJobTest {
     void responses_defaultCopiesToOne() {
         WristbandPrintRequest r = new WristbandPrintRequest();
         r.setEventName("E"); r.setFirstName("F"); r.setLastName("L");
-        r.setAssociationName("A"); r.setBarcodeValue("B");
+        r.setClubName("A"); r.setBarcodeValue("B");
         PrintJob job = new PrintJob(UUID.randomUUID(), r);
 
         assertThat(job.toResponse().copies()).isEqualTo(1);
@@ -89,7 +89,7 @@ class PrintJobTest {
     void toResponse_and_toDetailResponse_carryPrinterIdentity() {
         WristbandPrintRequest r = new WristbandPrintRequest();
         r.setEventName("E"); r.setFirstName("F"); r.setLastName("L");
-        r.setAssociationName("A"); r.setBarcodeValue("B");
+        r.setClubName("A"); r.setBarcodeValue("B");
         PrintJob job = new PrintJob(java.util.UUID.randomUUID(), r, "printer-1", "Inkom links");
         assertThat(job.toResponse().printerId()).isEqualTo("printer-1");
         assertThat(job.toResponse().printerName()).isEqualTo("Inkom links");

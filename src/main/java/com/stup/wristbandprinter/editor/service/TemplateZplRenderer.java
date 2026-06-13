@@ -179,7 +179,7 @@ public class TemplateZplRenderer {
         m.put(DataBinding.FIRST_NAME, d.firstName());
         m.put(DataBinding.LAST_NAME, d.lastName());
         m.put(DataBinding.FULL_NAME, d.firstName() + " " + d.lastName());
-        m.put(DataBinding.ASSOCIATION_NAME, d.associationName());
+        m.put(DataBinding.CLUB_NAME, d.clubName());
         m.put(DataBinding.BARCODE_VALUE, d.barcodeValue());
         return m;
     }

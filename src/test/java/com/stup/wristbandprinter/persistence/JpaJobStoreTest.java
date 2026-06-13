@@ -95,7 +95,7 @@ class JpaJobStoreTest {
         req.setEventName("Pukkelpop 2026");
         req.setFirstName("Jan");
         req.setLastName("Janssens");
-        req.setAssociationName("STUP vzw");
+        req.setClubName("STUP vzw");
         req.setBarcodeValue("123456789");
         req.setCopies(120);
         Instant now = Instant.now();
@@ -111,7 +111,7 @@ class JpaJobStoreTest {
         r.setEventName("Pukkelpop 2026");
         r.setFirstName("Jan");
         r.setLastName("Janssens");
-        r.setAssociationName("STUP vzw");
+        r.setClubName("STUP vzw");
         r.setBarcodeValue("123456789");
         return r;
     }

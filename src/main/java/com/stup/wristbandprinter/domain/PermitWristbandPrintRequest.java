@@ -21,8 +21,8 @@ public final class PermitWristbandPrintRequest implements PrintableRequest {
     @Schema(example = "Elektriciteit")
     private String permitLabel;
 
-    @Schema(description = "Optional association name; when absent a dotted fill-in line is printed instead")
-    private String associationName;
+    @Schema(description = "Optional club name; when absent a dotted fill-in line is printed instead")
+    private String clubName;
 
     @Schema(description = "Font-Awesome icon name — stored for future rendering; not printed now", example = "bolt")
     private String iconName;
@@ -63,7 +63,7 @@ public final class PermitWristbandPrintRequest implements PrintableRequest {
         PermitWristbandPrintRequest copy = new PermitWristbandPrintRequest();
         copy.eventName       = this.eventName;
         copy.permitLabel     = this.permitLabel;
-        copy.associationName = this.associationName;
+        copy.clubName        = this.clubName;
         copy.iconName        = this.iconName;
         copy.codeValue       = this.codeValue;
         copy.codeSymbology   = this.codeSymbology;
@@ -86,8 +86,8 @@ public final class PermitWristbandPrintRequest implements PrintableRequest {
     public String getPermitLabel() { return permitLabel; }
     public void setPermitLabel(String permitLabel) { this.permitLabel = permitLabel; }
 
-    public String getAssociationName() { return associationName; }
-    public void setAssociationName(String associationName) { this.associationName = associationName; }
+    public String getClubName() { return clubName; }
+    public void setClubName(String clubName) { this.clubName = clubName; }
 
     public String getIconName() { return iconName; }
     public void setIconName(String iconName) { this.iconName = iconName; }

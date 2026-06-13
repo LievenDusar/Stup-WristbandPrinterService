@@ -106,7 +106,7 @@ curl -fsk https://[management-hostname]:8443/api/wristbands/printers \
 # a test print to a specific printer
 curl -fsk -X POST https://[management-hostname]:8443/api/wristbands/print \
   -H "X-API-Key: [api-key]" -H "Content-Type: application/json" \
-  -d '{"eventName":"Test","firstName":"Jan","lastName":"Janssen","associationName":"STUP","barcodeValue":"123","printerId":"printer-1"}'
+  -d '{"eventName":"Test","firstName":"Jan","lastName":"Janssen","clubName":"STUP","barcodeValue":"123","printerId":"printer-1"}'
 ```
 
 Then open `https://[management-hostname]:8443/jobs.html` (admin / your `ADMIN_PASSWORD`).

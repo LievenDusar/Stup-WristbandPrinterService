@@ -19,7 +19,7 @@ public class WristbandLayoutService {
             request.getEventName(),
             request.getFirstName(),
             request.getLastName(),
-            request.getAssociationName(),
+            request.getClubName(),
             request.getBarcodeValue(),
             symbology
         );

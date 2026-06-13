@@ -97,7 +97,7 @@ function placeAtBboxTL(node, xDots, yDots) {
 }
 
 function labelFor(binding) {
-  return { FULL_NAME: 'First Last', EVENT_NAME: 'Event', ASSOCIATION_NAME: 'Association',
+  return { FULL_NAME: 'First Last', EVENT_NAME: 'Event', CLUB_NAME: 'Club',
     FIRST_NAME: 'First', LAST_NAME: 'Last', BARCODE_VALUE: '12345' }[binding] || binding || 'Text';
 }
 function textOf(node) {

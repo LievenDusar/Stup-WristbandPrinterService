@@ -34,7 +34,7 @@ public class PrintJobEntity {
     private String eventName;
     private String firstName;
     private String lastName;
-    private String associationName;
+    private String clubName;
     private String barcodeValue;
 
     // ── PERMIT fields ─────────────────────────────────────────────────────────
@@ -65,7 +65,7 @@ public class PrintJobEntity {
     public PrintJobEntity(UUID jobId, PrintJobStatus status, WristbandType wristbandType,
                           String printerId, String printerName,
                           String eventName, String firstName, String lastName,
-                          String associationName, String barcodeValue,
+                          String clubName, String barcodeValue,
                           String permitLabel, String iconName,
                           Integer stockColorCode, String codeValue, CodeSymbology codeSymbology,
                           Integer copies,
@@ -78,7 +78,7 @@ public class PrintJobEntity {
         this.eventName      = eventName;
         this.firstName      = firstName;
         this.lastName       = lastName;
-        this.associationName = associationName;
+        this.clubName       = clubName;
         this.barcodeValue   = barcodeValue;
         this.permitLabel    = permitLabel;
         this.iconName       = iconName;
@@ -99,7 +99,7 @@ public class PrintJobEntity {
     public String getEventName()     { return eventName; }
     public String getFirstName()     { return firstName; }
     public String getLastName()      { return lastName; }
-    public String getAssociationName(){ return associationName; }
+    public String getClubName(){ return clubName; }
     public String getBarcodeValue()  { return barcodeValue; }
     public String getPermitLabel()   { return permitLabel; }
     public String getIconName()      { return iconName; }

@@ -1,6 +1,6 @@
 import { applyProp, layer, getScale } from './canvas.js';
 
-const BINDINGS = ['EVENT_NAME', 'FIRST_NAME', 'LAST_NAME', 'FULL_NAME', 'ASSOCIATION_NAME', 'BARCODE_VALUE'];
+const BINDINGS = ['EVENT_NAME', 'FIRST_NAME', 'LAST_NAME', 'FULL_NAME', 'CLUB_NAME', 'BARCODE_VALUE'];
 
 // Geometry is read from the live Konva node (px → dots); only non-geometry fields are attrs.
 export function showProperties(node) {

@@ -16,7 +16,7 @@ import org.springframework.stereotype.Service;
  * <ol>
  *   <li>Block 1 — STUP logo (pre-rotated 180°, same asset as the crew band)</li>
  *   <li>Block 2 — Permission group: "Toelating [permitLabel]" (^A0B) + writing-space gap +
- *       dotted fill-in line or associationName (^A0B)</li>
+ *       dotted fill-in line or clubName (^A0B)</li>
  *   <li>Block 3 — Optional scan code (only when {@code codeValue} is present)</li>
  *   <li>Block 4 — Event group: eventName (^A0B, 270°) + event logo (pre-rotated 180°)
  *       (logo omitted when {@code PermitEventLogoService} has no logo loaded)</li>
@@ -46,7 +46,7 @@ public class PermitZplGeneratorService {
     // For ^A0I (inverted/180°) the axis is the same as ^A0B so the ratio is identical.
     static final double CHAR_ADVANCE_RATIO = ZplGeneratorService.CHAR_ADVANCE_RATIO;
 
-    // Gap between the permit-label text field and the dot/association field inside block 2.
+    // Gap between the permit-label text field and the dot/club field inside block 2.
     // The writing-space gap is configured via WristbandProperties.Permit.PermitMargins.writingSpaceGap.
 
     private final WristbandProperties props;
@@ -73,11 +73,11 @@ public class PermitZplGeneratorService {
         // ── Block heights ─────────────────────────────────────────────────────────
         int block1H = stuplogoService.getLogoHeightDots();
 
-        // Block 2: "Toelating [permitLabel]" line + writing-space gap + dot/assoc line
+        // Block 2: "Toelating [permitLabel]" line + writing-space gap + dot/club line
         int labelLineLen = lineExtent("Toelating " + sanitize(data.permitLabel()), text.getFontSizePermitLabel());
-        String assocContent = assocContent(data, text);
-        int assocLineLen = lineExtent(assocContent, text.getFontSizeAssociation());
-        int block2H = Math.max(labelLineLen, assocLineLen); // Y extent (along band) = longest of the two lines
+        String clubContent = clubContent(data, text);
+        int clubLineLen = lineExtent(clubContent, text.getFontSizeClub());
+        int block2H = Math.max(labelLineLen, clubLineLen); // Y extent (along band) = longest of the two lines
 
         // Block 3 (optional): scan code
         boolean hasCode = data.codeValue() != null && !data.codeValue().isBlank();
@@ -144,7 +144,7 @@ public class PermitZplGeneratorService {
     }
 
     /**
-     * Block 2: "Toelating [permitLabel]" + writing-space gap + dot/association line.
+     * Block 2: "Toelating [permitLabel]" + writing-space gap + dot/club line.
      *
      * Both text fields use ^A0B (270° = bottom-up rotation). With this rotation,
      * font height is the X-direction extent and the text grows in the +Y direction.
@@ -155,7 +155,7 @@ public class PermitZplGeneratorService {
                                int blockY, PermitText text,
                                PermitMargins margins, int bandWidth) {
         int h1 = text.getFontSizePermitLabel();
-        int h2 = text.getFontSizeAssociation();
+        int h2 = text.getFontSizeClub();
 
         // Group-center both lines across band width
         int totalX = h1 + margins.getWritingSpaceGap() + h2;
@@ -165,9 +165,9 @@ public class PermitZplGeneratorService {
         int groupX = (bandWidth - totalX) / 2;
 
         String labelText = "Toelating " + sanitize(data.permitLabel());
-        String assocText = assocContent(data, text);
+        String clubText = clubContent(data, text);
 
-        int blockH = Math.max(lineExtent(labelText, h1), lineExtent(assocText, h2));
+        int blockH = Math.max(lineExtent(labelText, h1), lineExtent(clubText, h2));
         int centerY = blockY + blockH / 2;
 
         // Permit-label line (left column in the group)
@@ -176,11 +176,11 @@ public class PermitZplGeneratorService {
         zpl.append(String.format("^A0B,%d,%d", h1, h1));
         zpl.append(String.format("^FD%s^FS", labelText));
 
-        // Association / dot line (right column — after writing-space gap)
-        int assocY = centerY - lineExtent(assocText, h2) / 2;
-        zpl.append(String.format("^FO%d,%d", groupX + h1 + margins.getWritingSpaceGap(), assocY));
+        // Club / dot line (right column — after writing-space gap)
+        int clubY = centerY - lineExtent(clubText, h2) / 2;
+        zpl.append(String.format("^FO%d,%d", groupX + h1 + margins.getWritingSpaceGap(), clubY));
         zpl.append(String.format("^A0B,%d,%d", h2, h2));
-        zpl.append(String.format("^FD%s^FS", assocText));
+        zpl.append(String.format("^FD%s^FS", clubText));
     }
 
     /** Block 3: scan code, centered across band width. */
@@ -232,12 +232,12 @@ public class PermitZplGeneratorService {
 
     // ── Helpers ───────────────────────────────────────────────────────────────────
 
-    private String assocContent(PermitWristbandData data, PermitText text) {
-        String assoc = data.associationName();
-        if (assoc == null || assoc.isBlank()) {
+    private String clubContent(PermitWristbandData data, PermitText text) {
+        String club = data.clubName();
+        if (club == null || club.isBlank()) {
             return ".".repeat(text.getDotCount());
         }
-        return sanitize(assoc);
+        return sanitize(club);
     }
 
     private int lineExtent(String text, int fontSize) {

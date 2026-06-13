@@ -89,7 +89,7 @@ public class ZplGeneratorService {
                                   int startY, WristbandProperties.Text t) {
         int h1 = t.getFontSizeEvent();
         int h2 = t.getFontSizeName();
-        int h3 = t.getFontSizeAssociation();
+        int h3 = t.getFontSizeClub();
 
         // Group-center the three lines across the band width.
         // With ^A0B rotation, font height = character size in the X direction (across band).
@@ -101,13 +101,13 @@ public class ZplGeneratorService {
         // No line starts before the longest starts; no line ends after the longest ends.
         String eventText = sanitize(data.eventName());
         String nameText  = sanitize(data.firstName()) + " " + sanitize(data.lastName());
-        String assocText = sanitize(data.associationName());
+        String clubText = sanitize(data.clubName());
 
         int blockHeight = textBlockYLength(data, t);
         int centerY = startY + blockHeight / 2;
         int eventY  = centerY - lineExtent(eventText.length(), h1) / 2;
         int nameY   = centerY - lineExtent(nameText.length(),  h2) / 2;
-        int assocY  = centerY - lineExtent(assocText.length(), h3) / 2;
+        int clubY   = centerY - lineExtent(clubText.length(), h3) / 2;
 
         // Event name
         zpl.append(String.format("^FO%d,%d", groupX, eventY));
@@ -119,10 +119,10 @@ public class ZplGeneratorService {
         zpl.append(String.format("^A0B,%d,%d", h2, h2));
         zpl.append(String.format("^FD%s^FS", nameText));
 
-        // Association
-        zpl.append(String.format("^FO%d,%d", groupX + h1 + INTER_LINE_GAP + h2 + INTER_LINE_GAP, assocY));
+        // Club
+        zpl.append(String.format("^FO%d,%d", groupX + h1 + INTER_LINE_GAP + h2 + INTER_LINE_GAP, clubY));
         zpl.append(String.format("^A0B,%d,%d", h3, h3));
-        zpl.append(String.format("^FD%s^FS", assocText));
+        zpl.append(String.format("^FD%s^FS", clubText));
     }
 
     private void appendBarcode(StringBuilder zpl, WristbandData data, int y,
@@ -141,8 +141,8 @@ public class ZplGeneratorService {
     private int textBlockYLength(WristbandData data, WristbandProperties.Text t) {
         int eventLen = lineExtent(sanitize(data.eventName()).length(), t.getFontSizeEvent());
         int nameLen  = lineExtent((sanitize(data.firstName()) + " " + sanitize(data.lastName())).length(), t.getFontSizeName());
-        int assocLen = lineExtent(sanitize(data.associationName()).length(), t.getFontSizeAssociation());
-        return Math.max(eventLen, Math.max(nameLen, assocLen));
+        int clubLen  = lineExtent(sanitize(data.clubName()).length(), t.getFontSizeClub());
+        return Math.max(eventLen, Math.max(nameLen, clubLen));
     }
 
     // Rendered length (along band) of a single ^A0B text line of the given character count.

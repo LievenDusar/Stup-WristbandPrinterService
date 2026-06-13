@@ -28,7 +28,7 @@ public class WristbandGalleryCatalog {
               "eventName":       "Pukkelpop 2026",
               "firstName":       "Annechien",
               "lastName":        "Van De Wall",
-              "associationName": "Chiro Sint-Christina Brustem",
+              "clubName": "Chiro Sint-Christina Brustem",
               "barcodeValue":    "12345654245524789"
             }
             """

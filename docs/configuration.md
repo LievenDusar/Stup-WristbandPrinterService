@@ -48,7 +48,7 @@ The band is generated programmatically as ZPL — there are no absolute coordina
 set the band dimensions, the gaps between elements, and the font/barcode sizes; the service centres
 everything and stacks the elements in this fixed order, from the non-adhesive end to the adhesive end:
 
-> **logo → barcode → text (event / name / association) → logo**
+> **logo → barcode → text (event / name / club) → logo**
 
 The diagram maps each setting to the element it controls. Orange labels (left) are the gaps between
 elements; the labels on the right size the elements themselves.
@@ -74,7 +74,7 @@ elements; the labels on the right size the elements themselves.
 |---|---|---|
 | `wristband.text.font-size-event` | `45` | Font height of the event-name line |
 | `wristband.text.font-size-name` | `74` | Font height of the first + last name line (largest) |
-| `wristband.text.font-size-association` | `45` | Font height of the association line |
+| `wristband.text.font-size-club` | `45` | Font height of the club line |
 | `wristband.barcode.type` | `CODE128` | Barcode symbology |
 | `wristband.barcode.height-dots` | `270` | Barcode height (across the band), in dots |
 | `wristband.barcode.module-width-dots` | `3` | Narrow-bar width — wider = longer along the band & easier to scan |
@@ -117,9 +117,9 @@ All values under `wristband.permit.*`:
 | `margins.between-blocks` | 60 | Gap between the four top-level layout blocks (dots) |
 | `margins.writing-space-gap` | 55 | Blank space between the permit-label line and the dashes fill-in line |
 | `text.font-size-permit-label` | 66 | Font size for "Toelating [label]" |
-| `text.font-size-association` | 42 | Font size for the optional association name |
+| `text.font-size-club` | 42 | Font size for the optional club name |
 | `text.font-size-event-name` | 52 | Font size for the event name in block 4 |
-| `text.dot-count` | 30 | Number of dashes/dots for the writing-line when no association name is given |
+| `text.dot-count` | 30 | Number of dashes/dots for the writing-line when no club name is given |
 | `code.default-symbology` | `CODE128` | Scan-code symbology when `codeSymbology` is absent in the request |
 | `code.height-dots` | 200 | Bar height of the optional scan code |
 | `code.module-width-dots` | 2 | Narrow-bar module width for the optional scan code |

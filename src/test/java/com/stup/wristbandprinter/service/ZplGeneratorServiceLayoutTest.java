@@ -40,7 +40,7 @@ class ZplGeneratorServiceLayoutTest {
         props.getMargins().setBetweenTextAndLogo(45);
         props.getText().setFontSizeEvent(45);
         props.getText().setFontSizeName(74);
-        props.getText().setFontSizeAssociation(45);
+        props.getText().setFontSizeClub(45);
         props.getBarcode().setHeightDots(270);
         props.getBarcode().setShowHumanReadable(false);
     }
