@@ -325,11 +325,25 @@ class PrintQueueServiceTest {
     }
 
     @Test
-    void ensureQueue_isIdempotent_andStartsProcessingForNewPrinter() {
+    void ensureQueue_isIdempotent_andStartsProcessingForNewPrinter() throws InterruptedException {
+        CountDownLatch latch = new CountDownLatch(1);
+        when(printerRegistry.get("printer-x"))
+            .thenReturn(new com.stup.wristbandprinter.cluster.Printer("printer-x", "X", "http://x:8080"));
+        when(wristbandZplResolver.resolve(any())).thenReturn("^XA^XZ");
+        doAnswer(inv -> { latch.countDown(); return null; }).when(workerClient).print(any(), any(), any());
+
         service.startWorker();
         service.ensureQueue("printer-x");
-        service.ensureQueue("printer-x");
-        assertThat(service.queueDepth("printer-x")).isZero();
+        service.ensureQueue("printer-x"); // idempotent: must not start a second worker or throw
+
+        WristbandPrintRequest r = sampleRequest();
+        r.setPrinterId("printer-x");
+        r.setCopies(1);
+        PrintJob job = service.enqueue(r);
+
+        boolean processed = latch.await(3, TimeUnit.SECONDS);
+        assertThat(processed).isTrue();
+        assertThat(service.getJob(job.getJobId()).get().getStatus()).isEqualTo(PrintJobStatus.DONE);
     }
 
     private WristbandPrintRequest sampleRequest() {

@@ -91,6 +91,8 @@ public class PrintQueueService {
     /** Ensure a queue and a dedicated worker thread exist for this printer. Idempotent. */
     public void ensureQueue(String printerId) {
         java.util.concurrent.BlockingQueue<PrintJob> q = queueFor(printerId);
+        // worker is set by startWorker() in @PostConstruct before any enqueue; the null-check
+        // is only for unit tests that call ensureQueue without startWorker().
         if (worker != null && started.add(printerId)) {
             worker.submit(() -> processQueue(q));
             log.info("Started print-queue worker for printer {}", printerId);
@@ -164,6 +166,8 @@ public class PrintQueueService {
             ? printerRegistry.getDefault()
             : printerRegistry.get(request.getPrinterId());   // throws UnknownPrinterException -> 400
 
+        // Ensure a worker exists even for a printer registered after startup
+        // (dynamic registration, part 2a-T5).
         ensureQueue(printer.id());
 
         // Stamp the resolved printerId onto the request so it's persisted correctly.
