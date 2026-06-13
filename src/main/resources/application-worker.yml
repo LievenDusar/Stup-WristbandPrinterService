@@ -16,3 +16,9 @@ springdoc:
     enabled: false
   api-docs:
     enabled: false
+
+# Self-registration: this worker announces itself to management on startup + heartbeat.
+# id / display-name / base-url / management-base-url are per-worker (set via env:
+# WORKER_ID, WORKER_DISPLAY_NAME, WORKER_BASE_URL, WORKER_MANAGEMENT_BASE_URL).
+worker:
+  heartbeat-millis: 30000
