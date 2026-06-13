@@ -52,7 +52,7 @@ print with the curl examples in [docs/running-locally.md](docs/running-locally.m
 
 ### Production quick start (real printers)
 
-Needs a remote, empty `wristbands` database (DB + role created by a DBA) and one reachable Zebra per
+Needs a remote, empty `stup_wristband_db` database (DB + role created by a DBA) and one reachable Zebra per
 printer.
 
 ```bash
@@ -145,7 +145,7 @@ single-service rebuilds, no-cache builds, and tailing logs.
 
 `docker-compose.prod.yml` runs **one management service** (public, HTTPS on 8443, holds the TLS cert,
 DB connection and printer registry) plus **one worker per Zebra printer** (internal HTTP only). The
-database is a remote `wristbands` Postgres; Flyway migrates it on management's first start. The
+database is a remote `stup_wristband_db` Postgres; Flyway migrates it on management's first start. The
 [Production quick start](#production-quick-start-real-printers) above is the condensed path.
 
 The full guide — `.env.prod` secrets, declaring workers, registering printers, launch & verify,
@@ -241,7 +241,7 @@ reprinted automatically; the operator can reprint deliberately.
 
 The local stack (`docker-compose.yml`) starts a `postgres` service with fixed credentials. The
 production stack (`docker-compose.prod.yml`) has no DB container — management connects to a remote
-`wristbands` database on the Symfony Postgres instance (via `SPRING_DATASOURCE_*` in `.env.prod`).
+`stup_wristband_db` database on the Symfony Postgres instance (via `SPRING_DATASOURCE_*` in `.env.prod`).
 
 ---
 

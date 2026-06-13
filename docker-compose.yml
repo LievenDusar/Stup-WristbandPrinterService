@@ -5,7 +5,7 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      - POSTGRES_DB=wristbands
+      - POSTGRES_DB=stup_wristband_db
       - POSTGRES_USER=wristbands
       - POSTGRES_PASSWORD=wristbands
     ports:
@@ -14,7 +14,7 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U wristbands -d wristbands"]
+      test: ["CMD-SHELL", "pg_isready -U wristbands -d stup_wristband_db"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -28,7 +28,7 @@ services:
     environment:
       - SPRING_PROFILES_ACTIVE=local
       # Override application-local.yml's localhost URL to reach the db service.
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/wristbands
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/stup_wristband_db
       - SPRING_DATASOURCE_USERNAME=wristbands
       - SPRING_DATASOURCE_PASSWORD=wristbands
     depends_on:

@@ -1,7 +1,7 @@
 # Production stack: ONE management service + ONE printer-worker per physical printer.
 #
 #   management        UI + admin + DB + job history + routing. Public, HTTPS on 8443.
-#                     Connects to the remote `wristbands` database on the Symfony
+#                     Connects to the remote `stup_wristband_db` database on the Symfony
 #                     Postgres instance (there is NO DB container here).
 #   printer-worker-N  Thin print-only service, one per Zebra printer. Internal HTTP
 #                     on 8080 (not published); no DB, no UI. Receives ready-to-print
@@ -13,7 +13,7 @@
 # Prerequisites:
 #   1. ./build.sh                  (build the wristband-base image)
 #   2. cp .env.example .env.prod   (fill in real values)
-#   3. DBA has created an empty `wristbands` database + role on the prod Postgres.
+#   3. DBA has created an empty `stup_wristband_db` database + role on the prod Postgres.
 # Run:
 #   docker compose -f docker-compose.prod.yml --env-file .env.prod up --build -d
 #   # https://<MANAGEMENT_HOSTNAME>:8443/jobs.html   (self-signed cert)

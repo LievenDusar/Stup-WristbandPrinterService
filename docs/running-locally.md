@@ -23,12 +23,12 @@ JDK 21, IntelliJ IDEA, Docker (for a local PostgreSQL).
 ### Steps
 
 1. **Add the logo** — place `stup-logo.png` in `src/main/resources/images/`.
-2. **Start PostgreSQL** — the `local` profile expects database `wristbands`, user/password
+2. **Start PostgreSQL** — the `local` profile expects database `stup_wristband_db`, user/password
    `wristbands`/`wristbands` on `localhost:5432`:
 
    ```bash
    docker run --name stup-pg \
-     -e POSTGRES_DB=wristbands -e POSTGRES_USER=wristbands -e POSTGRES_PASSWORD=wristbands \
+     -e POSTGRES_DB=stup_wristband_db -e POSTGRES_USER=wristbands -e POSTGRES_PASSWORD=wristbands \
      -p 5432:5432 -d postgres:16-alpine
    ```
 
@@ -55,7 +55,7 @@ JDK 21, IntelliJ IDEA, Docker (for a local PostgreSQL).
    management → worker → fake printer.
 
 > 💡 **Port 5432 already in use?** Start the container with `-p 5433:5432` and set
-> `SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5433/wristbands` in the run configuration's
+> `SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5433/stup_wristband_db` in the run configuration's
 > environment. (PostgreSQL only sets the password when the data volume is first created — if you
 > reused an old `stup-pg`, `docker rm -f stup-pg` and recreate.)
 

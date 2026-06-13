@@ -13,7 +13,7 @@ printer**. Follow the [deployment steps](#deployment) in order.
 |---|---|
 | **management** | The only public service (HTTPS on 8443). Holds the TLS certificate, the DB connection, and the printer registry. Flyway runs the migrations here, once, on startup |
 | **workers** | One per printer; internal HTTP only, no certificate and no database |
-| **database** | Not bundled — management connects to a dedicated, remote `wristbands` database on the Symfony site's Postgres instance |
+| **database** | Not bundled — management connects to a dedicated, remote `stup_wristband_db` database on the Symfony site's Postgres instance |
 | **API key** | Management and every worker share the same `API_KEY` |
 
 > 📝 Throughout the steps below, replace every **`[placeholder]`** with your real value. The
@@ -22,7 +22,7 @@ printer**. Follow the [deployment steps](#deployment) in order.
 
 ## Prerequisites
 
-- An empty `wristbands` database + role exists on the prod Postgres (a DBA creates the database;
+- An empty `stup_wristband_db` database + role exists on the prod Postgres (a DBA creates the database;
   Flyway creates the tables — see the note below).
 - Every Zebra is reachable from the server — verify with `ping [printer-1-ip]`.
 - The base image is built: `./build.sh`.
@@ -52,7 +52,7 @@ ADMIN_PASSWORD=[strong-admin-password]
 SSL_KEYSTORE_PASSWORD=[strong-keystore-password]
 MANAGEMENT_HOSTNAME=[hostname-symfony-connects-to]
 
-SPRING_DATASOURCE_URL=jdbc:postgresql://[db-host]:5432/wristbands
+SPRING_DATASOURCE_URL=jdbc:postgresql://[db-host]:5432/stup_wristband_db
 DB_USERNAME=[db-user]
 DB_PASSWORD=[db-password]
 

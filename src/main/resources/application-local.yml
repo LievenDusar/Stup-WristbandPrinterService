@@ -1,6 +1,6 @@
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/wristbands
+    url: jdbc:postgresql://localhost:5432/stup_wristband_db
     username: wristbands
     password: wristbands
   # Local-only: never let the browser cache the editor's HTML/JS/CSS, so a restart
