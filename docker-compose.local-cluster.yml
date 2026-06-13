@@ -25,6 +25,10 @@ services:
       - POSTGRES_DB=stup_wristband_db
       - POSTGRES_USER=wristbands
       - POSTGRES_PASSWORD=wristbands
+    ports:
+      # Loopback only, on 5433 to avoid clashing with a local Postgres on 5432
+      # (lets IntelliJ's Database tool connect — see README "Connecting to the database").
+      - "127.0.0.1:5433:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U wristbands -d stup_wristband_db"]
       interval: 10s

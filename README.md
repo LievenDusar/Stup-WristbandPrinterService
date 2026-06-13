@@ -122,6 +122,28 @@ start](#local-quick-start-virtual-printers) above gets you printing fast.
 Full step-by-step instructions — IntelliJ run configs, the local PostgreSQL, the virtual cluster,
 and troubleshooting — are in **[docs/running-locally.md](docs/running-locally.md)**.
 
+### Connecting to the database (IntelliJ)
+
+Both local Docker stacks (`docker-compose.yml` and `docker-compose.local-cluster.yml`) publish
+PostgreSQL on the host at **`127.0.0.1:5433`** (loopback only). Open the **Database** tool window
+(**View ▸ Tool Windows ▸ Database**), then **+ ▸ Data Source ▸ PostgreSQL** and fill in:
+
+| Field    | Value               |
+| -------- | ------------------- |
+| Host     | `localhost`         |
+| Port     | `5433`              |
+| Database | `stup_wristband_db` |
+| User     | `wristbands`        |
+| Password | `wristbands`        |
+
+(Equivalent URL: `jdbc:postgresql://localhost:5433/stup_wristband_db`.) Click **Test Connection** —
+IntelliJ downloads the PostgreSQL driver on first use — then **OK**. The `print_jobs` table and
+Flyway's `flyway_schema_history` live in the `public` schema.
+
+> Running management **natively** from IntelliJ (the `local` profile, not Docker) instead expects
+> Postgres on **`localhost:5432`** per `application-local.yml` — point the data source at `5432` in
+> that case.
+
 ### Rebuilding after code changes (Docker)
 
 The app is baked into the image at build time — there is **no live reload**. After editing any code
