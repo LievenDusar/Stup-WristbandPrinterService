@@ -39,6 +39,12 @@ public class GlobalExceptionHandler {
         return errorResponse(HttpStatus.SERVICE_UNAVAILABLE, "Printer unavailable", ex.getMessage());
     }
 
+    @ExceptionHandler(NoPrintersAvailableException.class)
+    public ResponseEntity<Map<String, Object>> handleNoPrinters(NoPrintersAvailableException ex) {
+        log.warn("No printers available: {}", ex.getMessage());
+        return errorResponse(HttpStatus.SERVICE_UNAVAILABLE, "No printers available", ex.getMessage());
+    }
+
     @ExceptionHandler(QueueFullException.class)
     public ResponseEntity<Map<String, Object>> handleQueueFull(QueueFullException ex) {
         log.warn("Print queue full: {}", ex.getMessage());
