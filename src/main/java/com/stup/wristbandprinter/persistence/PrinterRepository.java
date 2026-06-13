@@ -8,7 +8,7 @@ public interface PrinterRepository extends JpaRepository<PrinterEntity, String> 
 
     Optional<PrinterEntity> findByIsDefaultTrue();
 
-    Optional<PrinterEntity> findFirstByOnlineTrueAndHiddenFalseOrderByRegisteredAtAsc();
+    Optional<PrinterEntity> findFirstByOnlineTrueAndHiddenFalseOrderByRegisteredAtAscIdAsc();
 
-    Optional<PrinterEntity> findFirstByHiddenFalseOrderByRegisteredAtAsc();
+    Optional<PrinterEntity> findFirstByHiddenFalseOrderByRegisteredAtAscIdAsc();
 }

@@ -49,9 +49,9 @@ class PrinterRepositoryTest {
         repository.saveAll(java.util.List.of(a, b));
 
         assertThat(repository.findByIsDefaultTrue()).isEmpty();
-        assertThat(repository.findFirstByHiddenFalseOrderByRegisteredAtAsc())
+        assertThat(repository.findFirstByHiddenFalseOrderByRegisteredAtAscIdAsc())
             .map(PrinterEntity::getId).contains("a");
-        assertThat(repository.findFirstByOnlineTrueAndHiddenFalseOrderByRegisteredAtAsc())
+        assertThat(repository.findFirstByOnlineTrueAndHiddenFalseOrderByRegisteredAtAscIdAsc())
             .map(PrinterEntity::getId).contains("b");
 
         a.setDefault(true);

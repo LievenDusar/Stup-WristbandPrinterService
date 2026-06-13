@@ -93,8 +93,8 @@ public class PrinterRegistry {
     public Printer getDefault() {
         PrinterEntity chosen = printerRepository.findByIsDefaultTrue()
             .filter(e -> !e.isHidden())
-            .or(printerRepository::findFirstByOnlineTrueAndHiddenFalseOrderByRegisteredAtAsc)
-            .or(printerRepository::findFirstByHiddenFalseOrderByRegisteredAtAsc)
+            .or(printerRepository::findFirstByOnlineTrueAndHiddenFalseOrderByRegisteredAtAscIdAsc)
+            .or(printerRepository::findFirstByHiddenFalseOrderByRegisteredAtAscIdAsc)
             .orElseThrow(() -> new NoPrintersAvailableException(
                 "No printers are registered. Start a printer worker (or register one) and retry."));
         return new Printer(chosen.getId(), chosen.getDisplayName(), chosen.getBaseUrl());
