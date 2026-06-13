@@ -39,6 +39,7 @@ public class PrintQueueService {
 
     private final java.util.concurrent.ConcurrentHashMap<String, java.util.concurrent.BlockingQueue<PrintJob>> queues
         = new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.Set<String> started = java.util.concurrent.ConcurrentHashMap.newKeySet();
     private final ConcurrentHashMap<UUID, PrintJob> jobs = new ConcurrentHashMap<>();
     private final CopyOnWriteArrayList<SseEmitter> emitters = new CopyOnWriteArrayList<>();
     private final java.util.concurrent.ConcurrentHashMap<UUID, java.util.List<SseEmitter>> jobEmitters
@@ -87,6 +88,19 @@ public class PrintQueueService {
             id -> new java.util.concurrent.LinkedBlockingQueue<>(queueProperties.getMaxDepth()));
     }
 
+    /** Ensure a queue and a dedicated worker thread exist for this printer. Idempotent. */
+    public void ensureQueue(String printerId) {
+        java.util.concurrent.BlockingQueue<PrintJob> q = queueFor(printerId);
+        if (worker != null && started.add(printerId)) {
+            worker.submit(() -> processQueue(q));
+            log.info("Started print-queue worker for printer {}", printerId);
+        }
+    }
+
+    public int queueDepth(String printerId) {
+        return queueFor(printerId).size();
+    }
+
     @PostConstruct
     public void init() {
         recoverJobs();
@@ -111,17 +125,15 @@ public class PrintQueueService {
     }
 
     public void startWorker() {
-        java.util.List<Printer> printers = printerRegistry.all();
-        worker = Executors.newFixedThreadPool(Math.max(1, printers.size()), r -> {
+        worker = Executors.newCachedThreadPool(r -> {
             Thread t = new Thread(r, "print-queue-worker");
             t.setDaemon(true);
             return t;
         });
-        for (Printer p : printers) {
-            java.util.concurrent.BlockingQueue<PrintJob> q = queueFor(p.id());
-            worker.submit(() -> processQueue(q));
+        for (Printer p : printerRegistry.all()) {
+            ensureQueue(p.id());
         }
-        log.info("Started {} print-queue worker(s)", printers.size());
+        log.info("Started print-queue workers for {} printer(s)", printerRegistry.all().size());
     }
 
     @PreDestroy
@@ -151,6 +163,8 @@ public class PrintQueueService {
         Printer printer = (request.getPrinterId() == null || request.getPrinterId().isBlank())
             ? printerRegistry.getDefault()
             : printerRegistry.get(request.getPrinterId());   // throws UnknownPrinterException -> 400
+
+        ensureQueue(printer.id());
 
         // Stamp the resolved printerId onto the request so it's persisted correctly.
         PrintableRequest stamped = request.withPrinterId(printer.id());
@@ -347,5 +361,18 @@ public class PrintQueueService {
                 }
             }
         }
+    }
+
+    /** Broadcast a printer state change to all jobs-stream subscribers as a named "printer" event (D6). */
+    public void broadcastPrinter(com.stup.wristbandprinter.cluster.dto.PrinterEvent event) {
+        List<SseEmitter> dead = new ArrayList<>();
+        for (SseEmitter emitter : emitters) {
+            try {
+                emitter.send(SseEmitter.event().name("printer").data(event));
+            } catch (IOException e) {
+                dead.add(emitter);
+            }
+        }
+        emitters.removeAll(dead);
     }
 }

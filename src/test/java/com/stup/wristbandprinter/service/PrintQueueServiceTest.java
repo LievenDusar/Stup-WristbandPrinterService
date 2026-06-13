@@ -314,6 +314,24 @@ class PrintQueueServiceTest {
             .isInstanceOf(InvalidCopiesException.class);
     }
 
+    @Test
+    void enqueue_noPrinters_throwsNoPrintersAvailable() {
+        when(printerRegistry.getDefault())
+            .thenThrow(new com.stup.wristbandprinter.exception.NoPrintersAvailableException("none"));
+        com.stup.wristbandprinter.domain.WristbandPrintRequest req = sampleRequest();
+        req.setCopies(1);
+        assertThatThrownBy(() -> service.enqueue(req))
+            .isInstanceOf(com.stup.wristbandprinter.exception.NoPrintersAvailableException.class);
+    }
+
+    @Test
+    void ensureQueue_isIdempotent_andStartsProcessingForNewPrinter() {
+        service.startWorker();
+        service.ensureQueue("printer-x");
+        service.ensureQueue("printer-x");
+        assertThat(service.queueDepth("printer-x")).isZero();
+    }
+
     private WristbandPrintRequest sampleRequest() {
         WristbandPrintRequest r = new WristbandPrintRequest();
         r.setEventName("Pukkelpop 2026");
