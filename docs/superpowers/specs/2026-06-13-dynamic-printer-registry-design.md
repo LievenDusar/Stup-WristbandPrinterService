@@ -45,8 +45,11 @@ Printers exist today only as **management configuration** (`cluster.printers`: a
 - **D4 — Threads are created on demand and never torn down** for the life of the management
   process. An offline printer's queue/thread simply fails sends via the existing
   `PrinterUnavailableException` path; queued jobs are not silently dropped.
-- **D5 — Default printer = earliest-registered printer that is currently online and not hidden**
-  (fallback: earliest-registered non-hidden). An empty cluster (nothing registered yet) rejects
+- **D5 — Default printer resolution.** If an operator has explicitly set a default (D9) and that
+  printer still exists and is not hidden, it **is** the default (even if momentarily offline —
+  respecting operator intent; a job to an offline printer just fails at send like any other).
+  Otherwise fall back to the heuristic: **earliest-registered printer that is online and not
+  hidden** (then earliest-registered non-hidden). An empty cluster (nothing registered yet) rejects
   print requests cleanly.
 - **D6 — Printer changes propagate live via a new named SSE `printer` event.** When a printer is
   renamed (or registers / goes online-offline), management broadcasts a small `printer` event on the
@@ -68,6 +71,13 @@ Printers exist today only as **management configuration** (`cluster.printers`: a
   `online`/`last_seen_at` and broadcasting a `printer` event. A successful probe on a hidden printer
   brings it back (clears `hidden`). This lets the operator verify a printer without waiting for the
   heartbeat window. (Scope: connectivity/health probe, **not** a physical test print.)
+- **D9 — Operator-settable default printer.** A single `is_default` flag on `printers` (at most one
+  true). The modal has a **Set as default** action; setting one **clears the flag on all others** in
+  one transaction (radio-button semantics), and broadcasts a `printer` event so the indicator
+  updates live. Constraints: you may set an *offline* printer as default (transient) but **not a
+  hidden one** (409); **hiding the current default clears its `is_default`** so resolution falls back
+  to the heuristic (D5). Backfilled/new printers default to `is_default=false`, so with no explicit
+  choice behavior is unchanged (the D5 heuristic applies).
 
 ## Architecture
 
@@ -82,9 +92,13 @@ printers
   base_url       text  NOT NULL           -- worker's in-network address (supplied at registration)
   online         boolean NOT NULL DEFAULT false
   hidden         boolean NOT NULL DEFAULT false   -- soft-hide; auto-cleared when the printer comes online (D7)
+  is_default     boolean NOT NULL DEFAULT false   -- operator-set default; at most one true (D9)
   last_seen_at   timestamptz
   registered_at  timestamptz NOT NULL DEFAULT now()
 ```
+
+A partial unique index enforces the single default:
+`CREATE UNIQUE INDEX printers_one_default ON printers (is_default) WHERE is_default`.
 
 `print_jobs`:
 - Add FK `print_jobs.printer_id REFERENCES printers(id)`.
@@ -107,10 +121,12 @@ printers
     auto-unhide — refresh `last_seen_at`, `base_url`), add to the in-memory map if new, and tell
     `PrintQueueService` to ensure a queue + `processQueue` task exists for that id.
   - `markOffline(id)` / heartbeat staleness sweep: set `online=false`; the row and queue persist.
-  - `setHidden(id, true)` (offline only) and `rename(id, displayName)`: mutate the row + in-memory
-    map and broadcast a `printer` event.
-  - `get(id)`, `all()`, `getDefault()` keep their current contracts (`getDefault()` re-defined per
-    D5; `get(unknown)` still throws `UnknownPrinterException` → 400).
+  - `setHidden(id, true)` (offline only; clears `is_default` if it was the default — D9),
+    `rename(id, displayName)`, and `setDefault(id)` (clears all other `is_default` in one
+    transaction): mutate the row + in-memory map and broadcast `printer` event(s).
+  - `get(id)`, `all()` keep their current contracts (`get(unknown)` still throws
+    `UnknownPrinterException` → 400). `getDefault()` is re-defined per D5 (explicit default first,
+    then the heuristic).
 - **`PrintQueueService`**:
   - Worker `ExecutorService` switches from a fixed-size pool to a **cached pool**; a new printer
     triggers `worker.submit(() -> processQueue(queueFor(id)))`. `queueFor` already lazily creates
@@ -137,6 +153,8 @@ printers
   - `POST /api/wristbands/printers/{id}/test` — on-demand liveness probe (D8): management calls the
     worker's `base_url` health endpoint, updates `online`/`last_seen_at` (and clears `hidden` on
     success), and returns `{ reachable, online }`.
+  - `POST /api/wristbands/printers/{id}/default` — set as the default printer (D9); clears the flag
+    on all others; rejected with 409 if the printer is hidden.
 
 ### Printer-worker (data plane, one per printer)
 
@@ -181,11 +199,12 @@ and forwards to `base_url` via `WorkerClient`.
 ## API responses
 
 - `GET /api/wristbands/printers` reads the `printers` table; response includes
-  `{ id, displayName, online, hidden, lastSeenAt }` (the jobs UI seeds its `printersById` map from
-  this). The printer **filter** dropdown excludes hidden printers; the manage-printers modal shows
-  them (so they can be tested/un-hidden).
+  `{ id, displayName, online, hidden, isDefault, lastSeenAt }` (the jobs UI seeds its `printersById`
+  map from this). The printer **filter** dropdown excludes hidden printers; the manage-printers
+  modal shows them (so they can be tested/un-hidden).
 - `PATCH /api/wristbands/printers/{id}` → 200 with the updated printer; 404 unknown; 400 blank name.
 - `POST …/{id}/hide` → 200; 409 if online. `POST …/{id}/test` → 200 `{ reachable, online }`.
+- `POST …/{id}/default` → 200; 409 if hidden.
 - Jobs list/detail responses unchanged in shape; `printerName` now comes from the join.
 
 ## SSE events
@@ -193,9 +212,11 @@ and forwards to `base_url` via `WorkerClient`.
 The global jobs stream `GET /api/wristbands/jobs/stream` now carries **two** event types:
 - **(existing) unnamed job event** — `data:` is a `PrintJobResponse`; consumed via `onmessage`.
 - **(new) `printer` event** — `event: printer`, `data:` is
-  `{ id, displayName, online, hidden, lastSeenAt }`; consumed via `addEventListener('printer', …)`.
-  Backward compatible (named events don't reach `onmessage`). Broadcast on rename, hide,
-  register/heartbeat, offline, and test-probe results.
+  `{ id, displayName, online, hidden, isDefault, lastSeenAt }`; consumed via
+  `addEventListener('printer', …)`. Backward compatible (named events don't reach `onmessage`).
+  Broadcast on rename, hide, set-default, register/heartbeat, offline, and test-probe results.
+  (Setting a default emits a `printer` event for both the newly-default printer and the one that
+  lost the flag.)
 
 The per-job stream `GET /api/wristbands/jobs/{jobId}/stream` (Symfony) is **unaffected** — it still
 emits only that job's status; a mid-job rename is an ignorable edge case there.
@@ -211,10 +232,11 @@ emits only that job's status; a mid-job rename is an ignorable edge case there.
 - **"Manage printers" modal**, opened from the existing top **Menu** dropdown, styled with
   `app.css` (deep-purple glass theme, no build step). Lists **all** printers (including hidden) with
   their `online/offline` status, `lastSeenAt`, an inline-editable `displayName` with **Save**
-  (→ `PATCH`), a **Test** button (→ `…/test`, shows reachable/unreachable inline), and a **Hide**
-  action for offline printers (→ `…/hide`; disabled while online). The modal updates live from the
-  same `printer` SSE events. Adding is intentionally absent — a tooltip/hint states "add a printer by
-  starting its worker container."
+  (→ `PATCH`), a **Test** button (→ `…/test`, shows reachable/unreachable inline), a **Hide**
+  action for offline printers (→ `…/hide`; disabled while online), and a **Set as default** control
+  (→ `…/default`; radio/star, disabled for hidden printers) with the current default clearly
+  indicated. The modal updates live from the same `printer` SSE events. Adding is intentionally
+  absent — a tooltip/hint states "add a printer by starting its worker container."
 - Jobs UI also gains a small **online/offline** indicator for printers (the filter already exists).
 
 ## Packaging & deployment
@@ -233,15 +255,14 @@ emits only that job's status; a mid-job rename is an ignorable edge case there.
 2. **Self-registration + dynamic queues + remove `cluster.printers`.** Registration endpoint
    (+ `printer` SSE broadcast); worker registration runner + heartbeat; cached executor + on-demand
    queue creation; empty-cluster 503; default-printer redefinition; compose/env changes.
-3. **Manage-printers modal + live propagation.** Rename / hide / test endpoints; `hidden` column;
-   `printer` SSE event end to end; `jobs.js` `printersById` map + name column rendered from it; the
-   modal in the Menu dropdown (rename, Test, Hide); online/offline indicator; filter excludes hidden.
+3. **Manage-printers modal + live propagation.** Rename / hide / test / set-default endpoints;
+   `hidden` + `is_default` columns (single-default partial unique index); `printer` SSE event end to
+   end; `jobs.js` `printersById` map + name column rendered from it; the modal in the Menu dropdown
+   (rename, Test, Hide, Set-default); online/offline + default indicators; filter excludes hidden.
 
 ## Out of scope (YAGNI)
 
 - *Adding* a printer from the browser (add = a worker container) and **hard delete** of a printer.
-- Operator-settable default printer — no `is_default` flag and **no "set as default" action in the
-  manage-printers modal**; the default stays the earliest-registered online printer (D5).
 - Tearing down queues/threads when a printer is removed.
 - Multi-instance / horizontally-scaled management (still single-instance; in-memory queues).
 
@@ -272,6 +293,11 @@ emits only that job's status; a mid-job rename is an ignorable edge case there.
   register/heartbeat **auto-clears** `hidden`.
 - Test probe (D8): reachable worker → `online=true`, `last_seen_at` refreshed, `hidden` cleared,
   `{ reachable:true }`; unreachable → `online=false`, `{ reachable:false }`; both broadcast `printer`.
+- Set-default (D9): `…/default` sets `is_default` and clears it on all others (only one true — the
+  partial unique index holds); `getDefault()` returns the explicit default whenever it exists and is
+  not hidden (**even if offline** — operator intent wins), and falls back to the heuristic only when
+  no explicit default exists or it is hidden; setting a hidden printer → 409; hiding the current
+  default clears `is_default`.
 - `printer` SSE event is broadcast on rename/hide/register/offline/test and is a named event (does
   not reach `onmessage`). Front-end behavior (modal rename/Test/Hide + live cell/filter update)
   verified via the preview tools (vanilla JS, no JS test harness).
