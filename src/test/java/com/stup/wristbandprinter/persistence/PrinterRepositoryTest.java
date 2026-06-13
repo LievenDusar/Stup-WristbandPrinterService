@@ -40,4 +40,22 @@ class PrinterRepositoryTest {
         assertThat(p.isDefault()).isFalse();
         assertThat(p.getRegisteredAt()).isNotNull();
     }
+
+    @Test
+    void defaultResolutionQueries_orderByRegisteredAtAndFilter() {
+        java.time.Instant t0 = java.time.Instant.parse("2026-01-01T00:00:00Z");
+        PrinterEntity a = new PrinterEntity("a", "A", "http://a:8080"); a.setRegisteredAt(t0);
+        PrinterEntity b = new PrinterEntity("b", "B", "http://b:8080"); b.setRegisteredAt(t0.plusSeconds(60)); b.setOnline(true);
+        repository.saveAll(java.util.List.of(a, b));
+
+        assertThat(repository.findByIsDefaultTrue()).isEmpty();
+        assertThat(repository.findFirstByHiddenFalseOrderByRegisteredAtAsc())
+            .map(PrinterEntity::getId).contains("a");
+        assertThat(repository.findFirstByOnlineTrueAndHiddenFalseOrderByRegisteredAtAsc())
+            .map(PrinterEntity::getId).contains("b");
+
+        a.setDefault(true);
+        repository.save(a);
+        assertThat(repository.findByIsDefaultTrue()).map(PrinterEntity::getId).contains("a");
+    }
 }
