@@ -7,6 +7,7 @@ import com.stup.wristbandprinter.persistence.PrinterEntity;
 import com.stup.wristbandprinter.persistence.PrinterRepository;
 import jakarta.annotation.PostConstruct;
 import org.springframework.context.annotation.Profile;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
@@ -70,7 +71,7 @@ public class PrinterRegistry {
         PrinterEntity entity = existing.orElseGet(() -> new PrinterEntity(id, displayName, baseUrl));
         entity.setBaseUrl(baseUrl);
         entity.setOnline(true);
-        entity.setHidden(false);
+        entity.setHidden(false);   // D7: coming back online auto-unhides (an operator hide only sticks while offline)
         entity.setLastSeenAt(Instant.now());
         printerRepository.save(entity);
         byId.put(id, new Printer(id, entity.getDisplayName(), baseUrl));
@@ -107,8 +108,11 @@ public class PrinterRegistry {
         return printer;
     }
 
+    /** All printers, in a stable order (registration time, then id) for deterministic UI listing. */
     public List<Printer> all() {
-        return List.copyOf(byId.values());
+        return printerRepository.findAll(Sort.by(Sort.Order.asc("registeredAt"), Sort.Order.asc("id"))).stream()
+            .map(e -> new Printer(e.getId(), e.getDisplayName(), e.getBaseUrl()))
+            .toList();
     }
 
     /** Current public state of a printer as an SSE event payload; null if unknown. */

@@ -102,4 +102,13 @@ class PrinterRegistryStateTest {
         assertThat(snap.online()).isTrue();
         assertThat(r.snapshot("nope")).isNull();
     }
+
+    @Test
+    void all_returnsPrintersInStableRegistrationOrder() {
+        PrinterRegistry r = registry();
+        r.register("a", "A", "http://a:8080");
+        r.register("b", "B", "http://b:8080");
+        r.register("c", "C", "http://c:8080");
+        assertThat(r.all()).extracting(Printer::id).containsExactly("a", "b", "c");
+    }
 }
