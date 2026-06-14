@@ -2,6 +2,8 @@ package com.stup.wristbandprinter.cluster;
 
 import com.stup.wristbandprinter.cluster.dto.PrinterEvent;
 import com.stup.wristbandprinter.exception.NoPrintersAvailableException;
+import com.stup.wristbandprinter.exception.PrinterNotFoundException;
+import com.stup.wristbandprinter.exception.PrinterStateConflictException;
 import com.stup.wristbandprinter.exception.UnknownPrinterException;
 import com.stup.wristbandprinter.persistence.PrinterEntity;
 import com.stup.wristbandprinter.persistence.PrinterRepository;
@@ -9,6 +11,7 @@ import jakarta.annotation.PostConstruct;
 import org.springframework.context.annotation.Profile;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
@@ -101,5 +104,67 @@ public class PrinterRegistry {
             .map(e -> new PrinterEvent(e.getId(), e.getDisplayName(), e.isOnline(), e.isHidden(),
                 e.isDefault(), e.getLastSeenAt()))
             .orElse(null);
+    }
+
+    /** Rename (operator). Updates the table and the routing map. 404 if unknown. */
+    public void rename(String id, String displayName) {
+        PrinterEntity e = printerRepository.findById(id)
+            .orElseThrow(() -> new PrinterNotFoundException("Unknown printer id: " + id));
+        e.setDisplayName(displayName);
+        printerRepository.save(e);
+        byId.computeIfPresent(id, (k, p) -> new Printer(id, displayName, p.baseUrl()));
+    }
+
+    /** Soft-hide an OFFLINE printer (D7). Hiding the current default also clears its default flag.
+     *  404 if unknown; 409 if hiding while online. Unhide (hidden=false) is always allowed. */
+    public void setHidden(String id, boolean hidden) {
+        PrinterEntity e = printerRepository.findById(id)
+            .orElseThrow(() -> new PrinterNotFoundException("Unknown printer id: " + id));
+        if (hidden && e.isOnline()) {
+            throw new PrinterStateConflictException("Cannot hide an online printer: " + id);
+        }
+        e.setHidden(hidden);
+        if (hidden && e.isDefault()) {
+            e.setDefault(false);
+        }
+        printerRepository.save(e);
+    }
+
+    /** Set the single default printer (D9). 404 if unknown; 409 if hidden. Clears others in one tx. */
+    @Transactional
+    public void setDefault(String id) {
+        PrinterEntity target = printerRepository.findById(id)
+            .orElseThrow(() -> new PrinterNotFoundException("Unknown printer id: " + id));
+        if (target.isHidden()) {
+            throw new PrinterStateConflictException("Cannot set a hidden printer as default: " + id);
+        }
+        // Clear the previous default and FLUSH before setting the new one, so the two UPDATEs never
+        // co-exist as two is_default=true rows (which would trip the printers_one_default unique index).
+        printerRepository.findByIsDefaultTrue().ifPresent(current -> {
+            if (!current.getId().equals(id)) {
+                current.setDefault(false);
+                printerRepository.saveAndFlush(current);
+            }
+        });
+        target.setDefault(true);
+        printerRepository.save(target);
+    }
+
+    /** Mark online (e.g. a successful liveness probe — D8): online=true, hidden cleared, last_seen refreshed. */
+    public void markOnline(String id) {
+        printerRepository.findById(id).ifPresent(e -> {
+            e.setOnline(true);
+            e.setHidden(false);
+            e.setLastSeenAt(Instant.now());
+            printerRepository.save(e);
+        });
+    }
+
+    /** All printers as SSE-shaped views, ordered (registration time, then id) — for GET /printers. */
+    public List<PrinterEvent> snapshotAll() {
+        return printerRepository.findAll(Sort.by(Sort.Order.asc("registeredAt"), Sort.Order.asc("id"))).stream()
+            .map(e -> new PrinterEvent(e.getId(), e.getDisplayName(), e.isOnline(), e.isHidden(),
+                e.isDefault(), e.getLastSeenAt()))
+            .toList();
     }
 }
