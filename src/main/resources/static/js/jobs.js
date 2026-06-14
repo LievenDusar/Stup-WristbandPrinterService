@@ -409,6 +409,39 @@ function renderManageModal() {
     || '<tr><td class="muted">No printers registered. Start a worker container.</td></tr>';
 }
 
+// Modal actions — each hits a Part 3a admin endpoint; the `printer` SSE event refreshes
+// the table + modal (one source of truth), so these only fire a fetch + a toast.
+async function renamePrinter(id) {
+  const v = document.getElementById('pname-' + id).value.trim();
+  if (!v) { toast('Name cannot be empty', 'err'); return; }
+  const res = await guarded(fetch('/api/wristbands/printers/' + id, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ displayName: v })
+  }));
+  if (res && res.ok) toast('Renamed', 'ok'); else if (res) toast('Rename failed', 'err');
+}
+
+async function testPrinter(id) {
+  const res = await guarded(fetch('/api/wristbands/printers/' + id + '/test', { method: 'POST' }));
+  if (!res) return;
+  if (res.ok) { const r = await res.json(); toast(r.reachable ? 'Printer reachable' : 'Printer unreachable', r.reachable ? 'ok' : 'err'); }
+  else toast('Test failed', 'err');
+}
+
+async function hidePrinter(id) {
+  const res = await guarded(fetch('/api/wristbands/printers/' + id + '/hide', { method: 'POST' }));
+  if (res && res.ok) toast('Printer hidden', 'ok');
+  else if (res && res.status === 409) toast('Can only hide an offline printer', 'err');
+  else if (res) toast('Hide failed', 'err');
+}
+
+async function setDefaultPrinter(id) {
+  const res = await guarded(fetch('/api/wristbands/printers/' + id + '/default', { method: 'POST' }));
+  if (res && res.ok) toast('Default printer set', 'ok');
+  else if (res && res.status === 409) toast('A hidden printer cannot be the default', 'err');
+  else if (res) toast('Set default failed', 'err');
+}
+
 // Render key/value detail rows, skipping any with an empty value.
 function detailRows(pairs) {
   return pairs
@@ -701,5 +734,5 @@ document.addEventListener('click', () => { closeRowMenu(); closeNavMenu(); close
 window.addEventListener('scroll', closeRowMenu, true);
 window.addEventListener('resize', () => { closeRowMenu(); closeNavMenu(); closeColumnsMenu(); });
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') { closeDrawer(); closeRowMenu(); closeNavMenu(); closeColumnsMenu(); }
+  if (e.key === 'Escape') { closeDrawer(); closeManageModal(); closeRowMenu(); closeNavMenu(); closeColumnsMenu(); }
 });
