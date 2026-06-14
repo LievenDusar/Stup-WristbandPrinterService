@@ -11,7 +11,7 @@ its own [Wristband layout](#wristband-layout) section with an annotated diagram.
 
 | Property | Default | Description |
 |---|---|---|
-| `cluster.printers` | sentinel | **Management** printer registry: list of `{id, display-name, base-url}`, one per printer. Override per environment — see the compose files |
+| `worker.*` (worker role) | — | A worker's self-registration identity: `worker.id` (`WORKER_ID`), `worker.display-name`, `worker.base-url`, `worker.management-base-url`, `worker.heartbeat-millis`. The management registry is built from these registrations (no static `cluster.printers`). |
 | `printer.host` | `localhost` | Zebra printer IP/host — **set per worker** via `PRINTER_HOST`; unused by management |
 | `printer.port` | `9100` | Zebra printer TCP port (per worker) |
 | `printer.timeout-ms` | `5000` | Socket connection timeout (ms) |

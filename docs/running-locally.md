@@ -151,8 +151,10 @@ docker compose -f docker-compose.local-cluster.yml up --build -d
 just Postgres + management on HTTP 8080; printing fails until a worker exists.
 
 > 💡 **Add a virtual printer:** add a `fakeprinter-3` (copy a socat service) and a `worker-3`
-> (`PRINTER_HOST=fakeprinter-3`) to `docker-compose.local-cluster.yml`, then add a third entry to the
-> management `SPRING_APPLICATION_JSON` registry pointing at `http://worker-3:8080`.
+> (`PRINTER_HOST=fakeprinter-3`) to `docker-compose.local-cluster.yml`, giving the worker its
+> self-registration env (`WORKER_ID=printer-3`, `WORKER_DISPLAY_NAME`, `WORKER_BASE_URL=http://worker-3:8080`,
+> `WORKER_MANAGEMENT_BASE_URL=http://management:8080`). It registers itself — there is no management
+> registry to edit.
 
 > ⚠️ **Upgrading from an older compose?** If `docker-compose.yml` previously ran with a custom
 > `DB_PASSWORD`, the persisted `pgdata` volume was initialized with it and the new hardcoded

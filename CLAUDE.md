@@ -54,11 +54,15 @@ important concept to understand before editing anything.
 
 ### Printer registry & routing
 
-The registry is management config under `cluster.printers`: a list of
-`{ id, display-name, base-url }`, one entry per printer/worker. `id` is the public `printerId`;
-`base-url` is the worker's in-network address. `PrinterRegistry` validates the config at startup
-(non-empty, no duplicate ids). Each printer gets its **own** queue + worker thread, so printers
-print in parallel. Unknown `printerId` → **400**; per-printer queue full → **429**.
+The registry is **DB-backed and built from worker self-registration** — there is no static config.
+Each worker, on startup, POSTs `{ id, display-name, base-url }` to management's internal
+`POST /api/internal/printers/register` (and heartbeats); `PrinterRegistry` persists it to the
+`printers` table and creates that printer's **own** queue + worker thread on demand, so printers
+print in parallel. `id` is the public `printerId`; `base-url` is the worker's in-network address.
+Unknown `printerId` → **400**; per-printer queue full → **429**; an empty cluster (no printer
+registered) → **503**. `PrinterRegistry` loads the persisted printers into its routing map at
+startup. (Operators rename/hide/test/set-default via the jobs UI; printers are never added or
+hard-deleted from the browser.)
 
 ### Preview rendering
 
@@ -155,8 +159,9 @@ negotiates with modern daemons — bump if your daemon requires higher.
   in the database. Restore with `UPDATE print_jobs SET deleted = false WHERE job_id = '…';`.
 - **Persist-before-enqueue:** a job row is saved *before* it is offered to the queue, to avoid the
   worker thread racing the submitter into a duplicate insert; a lost capacity race undoes the row.
-- **Default printer = first** registered in `cluster.printers`. Missing `printerId` → default;
-  unknown → `400`.
+- **Default printer = the operator-set default if any (D5), else the earliest-registered printer
+  that is online and not hidden** (then earliest non-hidden). Missing `printerId` → default;
+  unknown → `400`; no printers registered → `503`.
 - **Per-printer queue depth** (`queue.max-depth`, default 100): exceeding it → `429`.
 - **Prod safety gate:** under `prod` the app **refuses to start** if `security.api-key` is unset,
   blank, or still `changeme`.

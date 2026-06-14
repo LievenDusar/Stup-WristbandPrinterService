@@ -86,11 +86,13 @@ The service runs in **two roles**, selected by Spring profile (the same image, a
   (`PRINTER_HOST:9100`), and reports success/failure. Reached only by management over the private
   network.
 
-The **registry** lives in management config under `cluster.printers` — a list of
-`{ id, display-name, base-url }`, one per printer. `id` is what a caller sends as `printerId`;
-`base-url` is the worker's in-network address. A print request with no `printerId` goes to the
-first (default) printer; an unknown `printerId` is rejected with **400**. Each printer has its own
-queue and worker thread, so printers print in parallel.
+The **registry** is DB-backed and built from **worker self-registration** (no static config): each
+worker announces itself to management on startup (`id`, `display-name`, `base-url`) and heartbeats.
+`id` is what a caller sends as `printerId`; `base-url` is the worker's in-network address. A print
+request with no `printerId` goes to the default printer (the operator-set one, else the
+earliest-registered online printer); an unknown `printerId` is rejected with **400**, and a cluster
+with no registered printers returns **503**. Each printer has its own queue and worker thread, so
+printers print in parallel.
 
 | | Local dev | Production |
 |---|---|---|
@@ -184,12 +186,17 @@ Each printer is **one worker service + one registry entry**, edited together. To
    PRINTER2_HOST=10.0.0.52
    ```
 
-2. **`docker-compose.prod.yml`** — uncomment the `printer-worker-2` service template, then add a
-   line to the management `SPRING_APPLICATION_JSON` registry. The `base-url` host must equal the
-   worker's service name; `id` is the `printerId` Symfony sends:
+2. **`docker-compose.prod.yml`** — uncomment the `printer-worker-2` service template and give it
+   its self-registration identity (`WORKER_ID` = the `printerId` Symfony sends, `WORKER_DISPLAY_NAME`,
+   `WORKER_BASE_URL` = the worker's service URL, `WORKER_MANAGEMENT_BASE_URL`). There is **no
+   management registry to edit** — the worker registers itself on startup:
 
    ```yaml
-   {"id":"printer-2", "display-name":"Inkom", "base-url":"http://printer-worker-2:8080"}
+   environment:
+     WORKER_ID: printer-2
+     WORKER_DISPLAY_NAME: Inkom
+     WORKER_BASE_URL: http://printer-worker-2:8080
+     WORKER_MANAGEMENT_BASE_URL: https://management:8443   # see prod TLS prerequisite in docs
    ```
 
 3. **Redeploy:** `docker compose -f docker-compose.prod.yml --env-file .env.prod up --build -d`
