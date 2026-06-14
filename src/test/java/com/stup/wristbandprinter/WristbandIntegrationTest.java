@@ -84,14 +84,6 @@ class WristbandIntegrationTest {
     @DynamicPropertySource
     static void properties(DynamicPropertyRegistry registry) {
         registry.add("security.api-key", () -> API_KEY);
-        registry.add("cluster.printers[0].id", () -> "printer-1");
-        registry.add("cluster.printers[0].display-name", () -> "Integration printer");
-        registry.add("cluster.printers[0].base-url",
-            () -> "http://localhost:" + workerServer.getAddress().getPort());
-        registry.add("cluster.printers[1].id", () -> "printer-2");
-        registry.add("cluster.printers[1].display-name", () -> "Second printer");
-        registry.add("cluster.printers[1].base-url",
-            () -> "http://localhost:" + workerServer.getAddress().getPort());
     }
 
     @LocalServerPort
@@ -99,6 +91,16 @@ class WristbandIntegrationTest {
 
     @Autowired
     private TestRestTemplate rest;
+
+    @Autowired
+    private com.stup.wristbandprinter.cluster.PrinterRegistry printerRegistry;
+
+    @org.junit.jupiter.api.BeforeEach
+    void registerPrinters() {
+        String workerUrl = "http://localhost:" + workerServer.getAddress().getPort();
+        printerRegistry.register("printer-1", "Printer 1", workerUrl);
+        printerRegistry.register("printer-2", "Second printer", workerUrl);
+    }
 
     @Test
     void printJob_reachesDone_andWorkerReceivesZpl() {
@@ -108,7 +110,7 @@ class WristbandIntegrationTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.ACCEPTED);
         assertThat(response.getBody().printerId()).isEqualTo("printer-1");
-        assertThat(response.getBody().printerName()).isEqualTo("Integration printer");
+        assertThat(response.getBody().printerName()).isEqualTo("Printer 1");
         String jobId = response.getBody().jobId().toString();
 
         await().atMost(Duration.ofSeconds(10)).untilAsserted(() ->
