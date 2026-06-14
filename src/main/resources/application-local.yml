@@ -16,13 +16,6 @@ printer:
   port: 9100
   timeout-ms: 3000
 
-cluster:
-  # Local dev: route to a worker started with SPRING_PROFILES_ACTIVE=worker on port 8089.
-  printers:
-    - id: printer-1
-      display-name: Lokale printer
-      base-url: http://localhost:8089
-
 wristband:
   logo-path: classpath:images/stup-logo.png
 

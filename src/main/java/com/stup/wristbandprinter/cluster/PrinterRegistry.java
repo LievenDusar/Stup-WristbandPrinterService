@@ -11,51 +11,31 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Routing view over the printers. The in-memory {@code byId} map (id → routing info: display name +
- * base URL) is loaded from the printers table at startup and mutated by {@link #register}. Printer
- * <em>state</em> (online/hidden/default) lives only in the table and is queried on demand, so there
- * is a single source of truth and no in-memory/DB drift.
+ * Routing view over the printers. The in-memory {@code byId} map (id -> routing info: display name +
+ * base URL) is loaded from the printers table at startup and mutated by {@link #register}. Printer state
+ * (online/hidden/default) lives only in the table and is queried on demand. Printers are created
+ * exclusively by worker self-registration (no static config).
  */
 @Component
 @Profile("!worker")
 public class PrinterRegistry {
 
     private final Map<String, Printer> byId = new ConcurrentHashMap<>();
-    private final PrinterRegistryProperties props;
     private final PrinterRepository printerRepository;
 
-    public PrinterRegistry(PrinterRegistryProperties props, PrinterRepository printerRepository) {
-        this.props = props;
+    public PrinterRegistry(PrinterRepository printerRepository) {
         this.printerRepository = printerRepository;
-        Map<String, Boolean> seen = new HashMap<>();
-        for (PrinterRegistryProperties.Entry e : props.getPrinters()) {
-            if (seen.put(e.getId(), Boolean.TRUE) != null) {
-                throw new IllegalStateException("Duplicate printer id in cluster.printers: " + e.getId());
-            }
-        }
     }
 
-    /**
-     * Seed configured printers into the table (insert-if-absent, refresh name/base_url on existing),
-     * then load every printer row into the routing map. Flyway runs before any {@code @PostConstruct},
-     * so the printers table (V9) exists here; each repository call is its own transaction.
-     */
+    /** Load every persisted printer into the routing map at startup (Flyway has already run). */
     @PostConstruct
     public void init() {
-        for (PrinterRegistryProperties.Entry e : props.getPrinters()) {
-            PrinterEntity entity = printerRepository.findById(e.getId())
-                .orElseGet(() -> new PrinterEntity(e.getId(), e.getDisplayName(), e.getBaseUrl()));
-            entity.setDisplayName(e.getDisplayName());
-            entity.setBaseUrl(e.getBaseUrl());
-            printerRepository.save(entity);
-        }
         for (PrinterEntity e : printerRepository.findAll()) {
             byId.put(e.getId(), new Printer(e.getId(), e.getDisplayName(), e.getBaseUrl()));
         }

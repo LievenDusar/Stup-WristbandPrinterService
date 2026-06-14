@@ -28,9 +28,17 @@ class PrinterRegistryStateTest {
     private PrinterRepository repo;
 
     private PrinterRegistry registry() {
-        PrinterRegistry r = new PrinterRegistry(new PrinterRegistryProperties(), repo);
+        PrinterRegistry r = new PrinterRegistry(repo);
         r.init();
         return r;
+    }
+
+    @Test
+    void init_loadsExistingPrintersFromDb() {
+        repo.save(new PrinterEntity("printer-1", "Inkom", "http://printer-1:8080"));
+        PrinterRegistry r = new PrinterRegistry(repo);
+        r.init();
+        assertThat(r.get("printer-1").displayName()).isEqualTo("Inkom");
     }
 
     @Test
