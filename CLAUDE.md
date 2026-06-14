@@ -91,8 +91,16 @@ over **SSE**, and provides:
   identity, grouped sections, footer-pinned actions, corner-× close, no scroll). Per-row actions
   (Details, Copy job ID, Reprint, Cancel) live in a **⋮ popover** (`#row-menu`, `position:fixed` so
   it escapes the table's `overflow:hidden`).
-- A top **Menu** dropdown for navigation (Gallery, Template editor) and the destructive
-  **Clear completed** — kept off the main toolbar to avoid accidental clicks (still confirms).
+- A top **Menu** dropdown for navigation (Gallery, Template editor), the **Manage printers**
+  modal, and the destructive **Clear completed** — kept off the main toolbar to avoid accidental
+  clicks (still confirms).
+- A **Manage printers** modal (Menu-launched, reuses `.modal-overlay`) listing every registered
+  printer with online/offline + default (★) indicators and per-row **rename / test / hide /
+  set-default** actions hitting the Part 3a admin endpoints. The jobs page keeps a client-side
+  `printersById` map (seeded from `GET /printers`, upserted on each named **`printer` SSE event**)
+  and renders the Printer column from it, so a rename or status change repaints the table and the
+  printer filter live — no refresh. The filter excludes hidden printers; the modal shows them.
+  Printers are never added or hard-deleted from the browser (add = start a worker container).
 - A **Copies** column (replacing the old *Completed* column, which now lives only in the
   detail drawer) and a **Columns ▾** chooser to toggle which data columns are visible
   (max 5 + always-on Actions), remembered per browser in `localStorage`.
