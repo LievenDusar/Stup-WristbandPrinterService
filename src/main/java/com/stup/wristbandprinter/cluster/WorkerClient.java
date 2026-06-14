@@ -48,4 +48,18 @@ public class WorkerClient {
                 "Worker at " + baseUrl + " could not print job " + jobId + ": " + e.getMessage(), e);
         }
     }
+
+    /** On-demand liveness probe (D8): GET the worker's health endpoint; true iff it responds 2xx. */
+    public boolean isReachable(String baseUrl) {
+        try {
+            restClient.get()
+                .uri(baseUrl + "/actuator/health")
+                .retrieve()
+                .toBodilessEntity();
+            return true;
+        } catch (RestClientException e) {
+            log.debug("Liveness probe to {} failed: {}", baseUrl, e.getMessage());
+            return false;
+        }
+    }
 }

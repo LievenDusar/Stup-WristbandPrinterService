@@ -10,6 +10,7 @@ import org.springframework.web.client.ResourceAccessException;
 
 import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.*;
@@ -62,5 +63,20 @@ class WorkerClientTest {
 
         assertThatThrownBy(() -> client.print("http://worker:8080", UUID.randomUUID(), "^XA^XZ"))
             .isInstanceOf(PrinterUnavailableException.class);
+    }
+
+    @Test
+    void isReachable_trueOn2xxHealth() {
+        server.expect(requestTo("http://worker:8080/actuator/health"))
+            .andExpect(method(org.springframework.http.HttpMethod.GET))
+            .andRespond(withSuccess());
+        assertThat(client.isReachable("http://worker:8080")).isTrue();
+    }
+
+    @Test
+    void isReachable_falseOnError() {
+        server.expect(requestTo("http://worker:8080/actuator/health"))
+            .andRespond(request -> { throw new ResourceAccessException("down"); });
+        assertThat(client.isReachable("http://worker:8080")).isFalse();
     }
 }
