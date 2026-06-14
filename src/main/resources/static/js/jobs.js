@@ -3,7 +3,7 @@ let statusFilter = '';
 let typeFilter = '';
 let eventFilter = '';
 let printerFilter = '';
-let printers = [];
+let printersById = {};   // id -> { id, displayName, online, hidden, isDefault, lastSeenAt }
 let sortKey = 'submittedAt';
 let sortDir = -1; // newest first
 let eventSource = null;
@@ -25,7 +25,7 @@ const COLUMNS = [
   { key: 'event',     label: 'Event',     sort: 'eventName',
     cell: j => esc(j.eventName) },
   { key: 'printer',   label: 'Printer',   sort: 'printerName',
-    cell: j => esc(j.printerName || '—') },
+    cell: j => printerLabel(j) },
   { key: 'copies',    label: 'Copies',    sort: 'copies',
     cell: j => (j.copies > 1 ? `<strong>${j.copies}</strong>` : `<span class="muted">${j.copies ?? 1}</span>`) },
   { key: 'status',    label: 'Status',    sort: 'status',
@@ -118,7 +118,10 @@ async function init() {
   } catch (e) { /* SSE will retry */ }
   try {
     const pr = await fetch('/api/wristbands/printers');
-    if (pr.ok) printers = await pr.json();
+    if (pr.ok) {
+      printersById = {};
+      (await pr.json()).forEach(p => { printersById[p.id] = p; });
+    }
   } catch (e) { /* the printer filter just won't render */ }
   render();
   connectSse();
@@ -131,6 +134,12 @@ function connectSse() {
   eventSource = new EventSource('/api/wristbands/jobs/stream');
   eventSource.onopen = () => setSse('● Live', 'live');
   eventSource.onmessage = (e) => { const job = JSON.parse(e.data); jobs[job.jobId] = job; render(); };
+  eventSource.addEventListener('printer', (e) => {
+    const p = JSON.parse(e.data);
+    printersById[p.id] = p;
+    render();                       // repaints table cells + rebuilds the filter
+    if (typeof renderManageModal === 'function' && isManageOpen()) renderManageModal();
+  });
   eventSource.onerror = async () => {
     setSse('○ Reconnecting…', 'reconnecting');
     // Distinguish a dropped connection from a lost session.
@@ -216,6 +225,16 @@ function rowHtml(job) {
   </tr>`;
 }
 
+// Printer name resolved live from printersById (so a rename repaints all rows);
+// falls back to the value captured on the job. A known-offline printer gets a muted dot.
+function printerLabel(j) {
+  const p = j.printerId ? printersById[j.printerId] : null;
+  const name = (p && p.displayName) || j.printerName;
+  if (!name) return '<span class="muted">—</span>';
+  const dot = p && !p.online ? '<span class="printer-dot off" title="offline"></span>' : '';
+  return dot + esc(name);
+}
+
 // Small coloured pill marking a job's wristband type (CREW / PERMIT).
 function typeBadge(type) {
   if (!type) return '<span class="muted">—</span>';
@@ -250,13 +269,14 @@ function renderFilters() {
   ], eventFilter);
 
   const printerSel = document.getElementById('filter-printer');
-  if (printers && printers.length > 1) {               // no point routing-filtering with one printer
+  const visiblePrinters = Object.values(printersById).filter(p => !p.hidden);
+  if (visiblePrinters.length > 1) {                    // no point routing-filtering with one printer
     printerSel.hidden = false;
     const pc = {};
     all.forEach(j => { if (j.printerId) pc[j.printerId] = (pc[j.printerId] || 0) + 1; });
     syncSelect('filter-printer', [
       { value: '', label: 'All printers' },
-      ...printers.map(p => ({ value: p.id, label: `${p.displayName} (${pc[p.id] || 0})` }))
+      ...visiblePrinters.map(p => ({ value: p.id, label: `${p.displayName} (${pc[p.id] || 0})` }))
     ], printerFilter);
   } else {
     printerSel.hidden = true;
@@ -513,10 +533,11 @@ function reprintDialog(defaultCopies) {
     const overlay = document.getElementById('confirm-overlay');
     const card = overlay.querySelector('.confirm-card');
     const prevHtml = card.innerHTML;
-    const printerField = (printers && printers.length > 1)
+    const reprintPrinters = Object.values(printersById).filter(p => !p.hidden);
+    const printerField = (reprintPrinters.length > 1)
       ? `<label class="reprint-field">Printer
            <select class="select" id="reprint-printer">
-             ${printers.map(p => `<option value="${esc(p.id)}">${esc(p.displayName)}</option>`).join('')}
+             ${reprintPrinters.map(p => `<option value="${esc(p.id)}">${esc(p.displayName)}</option>`).join('')}
            </select></label>`
       : '';
     card.innerHTML = `
