@@ -138,7 +138,7 @@ function connectSse() {
     const p = JSON.parse(e.data);
     printersById[p.id] = p;
     render();                       // repaints table cells + rebuilds the filter
-    if (typeof renderManageModal === 'function' && isManageOpen()) renderManageModal();
+    if (isManageOpen()) renderManageModal();
   });
   eventSource.onerror = async () => {
     setSse('○ Reconnecting…', 'reconnecting');
@@ -362,6 +362,51 @@ function closeNavMenu() {
 async function copyId(id) {
   try { await navigator.clipboard.writeText(id); toast('Job ID copied', 'ok'); }
   catch (e) { toast('Copy failed', 'err'); }
+}
+
+// ── Manage-printers modal ──────────────────────────────────────────────────────
+function isManageOpen() {
+  const o = document.getElementById('manage-overlay');
+  return o && o.classList.contains('open');
+}
+
+function openManageModal() {
+  closeNavMenu();
+  renderManageModal();
+  document.getElementById('manage-overlay').classList.add('open');
+}
+
+function closeManageModal() {
+  document.getElementById('manage-overlay').classList.remove('open');
+}
+
+function renderManageModal() {
+  const rows = Object.values(printersById)
+    .sort((a, b) => a.id.localeCompare(b.id))
+    .map(p => {
+      const status = p.online
+        ? '<span class="badge DONE">online</span>'
+        : '<span class="badge PENDING">offline</span>';
+      const hidden = p.hidden ? ' <span class="muted">(hidden)</span>' : '';
+      const star = p.isDefault
+        ? '<span class="default-star on" title="default printer">★</span>'
+        : `<button class="btn btn-sm" onclick="setDefaultPrinter('${p.id}')"
+             ${p.hidden ? 'disabled title="hidden printers cannot be default"' : ''}>Set default</button>`;
+      const hideBtn = p.online
+        ? '<button class="btn btn-sm" disabled title="can only hide an offline printer">Hide</button>'
+        : (p.hidden ? '' : `<button class="btn btn-sm" onclick="hidePrinter('${p.id}')">Hide</button>`);
+      return `<tr>
+        <td><input class="input manage-name" id="pname-${p.id}" value="${esc(p.displayName)}">
+            <button class="btn btn-sm" onclick="renamePrinter('${p.id}')">Save</button></td>
+        <td>${status}${hidden}<div class="muted manage-seen">${p.lastSeenAt ? relTime(p.lastSeenAt) : ''}</div></td>
+        <td>${star}</td>
+        <td class="manage-actions">
+          <button class="btn btn-sm" onclick="testPrinter('${p.id}')">Test</button>
+          ${hideBtn}
+        </td></tr>`;
+    }).join('');
+  document.getElementById('manage-rows').innerHTML = rows
+    || '<tr><td class="muted">No printers registered. Start a worker container.</td></tr>';
 }
 
 // Render key/value detail rows, skipping any with an empty value.

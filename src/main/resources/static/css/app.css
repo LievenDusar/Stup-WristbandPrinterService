@@ -301,6 +301,24 @@ tbody tr:hover { background: hsla(0, 0%, 100%, 0.03); }
 }
 .modal-close:hover { background: hsla(0, 0%, 100%, 0.15); }
 
+/* Manage-printers modal */
+.manage-panel {
+  background: var(--glass-bg); border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md); backdrop-filter: blur(12px);
+  padding: 24px; width: min(680px, 95vw); max-height: 85vh; overflow-y: auto;
+  box-shadow: var(--shadow-card);
+}
+.manage-title { margin: 0 0 4px; font-size: 1.25rem; }
+.manage-hint { color: var(--text-muted); font-size: 0.82rem; margin: 0 0 16px; }
+.manage-table { width: 100%; border-collapse: collapse; }
+.manage-table td { padding: 10px 8px; border-top: 1px solid var(--glass-border); vertical-align: top; }
+.manage-name { width: 200px; margin-right: 6px; }
+.manage-actions { display: flex; gap: 6px; }
+.manage-seen { font-size: 0.72rem; margin-top: 4px; }
+.default-star.on { color: var(--orange); font-size: 1.1rem; }
+.printer-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; }
+.printer-dot.off { background: #9e9e9e; }
+
 /* Column chooser checkboxes (jobs table) */
 .col-toggle { display: flex; align-items: center; gap: 8px; cursor: pointer; }
 .col-toggle input[disabled] { opacity: .4; cursor: not-allowed; }

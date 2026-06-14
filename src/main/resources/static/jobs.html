@@ -19,6 +19,7 @@
           <div class="popover nav-menu" id="nav-menu" hidden>
             <a class="menu-item" href="/wristband-gallery.html">Gallery</a>
             <a class="menu-item" href="/template-editor.html">Template editor <span class="beta-badge">beta</span></a>
+            <button class="menu-item" onclick="openManageModal()">Manage printers</button>
             <div class="menu-sep"></div>
             <button class="menu-item danger" onclick="clearCompleted()">Clear completed</button>
             <button class="menu-item" onclick="logout()">Sign out</button>
@@ -69,6 +70,15 @@
   </div>
 
   <div class="popover" id="row-menu" hidden></div>
+
+  <div class="modal-overlay" id="manage-overlay" onclick="if (event.target === this) closeManageModal()">
+    <div class="manage-panel">
+      <button class="modal-close" onclick="closeManageModal()" aria-label="Close">×</button>
+      <h2 class="manage-title">Printers</h2>
+      <p class="manage-hint">Add a printer by starting its worker container — it registers itself.</p>
+      <table class="manage-table"><tbody id="manage-rows"></tbody></table>
+    </div>
+  </div>
 
   <div id="toasts"></div>
 
