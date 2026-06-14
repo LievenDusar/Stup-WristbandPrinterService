@@ -75,6 +75,18 @@ public class GlobalExceptionHandler {
         return errorResponse(HttpStatus.BAD_REQUEST, "Unknown printer", ex.getMessage());
     }
 
+    @ExceptionHandler(PrinterNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handlePrinterNotFound(PrinterNotFoundException ex) {
+        log.warn("Printer not found: {}", ex.getMessage());
+        return errorResponse(HttpStatus.NOT_FOUND, "Printer not found", ex.getMessage());
+    }
+
+    @ExceptionHandler(PrinterStateConflictException.class)
+    public ResponseEntity<Map<String, Object>> handlePrinterStateConflict(PrinterStateConflictException ex) {
+        log.warn("Printer state conflict: {}", ex.getMessage());
+        return errorResponse(HttpStatus.CONFLICT, "Printer state conflict", ex.getMessage());
+    }
+
     @ExceptionHandler(InvalidStockColorException.class)
     public ResponseEntity<Map<String, Object>> handleInvalidStockColor(InvalidStockColorException ex) {
         log.warn("Invalid stock color: {}", ex.getMessage());
