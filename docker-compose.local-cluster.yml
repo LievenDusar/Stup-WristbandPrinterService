@@ -55,6 +55,10 @@ services:
       - SECURITY_API_KEY=local-dev-key
       - PRINTER_HOST=192.168.242.77
       - PRINTER_PORT=9100
+      - WORKER_ID=printer-1
+      - WORKER_DISPLAY_NAME=Secretariaat
+      - WORKER_BASE_URL=http://worker-1:8080
+      - WORKER_MANAGEMENT_BASE_URL=http://management:8080
     #depends_on:
     #  - fakeprinter-1
 
