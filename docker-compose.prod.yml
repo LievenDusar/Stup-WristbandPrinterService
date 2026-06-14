@@ -7,8 +7,9 @@
 #                     on 8080 (not published); no DB, no UI. Receives ready-to-print
 #                     ZPL from management and writes it to its printer (PRINTERn_HOST).
 #
-# Management routes a job to a worker using the printer registry in its
-# SPRING_APPLICATION_JSON (each entry: id + display-name + the worker's in-network URL).
+# Printers self-register with management — there is no static printer registry to maintain.
+# Each printer-worker carries WORKER_ID, WORKER_DISPLAY_NAME, WORKER_BASE_URL and
+# WORKER_MANAGEMENT_BASE_URL and registers itself (+ heartbeats) on startup.
 #
 # Prerequisites:
 #   1. ./build.sh                  (build the wristband-base image)
@@ -18,13 +19,11 @@
 #   docker compose -f docker-compose.prod.yml --env-file .env.prod up --build -d
 #   # https://<MANAGEMENT_HOSTNAME>:8443/jobs.html   (self-signed cert)
 #
-# ADD A PRINTER (two coordinated edits):
-#   1. Copy the `printer-worker-2` template below; give it a unique service name and its
-#      own PRINTERn_HOST (add that variable to .env.prod).
-#   2. Add a matching entry to the management `SPRING_APPLICATION_JSON` registry:
-#      {"id":"printer-2","display-name":"<label>","base-url":"http://printer-worker-2:8080"}
-#   The `id` is the value Symfony sends as `printerId`; the `base-url` host MUST equal the
-#   worker's service name.
+# ADD A PRINTER:
+#   Copy the `printer-worker-2` template below; give it a unique service name, its own
+#   PRINTERn_HOST (add that variable to .env.prod), and its own WORKER_ID / WORKER_DISPLAY_NAME /
+#   WORKER_BASE_URL. See docs/production-deployment.md for the worker -> management TLS
+#   prerequisite before setting a live WORKER_MANAGEMENT_BASE_URL.
 
 x-worker-base: &worker-base
   image: wristband-printer
@@ -80,13 +79,12 @@ services:
       SSL_KEYSTORE_PATH: /certs/keystore.p12
       SSL_KEYSTORE_PASSWORD: ${SSL_KEYSTORE_PASSWORD}
       SSL_CERT_HOSTNAME: ${MANAGEMENT_HOSTNAME:-localhost}
-      # Printer registry — one entry per worker. ADD a line here when you add a printer.
-      SPRING_APPLICATION_JSON: '{
-        "cluster":
-          {"printers":[
-            {"id":"printer-1", "display-name":"Secretariaat", "base-url":"http://printer-worker-1:8080"}
-          ]}
-        }'
+      # Printers self-register (no static registry). Each printer-worker below must set:
+      #   WORKER_ID, WORKER_DISPLAY_NAME, WORKER_BASE_URL, WORKER_MANAGEMENT_BASE_URL
+      # PREREQUISITE (not yet wired): worker -> management is HTTPS-only here; before
+      # enabling prod self-registration, add an internal HTTP connector for /api/internal/**
+      # on management OR make the worker RestClient trust the internal cert. See
+      # docs/production-deployment.md.
     ports:
       - "8443:8443"
     volumes:

@@ -11,8 +11,8 @@ printer**. Follow the [deployment steps](#deployment) in order.
 
 | Service | Role |
 |---|---|
-| **management** | The only public service (HTTPS on 8443). Holds the TLS certificate, the DB connection, and the printer registry. Flyway runs the migrations here, once, on startup |
-| **workers** | One per printer; internal HTTP only, no certificate and no database |
+| **management** | The only public service (HTTPS on 8443). Holds the TLS certificate, the DB connection, and the dynamic printer registry (built from worker self-registration). Flyway runs the migrations here, once, on startup |
+| **workers** | One per printer; internal HTTP only, no certificate and no database. Each worker self-registers with management on startup and sends a heartbeat |
 | **database** | Not bundled — management connects to a dedicated, remote `stup_wristband_db` database on the Symfony site's Postgres instance |
 | **API key** | Management and every worker share the same `API_KEY` |
 
@@ -63,7 +63,11 @@ PRINTER2_HOST=[printer-2-ip]
 ### 2. Declare one worker per printer
 
 In `docker-compose.prod.yml`, `printer-worker-1` already exists. For each additional printer,
-uncomment/copy the `printer-worker-2` template and point it at that printer's `PRINTERn_HOST`:
+uncomment/copy the `printer-worker-2` template and point it at that printer's `PRINTERn_HOST`. Each
+worker also carries its **self-registration identity** — `WORKER_ID` (the value Symfony sends as
+`printerId`), `WORKER_DISPLAY_NAME` (shown in the UI), `WORKER_BASE_URL` (the worker's own
+in-network URL, used by management to forward print jobs) and `WORKER_MANAGEMENT_BASE_URL` (where
+the worker calls management to register and send heartbeats):
 
 ```yaml
   printer-worker-2:
@@ -72,19 +76,29 @@ uncomment/copy the `printer-worker-2` template and point it at that printer's `P
       SPRING_PROFILES_ACTIVE: worker
       SECURITY_API_KEY: ${API_KEY}
       PRINTER_HOST: ${PRINTER2_HOST}
+      WORKER_ID: printer-2
+      WORKER_DISPLAY_NAME: [printer-2-label]
+      WORKER_BASE_URL: http://printer-worker-2:8080
+      WORKER_MANAGEMENT_BASE_URL: https://management:8443
 ```
 
 Add each new worker to the management service's `depends_on` list.
 
-### 3. Register the printers in management
+> ⚠️ **Prerequisite — worker → management is HTTPS-only in prod.** Management listens
+> HTTPS-only on 8443 with a self-signed certificate (see [HTTPS & Symfony certificate
+> trust](#https--symfony-certificate-trust)). Before a worker can self-register, either add an
+> internal **HTTP** connector on management for `/api/internal/**`, or configure the worker's
+> `RestClient` to trust management's self-signed certificate. Until one of those is done, do not
+> set a live `WORKER_MANAGEMENT_BASE_URL=https://...` in prod — registration calls will fail TLS
+> verification.
 
-In the `management` service, edit `SPRING_APPLICATION_JSON` so the registry lists every worker.
-`id` is what Symfony sends as `printerId`, `display-name` is shown in the UI, and the `base-url`
-host **must** equal the worker's service name. Only `[printer-N-label]` is free text:
+### 3. Printers self-register — no static registry to edit
 
-```yaml
-      SPRING_APPLICATION_JSON: '{"cluster":{"printers":[{"id":"printer-1","display-name":"[printer-1-label]","base-url":"http://printer-worker-1:8080"},{"id":"printer-2","display-name":"[printer-2-label]","base-url":"http://printer-worker-2:8080"}]}}'
-```
+Management holds **no static printer list**. On startup (and via heartbeat) each worker calls
+management's internal registration endpoint using its `WORKER_ID`, `WORKER_DISPLAY_NAME`,
+`WORKER_BASE_URL` and `WORKER_MANAGEMENT_BASE_URL`, and management adds/refreshes that printer in
+its registry automatically. There is nothing to edit on the `management` service for a new
+printer beyond the worker definition in step 2.
 
 ### 4. Launch
 
@@ -113,9 +127,9 @@ Then open `https://[management-hostname]:8443/jobs.html` (admin / your `ADMIN_PA
 
 ## Adding a printer later
 
-A printer is **one worker service + one registry entry**, edited together in the same two files,
-then a redeploy. The example below adds a second printer (`printer-2`); bump the index for each
-further printer.
+A printer is **one worker service**, added in `docker-compose.prod.yml`, then a redeploy — there is
+no registry to edit on management. The example below adds a second printer (`printer-2`); bump the
+index for each further printer.
 
 **1. `.env.prod`** — declare the new printer's IP:
 
@@ -123,9 +137,9 @@ further printer.
 PRINTER2_HOST=10.0.0.52
 ```
 
-**2a. `docker-compose.prod.yml`** — add a worker service. The file already ships a commented
-`printer-worker-2` template right after `printer-worker-1`; uncomment it (or copy the block and bump
-the index for a third printer):
+**2. `docker-compose.prod.yml`** — add a worker service with its self-registration identity. The
+file already ships a commented `printer-worker-2` template right after `printer-worker-1`; uncomment
+it (or copy the block and bump the index for a third printer):
 
 ```yaml
   printer-worker-2:
@@ -134,23 +148,15 @@ the index for a third printer):
       SPRING_PROFILES_ACTIVE: worker
       SECURITY_API_KEY: ${API_KEY}
       PRINTER_HOST: ${PRINTER2_HOST}
+      WORKER_ID: printer-2
+      WORKER_DISPLAY_NAME: Inkom
+      WORKER_BASE_URL: http://printer-worker-2:8080
+      WORKER_MANAGEMENT_BASE_URL: https://management:8443
 ```
 
-**2b. `docker-compose.prod.yml`** — add one line to the **management** printer registry in
-`SPRING_APPLICATION_JSON`. The `base-url` host **must** equal the worker's service name, and `id` is
-the value Symfony sends as `printerId`:
-
-```yaml
-      SPRING_APPLICATION_JSON: '{
-        "cluster":
-          {"printers":[
-            {"id":"printer-1", "display-name":"Secretariaat", "base-url":"http://printer-worker-1:8080"},
-            {"id":"printer-2", "display-name":"Inkom",        "base-url":"http://printer-worker-2:8080"}
-          ]}
-        }'
-```
-
-(Optionally add `printer-worker-2` to the management `depends_on:` list so it starts first.)
+(Optionally add `printer-worker-2` to the management `depends_on:` list so it starts first.) See the
+prerequisite note in step 2 above about worker → management TLS before setting a live
+`WORKER_MANAGEMENT_BASE_URL`.
 
 **3. Redeploy:**
 
@@ -158,13 +164,15 @@ the value Symfony sends as `printerId`:
 docker compose -f docker-compose.prod.yml --env-file .env.prod up --build -d
 ```
 
-The new printer then appears in `GET /api/wristbands/printers`, the jobs-page printer filter, and the
-reprint picker. Workers do **not** publish a host port and need no certificate. The **first**
-registered printer is the default when a request omits `printerId`; an unknown `printerId` is
-rejected with **400**.
+The new printer then self-registers on startup and appears in `GET /api/wristbands/printers`, the
+jobs-page printer filter, and the reprint picker. Workers do **not** publish a host port and need no
+certificate. The **first** printer to register is the default when a request omits `printerId`; an
+unknown `printerId` is rejected with **400**.
 
 > The local virtual cluster works the same way — `docker-compose.local-cluster.yml` defines its
-> workers and the `cluster.printers` registry (as YAML, not JSON) in exactly this shape.
+> workers with `WORKER_ID` / `WORKER_DISPLAY_NAME` / `WORKER_BASE_URL` /
+> `WORKER_MANAGEMENT_BASE_URL`, and they self-register with `management` over the plain-HTTP
+> in-network connection (no TLS prerequisite locally).
 
 ## HTTPS & Symfony certificate trust
 

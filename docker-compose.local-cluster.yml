@@ -72,8 +72,6 @@ services:
       - SPRING_DATASOURCE_USERNAME=wristbands
       - SPRING_DATASOURCE_PASSWORD=wristbands
       - SECURITY_API_KEY=local-dev-key
-      # Override cluster.printers with the in-network worker URLs (one line of JSON).
-      - SPRING_APPLICATION_JSON={"cluster":{"printers":[{"id":"printer-1","display-name":"Secretariaat","base-url":"http://worker-1:8080"}]}}
     ports:
       - "8080:8080"
     depends_on:
