@@ -425,17 +425,22 @@ class WristbandControllerTest {
 
     @Test
     void printers_returnsConfiguredPrinters() throws Exception {
-        when(printerRegistry.all()).thenReturn(List.of(
-            new Printer("printer-1", "Inkom links", "http://w1:8080"),
-            new Printer("printer-2", "Inkom rechts", "http://w2:8080")));
+        when(printerRegistry.snapshotAll()).thenReturn(List.of(
+            new com.stup.wristbandprinter.cluster.dto.PrinterEvent(
+                "printer-1", "Inkom links", true, false, true, java.time.Instant.now()),
+            new com.stup.wristbandprinter.cluster.dto.PrinterEvent(
+                "printer-2", "Inkom rechts", false, false, false, java.time.Instant.now())));
 
         mockMvc.perform(get("/api/wristbands/printers")
                 .header("X-API-Key", API_KEY))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$[0].id").value("printer-1"))
             .andExpect(jsonPath("$[0].displayName").value("Inkom links"))
+            .andExpect(jsonPath("$[0].online").value(true))
+            .andExpect(jsonPath("$[0].isDefault").value(true))
             .andExpect(jsonPath("$[1].id").value("printer-2"))
-            .andExpect(jsonPath("$[1].displayName").value("Inkom rechts"));
+            .andExpect(jsonPath("$[1].displayName").value("Inkom rechts"))
+            .andExpect(jsonPath("$[1].online").value(false));
     }
 
     @Test

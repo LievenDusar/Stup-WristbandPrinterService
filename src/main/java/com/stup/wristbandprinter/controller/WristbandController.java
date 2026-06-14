@@ -167,8 +167,9 @@ public class WristbandController {
     @GetMapping("/printers")
     @Operation(summary = "List the printers this service can route to", tags = {"Printers & Gallery"})
     public ResponseEntity<List<PrinterSummaryResponse>> printers() {
-        return ResponseEntity.ok(printerRegistry.all().stream()
-            .map(p -> new PrinterSummaryResponse(p.id(), p.displayName()))
+        return ResponseEntity.ok(printerRegistry.snapshotAll().stream()
+            .map(e -> new PrinterSummaryResponse(e.id(), e.displayName(), e.online(),
+                e.hidden(), e.isDefault(), e.lastSeenAt()))
             .toList());
     }
 
