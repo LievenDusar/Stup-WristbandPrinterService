@@ -34,7 +34,7 @@ const COLUMNS = [
     cell: j => `<span title="${fmtDateTime(j.submittedAt)}">${relTime(j.submittedAt)}</span>` },
 ];
 
-const MAX_COLS = 5;
+const MAX_COLS = 6;
 const MIN_COLS = 1;
 const DEFAULT_COLS = ['name', 'type', 'event', 'copies', 'status'];
 const ALL_COL_KEYS = COLUMNS.map(c => c.key);
@@ -99,7 +99,7 @@ function toggleColumn(key) {
     if (visibleCols.length <= MIN_COLS) return;        // keep at least one data column
     visibleCols = visibleCols.filter(k => k !== key);
   } else {
-    if (visibleCols.length >= MAX_COLS) return;        // cap at five data columns
+    if (visibleCols.length >= MAX_COLS) return;        // cap at six data columns
     visibleCols.push(key);
   }
   saveVisibleCols();

@@ -103,7 +103,7 @@ over **SSE**, and provides:
   Printers are never added or hard-deleted from the browser (add = start a worker container).
 - A **Copies** column (replacing the old *Completed* column, which now lives only in the
   detail drawer) and a **Columns ▾** chooser to toggle which data columns are visible
-  (max 5 + always-on Actions), remembered per browser in `localStorage`.
+  (max 6 + always-on Actions), remembered per browser in `localStorage`.
 
 `GET /api/wristbands/gallery` powers `wristband-gallery.html` (a sample of every band type), which
 shares `app.css` and shows each preview in a 90vh modal.
