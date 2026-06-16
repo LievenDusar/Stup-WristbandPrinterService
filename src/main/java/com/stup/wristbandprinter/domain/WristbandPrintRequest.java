@@ -6,6 +6,9 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 
+// Polymorphism is declared on PrintableRequest. Here the discriminator is redundant: NONE suppresses
+// the type-info wrapper, and @JsonIgnoreProperties drops wristbandType on deserialize (there is no
+// setter) while allowGetters=true keeps getWristbandType() in serialized output.
 @JsonTypeInfo(use = JsonTypeInfo.Id.NONE)
 @JsonIgnoreProperties(value = "wristbandType", allowGetters = true)
 @Schema(description = "Data required to print or preview a wristband")

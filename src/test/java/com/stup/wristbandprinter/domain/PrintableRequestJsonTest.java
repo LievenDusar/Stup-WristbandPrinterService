@@ -40,6 +40,14 @@ class PrintableRequestJsonTest {
     }
 
     @Test
+    void serializedPermitIncludesLowercaseDiscriminator() throws Exception {
+        PermitWristbandPrintRequest req = new PermitWristbandPrintRequest();
+        req.setEventName("E");
+        req.setPermitLabel("Elektriciteit");
+        assertThat(mapper.writeValueAsString(req)).contains("\"wristbandType\":\"permit\"");
+    }
+
+    @Test
     void missingDiscriminatorFails() {
         String json = "{\"eventName\":\"E\",\"firstName\":\"A\"}";
         assertThatThrownBy(() -> mapper.readValue(json, PrintableRequest.class))
