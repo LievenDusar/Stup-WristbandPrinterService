@@ -35,3 +35,13 @@ wristband copy*.png
 
 # Superpowers brainstorm/visual-companion scratch
 .superpowers/
+
+# Graphify knowledge-graph output (regenerated locally by the graphify hook)
+graphify-out/
+
+# Local Claude Code settings
+.claude/settings.json
+
+# Postman local config
+.postman/
+postman/
