@@ -181,9 +181,9 @@ negotiates with modern daemons — bump if your daemon requires higher.
   every job by default; wipes the printer's **RAM drive (R:)** only — no flash wear.
 - **Print stays monochrome.** Template "colour" tints the **preview only** to judge contrast on
   coloured stock.
-- **Legacy layout is the default.** `POST /api/wristbands/print` with `"wristbandType": "crew"` and
-  no `templateId` uses the fixed programmatic layout (logo → barcode → text → logo); zero breaking
-  change for existing crews using the new endpoint.
+- **Legacy layout is the default.** A crew print request without a `templateId` uses the fixed
+  programmatic layout (logo → barcode → text → logo); supplying a `templateId` opts into template
+  rendering.
 - **`wristbandType` is lowercase on the wire** — both in requests (`"crew"`/`"permit"`) and in the
   jobs list response. The Java enum stays uppercase internally (`WristbandType.CREW` /
   `WristbandType.PERMIT`).
@@ -263,10 +263,13 @@ docker/                        base image + supporting Docker assets
 
 ## Current work in progress
 
-The permit wristband feature is fully implemented (plans `2026-06-09-permit-wristband-part-1`
-through `part-4`). Most recent work (2026-06-11) is a **front-end refresh of the jobs page and
-gallery** plus surfacing `permitLabel` on the jobs list response — see the dated section at the end
-of [HANDOVER.md](HANDOVER.md). No change to the print/route/worker pipeline.
+The most recent work (2026-06-16) is the **API endpoint restructure**: crew and permit
+print/preview merged into one polymorphic `POST /api/wristbands/print` (discriminator
+`wristbandType`, lowercase on the wire), templates/assets renamed to `/api/wristband-templates`
+and `/api/wristband-assets`, and the old type-specific paths removed (hard cut). See the dated
+section at the end of [HANDOVER.md](HANDOVER.md). The permit wristband feature (plans
+`2026-06-09-permit-wristband-part-1`…`part-4`) and the 2026-06-11 jobs/gallery front-end refresh
+remain in place.
 
 ## Recommended next steps
 

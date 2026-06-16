@@ -199,6 +199,9 @@ bands it has no personal details. Any non-blank `permitLabel` creates a valid pe
 - See the 2026-06-16 section below for the current single polymorphic endpoint.
 
 ### Request fields (`PermitWristbandPrintRequest`)
+
+_(This class still exists; since the 2026-06-16 restructure its fields are sent as the permit variant of the polymorphic `POST /api/wristbands/print` body — see that section.)_
+
 | Field | Required | Notes |
 |-------|----------|-------|
 | `eventName` | ✅ | Printed in block 4 |
