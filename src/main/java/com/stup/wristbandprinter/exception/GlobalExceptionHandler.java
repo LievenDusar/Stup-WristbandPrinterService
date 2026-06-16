@@ -108,16 +108,14 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(NoResourceFoundException.class)
     public ResponseEntity<Map<String, Object>> handleNoResourceFound(NoResourceFoundException ex) {
+        log.warn("No resource found: {}", ex.getMessage());
         return errorResponse(HttpStatus.NOT_FOUND, "Not found", ex.getMessage());
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<Map<String, Object>> handleUnreadable(HttpMessageNotReadableException ex) {
-        return ResponseEntity.badRequest().body(Map.of(
-            "status", 400,
-            "error", "Bad Request",
-            "message", "Malformed request body or unknown wristbandType (expected \"crew\" or \"permit\")."
-        ));
+        return errorResponse(HttpStatus.BAD_REQUEST, "Bad Request",
+            "Malformed request body or unknown wristbandType (expected \"crew\" or \"permit\").");
     }
 
     @ExceptionHandler(Exception.class)
