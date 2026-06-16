@@ -112,14 +112,12 @@ All values under `wristband.permit.*`:
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `event-logo-path` | `classpath:images/stup-logo.png` | Event logo PNG (classpath: or absolute path) |
-| `event-logo-side-margin-dots` | 30 | Horizontal margin for the event logo in block 4 |
-| `margins.between-blocks` | 60 | Gap between the four top-level layout blocks (dots) |
-| `margins.writing-space-gap` | 55 | Blank space between the permit-label line and the dashes fill-in line |
+| `margins.between-blocks` | 60 | Gap between the top-level layout blocks (dots) |
+| `margins.inter-line-gap` | 12 | Gap (dots) between block-2's two lines ("Toelating …" / "aan …"), like the crew band |
 | `text.font-size-permit-label` | 66 | Font size for "Toelating [label]" |
-| `text.font-size-club` | 42 | Font size for the optional club name |
+| `text.font-size-club` | 42 | Font size for the "aan …" club / fill-in line |
 | `text.font-size-event-name` | 52 | Font size for the event name in block 4 |
-| `text.dot-count` | 30 | Number of dashes/dots for the writing-line when no club name is given |
+| `text.dot-count` | 45 | Number of dots for the "aan …" writing-line when no club name is given |
 | `code.default-symbology` | `CODE128` | Scan-code symbology when `codeSymbology` is absent in the request |
 | `code.height-dots` | 200 | Bar height of the optional scan code |
 | `code.module-width-dots` | 2 | Narrow-bar module width for the optional scan code |

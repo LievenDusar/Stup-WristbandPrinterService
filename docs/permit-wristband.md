@@ -9,21 +9,26 @@ access token.
 
 ## Layout
 
-The band is 300 × 3300 dots at 300 DPI (same physical stock as the crew band). Four blocks
+The band is 300 × 3300 dots at 300 DPI (same physical stock as the crew band). The blocks
 are stacked vertically with `betweenBlocks` gaps between them.
 
 ```
 Block 1 – STUP logo (180° rotated)
 [betweenBlocks gap]
 Block 2 – "Toelating [permitLabel]"  (permitTextFontSize)
-           [writingSpaceGap blank space]
-           clubName  OR  dotted fill-in line  (clubFontSize / dashes)
+           [interLineGap]
+           "aan " + clubName  OR  "aan " + dotted fill-in line  (clubFontSize / dashes)
 [betweenBlocks gap]
 Block 3 (optional) – scan code (CODE128 / CODE39 / QR)
 [betweenBlocks gap, only if block 3 present]
 Block 4 – eventName  (eventNameFontSize)
-           event logo (180° rotated)
 ```
+
+Block 2 is two lines that bind into one centered text block — the same way the crew band stacks
+and centres its text lines. Both are rotated 270° (`^A0B`), separated by a small `interLineGap`
+across the band width, and centred on the same axis: line 1 is `Toelating [permitLabel]`, line 2
+is `aan ` followed by the `clubName` when supplied, otherwise a dotted fill-in line for writing the
+name by hand.
 
 ## API contract
 
@@ -50,23 +55,7 @@ Any non-blank `permitLabel` is accepted. Current conventions:
 
 To add a new type, pass a new `permitLabel` — no code changes required.
 
-## Assets
-
-`wristband.permit.event-logo-path` points to the event-specific logo printed in block 4.
-Override per environment in `application-prod.yml` or via environment variable:
-
-```yaml
-wristband:
-  permit:
-    event-logo-path: /opt/stup/logos/pukkelpop-2026.png
-```
-
-The logo is loaded at startup. If it cannot be found the service logs a warning and omits
-the logo — it does **not** fail to start.
-
 ## Ops runbook
-
-**Change the event logo:** Update `event-logo-path` and restart the management container.
 
 **Calibrate layout:** Use the preview endpoint, inspect the PNG, and adjust `wristband.permit.*`
 values. No code changes needed.

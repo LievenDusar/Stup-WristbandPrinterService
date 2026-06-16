@@ -61,15 +61,14 @@ wristband:
     5: "#008000"   # green
     6: "#FF0000"   # red
   permit:
-    event-logo-path: classpath:images/pkp-logo-short.png
     margins:
-      between-blocks: 60        # ~5 mm at 300 DPI — uniform gap between every block pair
-      writing-space-gap: 55    # inside block 2; gives room to write by hand
+      between-blocks: 180       # ~5 mm at 300 DPI — uniform gap between every block pair
+      inter-line-gap: 60       # gap between block-2's two lines ("Toelating …" / "aan …"), like the crew band
     text:
       font-size-permit-label: 66
-      font-size-club: 42
+      font-size-club: 52
       font-size-event-name: 52
-      dot-count: 60             # '.' characters when no clubName is supplied
+      dot-count: 50             # '.' characters on line 2 ("aan ...") when no clubName is supplied
     code:
       default-symbology: CODE128
       height-dots: 200

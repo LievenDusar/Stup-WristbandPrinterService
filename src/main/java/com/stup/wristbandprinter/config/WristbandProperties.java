@@ -113,18 +113,9 @@ public class WristbandProperties {
     /** Configuration for the permit wristband layout (wristband.permit.*). */
     public static class Permit {
 
-        /**
-         * Path to the event logo PNG. May be a classpath: or filesystem path.
-         * When not configured / not found, the event-logo block is omitted gracefully.
-         */
-        private String eventLogoPath = "classpath:images/event-logo.png";
-
         private PermitMargins margins = new PermitMargins();
         private PermitText text = new PermitText();
         private PermitCode code = new PermitCode();
-
-        public String getEventLogoPath() { return eventLogoPath; }
-        public void setEventLogoPath(String eventLogoPath) { this.eventLogoPath = eventLogoPath; }
 
         public PermitMargins getMargins() { return margins; }
         public void setMargins(PermitMargins margins) { this.margins = margins; }
@@ -138,14 +129,18 @@ public class WristbandProperties {
         public static class PermitMargins {
             /** Uniform gap in dots between every adjacent block pair. */
             private int betweenBlocks = 60;
-            /** Gap inside block 2 between the permit-label line and the dot/club line. */
-            private int writingSpaceGap = 55;
+            /**
+             * Gap in dots between the two stacked lines of block 2 ("Toelating …" and "aan …"),
+             * across the band width. Kept small (like the crew band's inter-line gap) so the two
+             * lines read as one centered text block.
+             */
+            private int interLineGap = 12;
 
             public int getBetweenBlocks() { return betweenBlocks; }
             public void setBetweenBlocks(int betweenBlocks) { this.betweenBlocks = betweenBlocks; }
 
-            public int getWritingSpaceGap() { return writingSpaceGap; }
-            public void setWritingSpaceGap(int writingSpaceGap) { this.writingSpaceGap = writingSpaceGap; }
+            public int getInterLineGap() { return interLineGap; }
+            public void setInterLineGap(int interLineGap) { this.interLineGap = interLineGap; }
         }
 
         public static class PermitText {
