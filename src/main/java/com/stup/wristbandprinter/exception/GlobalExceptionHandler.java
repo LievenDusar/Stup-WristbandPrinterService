@@ -114,8 +114,8 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<Map<String, Object>> handleUnreadable(HttpMessageNotReadableException ex) {
-        return errorResponse(HttpStatus.BAD_REQUEST, "Bad Request",
-            "Malformed request body or unknown wristbandType (expected \"crew\" or \"permit\").");
+        return errorResponse(HttpStatus.BAD_REQUEST, "Bad request",
+            "Malformed or unreadable request body. For print/preview, ensure \"wristbandType\" is \"crew\" or \"permit\".");
     }
 
     @ExceptionHandler(Exception.class)

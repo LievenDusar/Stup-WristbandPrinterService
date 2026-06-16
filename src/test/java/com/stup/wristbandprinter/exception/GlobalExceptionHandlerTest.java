@@ -164,6 +164,6 @@ class GlobalExceptionHandlerTest {
                 .content("{\"wristbandType\":\"unknown\"}"))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.status").value(400))
-            .andExpect(jsonPath("$.error").value("Bad Request"));
+            .andExpect(jsonPath("$.error").value("Bad request"));
     }
 }
