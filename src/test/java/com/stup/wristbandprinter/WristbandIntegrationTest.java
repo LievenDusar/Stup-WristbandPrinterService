@@ -178,6 +178,7 @@ class WristbandIntegrationTest {
     void printJob_routesToRequestedPrinter() {
         String body = """
             {
+              "wristbandType": "crew",
               "eventName": "Pukkelpop 2026",
               "firstName": "Jan",
               "lastName": "Janssens",
@@ -255,6 +256,7 @@ class WristbandIntegrationTest {
     private String sampleBody() {
         return """
             {
+              "wristbandType": "crew",
               "eventName": "Pukkelpop 2026",
               "firstName": "Jan",
               "lastName": "Janssens",
