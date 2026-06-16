@@ -357,4 +357,4 @@ Permit fields: `wristbandType` (`"permit"`), `eventName`, `permitLabel` (+ optio
 ### Source records
 
 Design spec: `docs/superpowers/specs/2026-06-16-api-endpoint-restructure-design.md`  
-Implementation plan: `docs/superpowers/plans/2026-06-16-api-endpoint-restructure-plan.md`
+Implementation plan: `docs/superpowers/plans/2026-06-16-api-endpoint-restructure.md`

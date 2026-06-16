@@ -209,7 +209,7 @@ negotiates with modern daemons — bump if your daemon requires higher.
 src/main/java/com/stup/wristbandprinter/
 ├── cluster/        Printer registry + WorkerClient (management→worker forwarding)
 ├── config/         @ConfigurationProperties, SecurityConfig, ApiKeyValidator
-├── controller/     WristbandController, PermitWristbandController, AuthController (management REST)
+├── controller/     WristbandController, AuthController (management REST)
 ├── domain/         PrintJob, request/response DTOs, PrintJobStatus
 ├── editor/         Template designer feature package (domain/persistence/service/controller)
 ├── exception/      Custom exceptions + GlobalExceptionHandler (maps to HTTP status)
