@@ -235,7 +235,7 @@ function printerLabel(j) {
   return dot + esc(name);
 }
 
-// Small coloured pill marking a job's wristband type (CREW / PERMIT).
+// Small coloured pill marking a job's wristband type (crew / permit).
 function typeBadge(type) {
   if (!type) return '<span class="muted">—</span>';
   return `<span class="badge ${type}">${esc(TYPE_LABELS[type] || type)}</span>`;
