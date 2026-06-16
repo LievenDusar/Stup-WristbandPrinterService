@@ -60,7 +60,7 @@ class PermitWristbandControllerTest {
                 .content(mapper.writeValueAsString(req)))
             .andExpect(status().isAccepted())
             .andExpect(jsonPath("$.jobId").value(jobId.toString()))
-            .andExpect(jsonPath("$.wristbandType").value("PERMIT"));
+            .andExpect(jsonPath("$.wristbandType").value("permit"));
     }
 
     @Test
