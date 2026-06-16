@@ -1,7 +1,6 @@
 package com.stup.wristbandprinter.editor.controller;
 
 import com.stup.wristbandprinter.domain.WristbandData;
-import com.stup.wristbandprinter.editor.domain.AssetResponse;
 import com.stup.wristbandprinter.editor.domain.TemplateDetailResponse;
 import com.stup.wristbandprinter.editor.domain.TemplateSummaryResponse;
 import com.stup.wristbandprinter.editor.domain.UpsertTemplateRequest;
@@ -14,9 +13,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
-
-import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
 
@@ -83,18 +79,4 @@ public class TemplateController {
             .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
-    @PostMapping("/assets")
-    @Operation(summary = "Upload a logo image, returning its asset id")
-    public ResponseEntity<AssetResponse> uploadAsset(@RequestParam("file") MultipartFile file) throws IOException {
-        AssetResponse response = templateService.storeAsset(file.getOriginalFilename(), file.getBytes());
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
-    }
-
-    @GetMapping(value = "/assets/{id}", produces = MediaType.IMAGE_PNG_VALUE)
-    @Operation(summary = "Fetch a stored logo image")
-    public ResponseEntity<byte[]> getAsset(@PathVariable UUID id) {
-        return templateService.rawAsset(id)
-            .map(png -> ResponseEntity.ok().contentType(MediaType.IMAGE_PNG).body(png))
-            .orElseGet(() -> ResponseEntity.notFound().build());
-    }
 }

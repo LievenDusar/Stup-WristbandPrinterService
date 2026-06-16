@@ -26,7 +26,10 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(TemplateController.class)
@@ -162,20 +165,6 @@ class TemplateControllerTest {
                 .content("{}"))
             .andExpect(status().isOk())
             .andExpect(content().contentType(MediaType.IMAGE_PNG));
-    }
-
-    @Test
-    void uploadAsset_returns201WithAssetId() throws Exception {
-        UUID assetId = UUID.randomUUID();
-        when(templateService.storeAsset(eq("logo.png"), any()))
-            .thenReturn(new com.stup.wristbandprinter.editor.domain.AssetResponse(assetId, "logo.png", 40, 20));
-
-        var file = new org.springframework.mock.web.MockMultipartFile(
-            "file", "logo.png", MediaType.IMAGE_PNG_VALUE, new byte[]{1, 2, 3});
-
-        mockMvc.perform(multipart("/api/wristband-templates/assets").file(file).header("X-API-Key", API_KEY))
-            .andExpect(status().isCreated())
-            .andExpect(jsonPath("$.id").value(assetId.toString()));
     }
 
     private UpsertTemplateRequest request(String name) {
