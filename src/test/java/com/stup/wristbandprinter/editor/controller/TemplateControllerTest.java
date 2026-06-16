@@ -151,6 +151,20 @@ class TemplateControllerTest {
     }
 
     @Test
+    void preview_returnsPng_withSuppliedData() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(templateService.renderPreview(eq(id), notNull(), isNull()))
+            .thenReturn(Optional.of(new byte[]{4, 5, 6}));
+
+        mockMvc.perform(post("/api/wristband-templates/" + id + "/preview")
+                .header("X-API-Key", API_KEY)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}"))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.IMAGE_PNG));
+    }
+
+    @Test
     void uploadAsset_returns201WithAssetId() throws Exception {
         UUID assetId = UUID.randomUUID();
         when(templateService.storeAsset(eq("logo.png"), any()))
