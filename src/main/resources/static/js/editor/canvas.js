@@ -162,7 +162,7 @@ function loadImageInto(rect, assetId) {
     rect.stroke(null); rect.dash([]);
     layer.draw();
   };
-  img.src = '/api/templates/assets/' + assetId;
+  img.src = '/api/wristband-assets/' + assetId;
 }
 
 // Public: add a brand-new top-level leaf from the toolbox.
