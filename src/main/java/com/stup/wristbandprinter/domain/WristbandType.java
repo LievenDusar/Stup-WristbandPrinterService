@@ -16,6 +16,9 @@ public enum WristbandType {
     /** Parse the wire form back to the enum, case-insensitively for robustness. */
     @JsonCreator
     public static WristbandType fromWire(String value) {
+        if (value == null) {
+            return null;
+        }
         return WristbandType.valueOf(value.trim().toUpperCase());
     }
 }
