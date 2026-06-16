@@ -1,5 +1,7 @@
 package com.stup.wristbandprinter.domain;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -10,6 +12,8 @@ import jakarta.validation.constraints.NotBlank;
  * <p>Layout: STUP logo → "Toelating [permitLabel]" header + writing line → optional scan code
  * → eventName + event logo.</p>
  */
+@JsonTypeInfo(use = JsonTypeInfo.Id.NONE)
+@JsonIgnoreProperties(value = "wristbandType", allowGetters = true)
 @Schema(description = "Data required to print or preview a permit wristband")
 public final class PermitWristbandPrintRequest implements PrintableRequest {
 

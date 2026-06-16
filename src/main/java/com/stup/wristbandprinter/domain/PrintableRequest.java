@@ -1,9 +1,18 @@
 package com.stup.wristbandprinter.domain;
 
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+
 /**
  * Sealed interface for all wristband print request types.
  * Permits: {@link WristbandPrintRequest} (CREW), {@link PermitWristbandPrintRequest} (PERMIT).
  */
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.EXISTING_PROPERTY,
+              property = "wristbandType", visible = true)
+@JsonSubTypes({
+    @JsonSubTypes.Type(value = WristbandPrintRequest.class,       name = "crew"),
+    @JsonSubTypes.Type(value = PermitWristbandPrintRequest.class, name = "permit")
+})
 public sealed interface PrintableRequest permits WristbandPrintRequest, PermitWristbandPrintRequest {
 
     String getPrinterId();

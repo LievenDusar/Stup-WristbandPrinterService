@@ -1,9 +1,13 @@
 package com.stup.wristbandprinter.domain;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 
+@JsonTypeInfo(use = JsonTypeInfo.Id.NONE)
+@JsonIgnoreProperties(value = "wristbandType", allowGetters = true)
 @Schema(description = "Data required to print or preview a wristband")
 public final class WristbandPrintRequest implements PrintableRequest {
 
