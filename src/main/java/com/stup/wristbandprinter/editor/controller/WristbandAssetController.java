@@ -18,7 +18,7 @@ import java.util.UUID;
 @Profile("!worker")
 @RestController
 @RequestMapping("/api/wristband-assets")
-@Tag(name = "Templates", description = "Logo/image assets used by wristband templates")
+@Tag(name = "Templates")
 @SecurityRequirement(name = "ApiKeyAuth")
 public class WristbandAssetController {
 
