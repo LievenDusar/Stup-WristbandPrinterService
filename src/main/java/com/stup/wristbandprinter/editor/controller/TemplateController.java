@@ -24,7 +24,7 @@ import org.springframework.context.annotation.Profile;
 
 @Profile("!worker")
 @RestController
-@RequestMapping("/api/templates")
+@RequestMapping("/api/wristband-templates")
 @Tag(name = "Templates", description = "Create, manage and browse wristband templates")
 @SecurityRequirement(name = "ApiKeyAuth")
 public class TemplateController {
@@ -73,20 +73,11 @@ public class TemplateController {
             : ResponseEntity.notFound().build();
     }
 
-    @GetMapping(value = "/{id}/preview", produces = MediaType.IMAGE_PNG_VALUE)
-    @Operation(summary = "Render a PNG preview of a template using sample data")
-    public ResponseEntity<byte[]> preview(@PathVariable UUID id,
-                                          @RequestParam(required = false) String color) {
-        return templateService.renderPreview(id, null, color)
-            .map(png -> ResponseEntity.ok().contentType(MediaType.IMAGE_PNG).body(png))
-            .orElseGet(() -> ResponseEntity.notFound().build());
-    }
-
     @PostMapping(value = "/{id}/preview", produces = MediaType.IMAGE_PNG_VALUE)
-    @Operation(summary = "Render a PNG preview of a template using supplied data")
-    public ResponseEntity<byte[]> previewWithData(@PathVariable UUID id,
-                                                  @RequestParam(required = false) String color,
-                                                  @RequestBody WristbandData data) {
+    @Operation(summary = "Render a PNG preview of a template; uses sample data when no body is supplied")
+    public ResponseEntity<byte[]> preview(@PathVariable UUID id,
+                                          @RequestParam(required = false) String color,
+                                          @RequestBody(required = false) WristbandData data) {
         return templateService.renderPreview(id, data, color)
             .map(png -> ResponseEntity.ok().contentType(MediaType.IMAGE_PNG).body(png))
             .orElseGet(() -> ResponseEntity.notFound().build());

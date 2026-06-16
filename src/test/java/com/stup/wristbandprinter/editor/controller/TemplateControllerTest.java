@@ -47,7 +47,7 @@ class TemplateControllerTest {
         TemplateDetailResponse detail = detail(UUID.randomUUID(), "festival-band");
         when(templateService.create(any())).thenReturn(detail);
 
-        mockMvc.perform(post("/api/templates")
+        mockMvc.perform(post("/api/wristband-templates")
                 .header("X-API-Key", API_KEY)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request("Festival Band"))))
@@ -57,7 +57,7 @@ class TemplateControllerTest {
 
     @Test
     void create_returns400_whenNameBlank() throws Exception {
-        mockMvc.perform(post("/api/templates")
+        mockMvc.perform(post("/api/wristband-templates")
                 .header("X-API-Key", API_KEY)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request(""))))
@@ -66,7 +66,7 @@ class TemplateControllerTest {
 
     @Test
     void create_returns401_withoutApiKey() throws Exception {
-        mockMvc.perform(post("/api/templates")
+        mockMvc.perform(post("/api/wristband-templates")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request("X"))))
             .andExpect(status().isUnauthorized());
@@ -76,7 +76,7 @@ class TemplateControllerTest {
     void get_returns404_whenMissing() throws Exception {
         UUID id = UUID.randomUUID();
         when(templateService.getById(id)).thenReturn(Optional.empty());
-        mockMvc.perform(get("/api/templates/" + id).header("X-API-Key", API_KEY))
+        mockMvc.perform(get("/api/wristband-templates/" + id).header("X-API-Key", API_KEY))
             .andExpect(status().isNotFound());
     }
 
@@ -84,7 +84,7 @@ class TemplateControllerTest {
     void get_returns200WithDetail() throws Exception {
         UUID id = UUID.randomUUID();
         when(templateService.getById(id)).thenReturn(Optional.of(detail(id, "slug-1")));
-        mockMvc.perform(get("/api/templates/" + id).header("X-API-Key", API_KEY))
+        mockMvc.perform(get("/api/wristband-templates/" + id).header("X-API-Key", API_KEY))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.id").value(id.toString()));
     }
@@ -95,7 +95,7 @@ class TemplateControllerTest {
             .thenReturn(List.of(new TemplateSummaryResponse(
                 UUID.randomUUID(), "a", "A", "festival", Instant.now())));
 
-        mockMvc.perform(get("/api/templates?projectType=festival").header("X-API-Key", API_KEY))
+        mockMvc.perform(get("/api/wristband-templates?projectType=festival").header("X-API-Key", API_KEY))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$[0].projectType").value("festival"));
 
@@ -106,7 +106,7 @@ class TemplateControllerTest {
     void update_returns404_whenMissing() throws Exception {
         UUID id = UUID.randomUUID();
         when(templateService.update(eq(id), any())).thenReturn(Optional.empty());
-        mockMvc.perform(put("/api/templates/" + id)
+        mockMvc.perform(put("/api/wristband-templates/" + id)
                 .header("X-API-Key", API_KEY)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request("New"))))
@@ -117,7 +117,7 @@ class TemplateControllerTest {
     void delete_returns204_whenDeleted() throws Exception {
         UUID id = UUID.randomUUID();
         when(templateService.softDelete(id)).thenReturn(true);
-        mockMvc.perform(delete("/api/templates/" + id).header("X-API-Key", API_KEY))
+        mockMvc.perform(delete("/api/wristband-templates/" + id).header("X-API-Key", API_KEY))
             .andExpect(status().isNoContent());
     }
 
@@ -125,7 +125,7 @@ class TemplateControllerTest {
     void delete_returns404_whenMissing() throws Exception {
         UUID id = UUID.randomUUID();
         when(templateService.softDelete(id)).thenReturn(false);
-        mockMvc.perform(delete("/api/templates/" + id).header("X-API-Key", API_KEY))
+        mockMvc.perform(delete("/api/wristband-templates/" + id).header("X-API-Key", API_KEY))
             .andExpect(status().isNotFound());
     }
 
@@ -135,7 +135,8 @@ class TemplateControllerTest {
         when(templateService.renderPreview(eq(id), isNull(), eq("red")))
             .thenReturn(Optional.of(new byte[]{1, 2, 3}));
 
-        mockMvc.perform(get("/api/templates/" + id + "/preview?color=red").header("X-API-Key", API_KEY))
+        mockMvc.perform(post("/api/wristband-templates/" + id + "/preview?color=red")
+                .header("X-API-Key", API_KEY))
             .andExpect(status().isOk())
             .andExpect(content().contentType(MediaType.IMAGE_PNG));
     }
@@ -144,7 +145,8 @@ class TemplateControllerTest {
     void preview_returns404_whenMissing() throws Exception {
         UUID id = UUID.randomUUID();
         when(templateService.renderPreview(eq(id), isNull(), any())).thenReturn(Optional.empty());
-        mockMvc.perform(get("/api/templates/" + id + "/preview").header("X-API-Key", API_KEY))
+        mockMvc.perform(post("/api/wristband-templates/" + id + "/preview")
+                .header("X-API-Key", API_KEY))
             .andExpect(status().isNotFound());
     }
 
@@ -157,7 +159,7 @@ class TemplateControllerTest {
         var file = new org.springframework.mock.web.MockMultipartFile(
             "file", "logo.png", MediaType.IMAGE_PNG_VALUE, new byte[]{1, 2, 3});
 
-        mockMvc.perform(multipart("/api/templates/assets").file(file).header("X-API-Key", API_KEY))
+        mockMvc.perform(multipart("/api/wristband-templates/assets").file(file).header("X-API-Key", API_KEY))
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.id").value(assetId.toString()));
     }
