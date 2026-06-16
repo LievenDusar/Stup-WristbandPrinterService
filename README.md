@@ -199,11 +199,25 @@ Each printer is **one worker service + one registry entry**, edited together. To
      WORKER_MANAGEMENT_BASE_URL: https://management:8443   # see prod TLS prerequisite in docs
    ```
 
-3. **Redeploy:** `docker compose -f docker-compose.prod.yml --env-file .env.prod up --build -d`
+3. **Redeploy** — pick the command for your situation:
+
+   - **Image already built — just add the new worker** (leaves running services untouched):
+
+     ```bash
+     docker compose -f docker-compose.prod.yml --env-file .env.prod up -d printer-worker-2
+     ```
+
+   - **App code or image changed — rebuild and recreate** management + workers:
+
+     ```bash
+     docker compose -f docker-compose.prod.yml --env-file .env.prod up --build -d
+     ```
 
 The printer then shows up in `GET /api/wristbands/printers`, the jobs-page filter, and the reprint
 picker. Full snippets (worker block, `depends_on`, the local-cluster equivalent) are in
-**[docs/production-deployment.md](docs/production-deployment.md#adding-a-printer-later)**.
+**[docs/production-deployment.md](docs/production-deployment.md#adding-a-printer-later)**. To add a
+**virtual** printer to the local cluster, see
+**[docs/running-locally.md](docs/running-locally.md#adding-a-third-virtual-printer)**.
 
 ---
 

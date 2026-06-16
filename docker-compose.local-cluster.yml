@@ -37,14 +37,18 @@ services:
     restart: unless-stopped
 
   # --- Fake printers: TCP listeners that log the ZPL bytes they receive ---
-  #fakeprinter-1:
-  #  image: alpine/socat
-  #  command: -u TCP-LISTEN:9100,fork,reuseaddr OPEN:/dev/stdout
-  #  restart: unless-stopped
-  #fakeprinter-2:
-  #  image: alpine/socat
-  #  command: -u TCP-LISTEN:9100,fork,reuseaddr OPEN:/dev/stdout
-  #  restart: unless-stopped
+  fakeprinter-1:
+    image: alpine/socat
+    command: -u TCP-LISTEN:9100,fork,reuseaddr OPEN:/dev/stdout
+    restart: unless-stopped
+  fakeprinter-2:
+    image: alpine/socat
+    command: -u TCP-LISTEN:9100,fork,reuseaddr OPEN:/dev/stdout
+    restart: unless-stopped
+  fakeprinter-3:
+    image: alpine/socat
+    command: -u TCP-LISTEN:9100,fork,reuseaddr OPEN:/dev/stdout
+    restart: unless-stopped
 
   # --- One printer-worker per fake printer (no DB, no UI) ---
   worker-1:
@@ -53,15 +57,46 @@ services:
     environment:
       - SPRING_PROFILES_ACTIVE=worker
       - SECURITY_API_KEY=local-dev-key
-      - PRINTER_HOST=192.168.242.77
+      # Real Zebra IP (kept for future use):
+      # - PRINTER_HOST=192.168.242.77
+      - PRINTER_HOST=fakeprinter-1
       - PRINTER_PORT=9100
       - WORKER_ID=printer-1
       - WORKER_DISPLAY_NAME=Secretariaat
       - WORKER_BASE_URL=http://worker-1:8080
       - WORKER_MANAGEMENT_BASE_URL=http://management:8080
-    #depends_on:
-    #  - fakeprinter-1
-
+    depends_on:
+      - fakeprinter-1
+  worker-2:
+    <<: *worker-base
+    build: .
+    environment:
+      - SPRING_PROFILES_ACTIVE=worker
+      - SECURITY_API_KEY=local-dev-key
+      # Real Zebra IP (kept for future use):
+      # - PRINTER_HOST=192.168.242.78
+      - PRINTER_HOST=fakeprinter-2
+      - PRINTER_PORT=9100
+      - WORKER_ID=printer-2
+      - WORKER_DISPLAY_NAME=Tap
+      - WORKER_BASE_URL=http://worker-2:8080
+      - WORKER_MANAGEMENT_BASE_URL=http://management:8080
+    depends_on:
+      - fakeprinter-2
+  worker-3:
+    <<: *worker-base
+    build: .
+    environment:
+      - SPRING_PROFILES_ACTIVE=worker
+      - SECURITY_API_KEY=local-dev-key
+      - PRINTER_HOST=fakeprinter-3
+      - PRINTER_PORT=9100
+      - WORKER_ID=printer-3
+      - WORKER_DISPLAY_NAME=Inkom
+      - WORKER_BASE_URL=http://worker-3:8080
+      - WORKER_MANAGEMENT_BASE_URL=http://management:8080
+    depends_on:
+      - fakeprinter-3
 
   # --- Management: UI + DB + routing. Registry points at the two workers. ---
   management:

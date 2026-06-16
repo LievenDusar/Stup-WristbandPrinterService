@@ -596,7 +596,10 @@ async function reprint(id) {
   if (!sel) return;                                  // cancelled
   const params = new URLSearchParams();
   if (sel.printerId) params.set('printerId', sel.printerId);
-  if (sel.copies && sel.copies !== 1) params.set('copies', String(sel.copies));
+  // Always send the chosen count: the dialog returns a validated value >= 1, pre-filled
+  // with the original's copies. Omitting the param makes the backend reuse the original
+  // count, so a deliberate reduction to 1 must be sent explicitly to be honored.
+  if (sel.copies) params.set('copies', String(sel.copies));
   const qs = params.toString();
   const res = await guarded(fetch('/api/wristbands/jobs/' + id + '/reprint' + (qs ? '?' + qs : ''),
                                   { method: 'POST' }));
