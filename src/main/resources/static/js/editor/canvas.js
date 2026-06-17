@@ -3,7 +3,41 @@ import { nextId } from './state.js';
 const Konva = window.Konva;
 
 const MAX_DISPLAY_HEIGHT = 720;
+const SNAP_THRESHOLD = 10; // screen pixels — distance at which the center locks to a guide line
+const QUARTER_STROKE = '#9bb0c9'; // subtle slate-blue for quarter guides (center stays pink)
+
+// Per-character advance widths of the printer's Zebra font 0 (^A0 / CG Triumvirate), normalised to
+// the nominal font size. Measured from the printer's own rendering (Labelary, 12 dpmm): each value
+// = ink-advance ÷ fontSize. A string's printed length = Σ advance(char) × fontSize. This is exact
+// per-string (validated to ±3 dots on real names), unlike a flat average. Unmapped chars fall back
+// to FONT0_DEFAULT_ADV. The editor uses this so on-canvas text matches the printed footprint.
+const FONT0_ADV = {
+  ' ': 0.296,
+  '0': 0.478, '1': 0.475, '2': 0.478, '3': 0.478, '4': 0.478, '5': 0.478, '6': 0.478, '7': 0.478, '8': 0.478, '9': 0.478,
+  'A': 0.553, 'B': 0.55, 'C': 0.533, 'D': 0.587, 'E': 0.496, 'F': 0.496, 'G': 0.587, 'H': 0.605, 'I': 0.273,
+  'J': 0.441, 'K': 0.551, 'L': 0.478, 'M': 0.753, 'N': 0.605, 'O': 0.569, 'P': 0.551, 'Q': 0.57, 'R': 0.588,
+  'S': 0.533, 'T': 0.497, 'U': 0.605, 'V': 0.534, 'W': 0.811, 'X': 0.552, 'Y': 0.553, 'Z': 0.497,
+  'a': 0.459, 'b': 0.495, 'c': 0.44, 'd': 0.496, 'e': 0.477, 'f': 0.276, 'g': 0.495, 'h': 0.495, 'i': 0.255,
+  'j': 0.256, 'k': 0.441, 'l': 0.255, 'm': 0.753, 'n': 0.495, 'o': 0.478, 'p': 0.495, 'q': 0.496, 'r': 0.33,
+  's': 0.423, 't': 0.275, 'u': 0.496, 'v': 0.442, 'w': 0.663, 'x': 0.441, 'y': 0.441, 'z': 0.386,
+  '.': 0.291, ',': 0.291, '-': 0.45, '–': 0.895, "'": 0.291, '/': 0.295, '&': 0.606, '(': 0.293, ')': 0.293,
+  ':': 0.291, ';': 0.291, '!': 0.291, '?': 0.441, '+': 0.45, '°': 0.477,
+  'é': 0.477, 'è': 0.477, 'ê': 0.477, 'ë': 0.477, 'à': 0.459, 'á': 0.459, 'â': 0.459, 'ä': 0.459,
+  'ï': 0.258, 'î': 0.258, 'í': 0.256, 'ç': 0.44, 'ù': 0.496, 'û': 0.496, 'ü': 0.496, 'ö': 0.478, 'ô': 0.478, 'ó': 0.478,
+};
+const FONT0_DEFAULT_ADV = 0.5; // fallback advance for any unmapped character
+
+// Sum of font-0 advances for a string, in units of fontSize (length = this × fontSize).
+function font0AdvanceUnits(str) {
+  let u = 0;
+  for (const ch of str) u += (FONT0_ADV[ch] !== undefined ? FONT0_ADV[ch] : FONT0_DEFAULT_ADV);
+  return u;
+}
 let stage, layer, tr, bg;
+let vGuide, hGuide, vQ1, vQ2, hQ1, hQ2; // dashed guides (Konva.Line); hidden unless actively snapped
+let vGuides = [], hGuides = [];          // candidate lists: { frac, line } per axis
+let snapEnabled = false;        // "Snap to center" (50%)
+let quarterSnapEnabled = false; // "Snap to quarters" (25% / 75%)
 let scale = 1;
 let canvasDots = { widthDots: 330, lengthDots: 3300, dpi: 300 };
 let onSelect = () => {};
@@ -16,7 +50,7 @@ const p2d = (p) => Math.round(p / scale);
 // lives ONLY on the Konva node (in pixels) and is derived to dots at serialize time —
 // storing dots in Konva's native attrs would corrupt position/size on every edit.
 const NON_GEO = ['binding', 'value', 'font', 'symbology', 'showHumanReadable',
-  'assetId', 'shape', 'thicknessDots', 'sampleText'];
+  'assetId', 'shape', 'thicknessDots', 'sampleText', 'centerOnBand'];
 
 export function initCanvas(containerId, selectHandler) {
   onSelect = selectHandler;
@@ -30,6 +64,20 @@ export function initCanvas(containerId, selectHandler) {
   tr = new Konva.Transformer({ rotationSnaps: [0, 90, 180, 270],
     enabledAnchors: ['top-left', 'top-right', 'bottom-left', 'bottom-right'] });
   layer.add(tr);
+
+  // Dashed snap guides. Non-interactive and hidden; revealed only while a drag is snapped.
+  // moveToTop() in snapAxis() keeps them above content (content nodes are added later).
+  // isGuide marks them so contentNodes() never serializes or destroys them.
+  const base = { strokeWidth: 1, dash: [6, 4], listening: false, visible: false, isGuide: true };
+  const pink = { ...base, stroke: '#ff3399' };       // center (primary)
+  const slate = { ...base, stroke: QUARTER_STROKE }; // quarters (subtle)
+  vGuide = new Konva.Line({ ...pink });  hGuide = new Konva.Line({ ...pink });
+  vQ1 = new Konva.Line({ ...slate });    vQ2 = new Konva.Line({ ...slate });
+  hQ1 = new Konva.Line({ ...slate });    hQ2 = new Konva.Line({ ...slate });
+  layer.add(vGuide, hGuide, vQ1, vQ2, hQ1, hQ2);
+  // Vertical lines snap the X axis; horizontal lines snap the Y axis. 0.5 = center, 0.25/0.75 = quarters.
+  vGuides = [{ frac: 0.5, line: vGuide }, { frac: 0.25, line: vQ1 }, { frac: 0.75, line: vQ2 }];
+  hGuides = [{ frac: 0.5, line: hGuide }, { frac: 0.25, line: hQ1 }, { frac: 0.75, line: hQ2 }];
 
   stage.on('click tap', (e) => {
     if (e.target === bg || e.target === stage) { setSelection([]); return; }
@@ -50,16 +98,35 @@ export function initCanvas(containerId, selectHandler) {
     }
   });
 
+  // Center-snapping: drag events bubble to the layer, so one pair of listeners
+  // covers every draggable node (leaves + groups), however it was created.
+  // Guard: the Transformer's resize/rotate anchors are draggable too and bubble
+  // dragmove here; their outermost() is the Transformer, whose bbox includes the
+  // rotater handle. Only snap real content nodes (they carry elType) so a
+  // rotate/resize never snaps the transformer's inflated box.
+  layer.on('dragmove', (e) => {
+    const node = outermost(e.target);
+    if (node.getAttr('elType')) applySnap(node);
+  });
+  layer.on('dragend', hideGuides);
+
   resize(canvasDots);
 }
 
 export function resize(dots) {
   canvasDots = { ...dots };
   scale = Math.min(MAX_DISPLAY_HEIGHT / dots.lengthDots, 2);
-  stage.width(dots.widthDots * scale);
-  stage.height(dots.lengthDots * scale);
-  bg.width(dots.widthDots * scale);
-  bg.height(dots.lengthDots * scale);
+  const w = dots.widthDots * scale, h = dots.lengthDots * scale;
+  stage.width(w);
+  stage.height(h);
+  bg.width(w);
+  bg.height(h);
+  // Position every guide from its fractional location. Guard: resize() runs once at the
+  // end of initCanvas, after the candidate arrays are populated above.
+  if (vGuides.length) {
+    vGuides.forEach(g => g.line.points([g.frac * w, 0, g.frac * w, h]));
+    hGuides.forEach(g => g.line.points([0, g.frac * h, w, g.frac * h]));
+  }
   applyLayout();
   layer.draw();
 }
@@ -70,10 +137,63 @@ export function getScale() { return scale; }
 export function getSelection() { return selection.slice(); }
 export { layer, tr };
 
+// Enable/disable center (50%) snapping. Disabling clears any guide left on screen.
+export function setSnapToCenter(enabled) {
+  snapEnabled = enabled;
+  if (!enabled) hideGuides();
+}
+
+// Enable/disable quarter (25% / 75%) snapping. Disabling clears any guide left on screen.
+export function setSnapToQuarters(enabled) {
+  quarterSnapEnabled = enabled;
+  if (!enabled) hideGuides();
+}
+
+function hideGuides() {
+  [...vGuides, ...hGuides].forEach(g => g.line && g.line.visible(false));
+}
+
+// Is the line at this fraction currently active? 0.5 = center toggle, else quarter toggle.
+function enabledFrac(frac) {
+  return frac === 0.5 ? snapEnabled : quarterSnapEnabled;
+}
+
+// Snap one axis: pick the nearest ENABLED candidate line within threshold, move the node's
+// center onto it, show only that line (hide the rest on this axis). Each axis is independent.
+function snapAxis(node, guides, size, center, axis) {
+  let best = null, bestDist = SNAP_THRESHOLD;
+  for (const g of guides) {
+    if (!enabledFrac(g.frac)) continue;
+    const dist = Math.abs(center - g.frac * size);
+    if (dist < bestDist) { bestDist = dist; best = g; }
+  }
+  for (const g of guides) {
+    const on = g === best;
+    if (on) {
+      const target = g.frac * size;
+      if (axis === 'x') node.x(node.x() + (target - center));
+      else              node.y(node.y() + (target - center));
+      g.line.moveToTop();
+    }
+    g.line.visible(on);
+  }
+}
+
+// Snap the dragged node's bbox center to the nearest active guide on each axis.
+// Reveals the matching dashed guide while snapped; called on every dragmove.
+function applySnap(node) {
+  if (!snapEnabled && !quarterSnapEnabled) return;
+  const r = node.getClientRect({ relativeTo: layer, skipStroke: true });
+  snapAxis(node, vGuides, stage.width(),  r.x + r.width  / 2, 'x');
+  snapAxis(node, hGuides, stage.height(), r.y + r.height / 2, 'y');
+  layer.batchDraw();
+}
+
 // ---- node helpers --------------------------------------------------------
 
 function contentNodes() {
-  return layer.getChildren(n => n !== bg && n.className !== 'Transformer');
+  return layer.getChildren(n =>
+    n !== bg && !n.getAttr('isGuide') && n.className !== 'Transformer');
 }
 function isGroup(n) { return n.getAttr('elType') === 'GROUP'; }
 function outermost(node) {
@@ -106,14 +226,31 @@ function textOf(node) {
     : (node.getAttr('sampleText') || labelFor(node.getAttr('binding')));
 }
 
+// Size a text node to the printer's font-0 footprint: length = Σ font-0 advance × fontSize (exact
+// per-string via the FONT0_ADV table), thickness = fontSize. Glyphs are scaled to fill that box so
+// the canvas matches the print.
+function applyTextMetrics(node) {
+  node.scaleX(1); node.scaleY(1);
+  node.width('auto'); node.height('auto');                 // measure the natural glyph run
+  const fsDots = p2d(node.fontSize());
+  const units = font0AdvanceUnits(textOf(node) || '');
+  const targetWpx = d2p(Math.max(1, Math.round(units * fsDots)));         // length along text
+  const targetHpx = node.fontSize();                                      // thickness = fontSize
+  const sx = targetWpx / Math.max(1, node.width());
+  const sy = targetHpx / Math.max(1, node.height());       // ≈ 1 (lineHeight 1 ⇒ height = fontSize)
+  node.scaleX(sx); node.scaleY(sy);
+  node.setAttr('fitScaleY', sy);                           // lets resize separate gesture from fit
+}
+
 // Create a Konva node for a leaf spec. Geometry comes from the spec (in dots → px);
 // non-geometry fields are stashed as attrs.
 function makeLeaf(s) {
   const base = { x: d2p(s.x || 0), y: d2p(s.y || 0), rotation: s.rotation || 0, draggable: true };
   let node;
   if (s.type === 'TEXT' || s.type === 'STATIC_TEXT') {
-    // Text auto-sizes to its content (no fixed width → no wrapping into an invisible sliver).
-    node = new Konva.Text({ ...base, fontSize: d2p(s.fontSize || 24), fontFamily: 'Poppins', fill: '#111' });
+    // Helvetica/Arial = on-screen stand-in for the printer's resident font 0 (^A0 / CG Triumvirate).
+    node = new Konva.Text({ ...base, fontSize: d2p(s.fontSize || 24),
+      fontFamily: 'Helvetica, Arial, sans-serif', fill: '#111' });
   } else if (s.type === 'BARCODE') {
     node = new Konva.Rect({ ...base, width: d2p(s.widthDots || 1), height: d2p(s.heightDots || 1), fill: '#d0d0d0', stroke: '#333', strokeWidth: 1 });
   } else if (s.type === 'IMAGE') {
@@ -125,7 +262,7 @@ function makeLeaf(s) {
   node.setAttr('id', s.id);
   node.setAttr('elType', s.type);
   NON_GEO.forEach(k => { if (s[k] !== undefined && s[k] !== null) node.setAttr(k, s[k]); });
-  if (node.className === 'Text') node.text(textOf(node));
+  if (node.className === 'Text') { node.text(textOf(node)); applyTextMetrics(node); }
   wireLeaf(node);
   return node;
 }
@@ -133,10 +270,11 @@ function makeLeaf(s) {
 function wireLeaf(node) {
   node.on('transformend dragend', () => {
     if (node.className === 'Text') {
-      // Resizing text scales the font; bake the scale into fontSize, then clear it.
-      const nf = Math.max(2, node.fontSize() * node.scaleX());
-      node.scaleX(1); node.scaleY(1);
-      node.fontSize(nf);
+      // scaleX also carries the font-0 fit (condense), so read the resize gesture from scaleY
+      // (whose fit factor is ≈1), bake it into fontSize, then re-derive the box + fit.
+      const gesture = node.scaleY() / (node.getAttr('fitScaleY') || 1);
+      node.fontSize(Math.max(2, node.fontSize() * gesture));
+      applyTextMetrics(node);
     } else {
       const nw = Math.max(1, node.width() * node.scaleX());
       const nh = Math.max(1, node.height() * node.scaleY());
@@ -197,8 +335,16 @@ function sizePx(node) {
   return dir === 'LENGTH' ? { w: cross, h: along } : { w: along, h: cross };
 }
 
+// Center a top-level node's bbox on the band width (px). Used for centerOnBand nodes.
+export function centerNodeOnBand(node) {
+  const widthPx = canvasDots.widthDots * scale;
+  const r = node.getClientRect({ relativeTo: layer, skipStroke: true });
+  node.x(node.x() + (widthPx / 2 - (r.x + r.width / 2)));
+}
+
 export function applyLayout() {
   contentNodes().forEach(n => { if (isGroup(n)) layoutGroup(n); });
+  contentNodes().forEach(n => { if (n.getAttr('centerOnBand')) centerNodeOnBand(n); });
 }
 
 function layoutGroup(group) {
@@ -267,6 +413,9 @@ export function applyProp(node, key, value) {
     default:
       node.setAttr(key, value); // symbology, showHumanReadable, thicknessDots, group settings
   }
+  if (node.className === 'Text' && ['fontSize', 'value', 'sampleText', 'binding'].includes(key)) {
+    applyTextMetrics(node);
+  }
   if (['stackDirection', 'marginDots', 'crossAlign', 'widthDots', 'heightDots',
        'fontSize', 'value', 'sampleText', 'binding', 'rotation'].includes(key)) applyLayout();
   layer.draw();
@@ -282,6 +431,7 @@ function nodeToElement(node) {
       stackDirection: node.getAttr('stackDirection') || 'LENGTH',
       marginDots: node.getAttr('marginDots') || 0,
       crossAlign: node.getAttr('crossAlign') || 'START',
+      centerOnBand: node.getAttr('centerOnBand') || undefined,
       children: node.getChildren().map(nodeToElement),
     };
   }
@@ -310,6 +460,7 @@ function buildNode(spec, parent) {
     node.setAttr('stackDirection', spec.stackDirection || 'LENGTH');
     node.setAttr('marginDots', spec.marginDots || 0);
     node.setAttr('crossAlign', spec.crossAlign || 'START');
+    if (spec.centerOnBand) node.setAttr('centerOnBand', true);
     parent.add(node);
     (spec.children || []).forEach(child => buildNode(child, node));
   } else {
@@ -326,5 +477,10 @@ export function loadElements(elements) {
   setSelection([]);
   (elements || []).forEach(el => buildNode(el, layer));
   applyLayout();
+  contentNodes().forEach(n => {
+    if (n.getAttr('centerOnBand') && n.getParent() === layer) {
+      n.dragBoundFunc(function (pos) { return { x: this.absolutePosition().x, y: pos.y }; });
+    }
+  });
   layer.draw();
 }

@@ -15,6 +15,7 @@
   display: block; width: 100%; text-align: left; margin-bottom: 8px;
   cursor: pointer;
 }
+.tool-btn.active { outline: 2px solid #ff3399; }
 .editor-canvas-host {
   flex: 1; display: flex; align-items: flex-start; justify-content: center;
   overflow: auto; padding: 24px; background: rgba(0,0,0,0.15);

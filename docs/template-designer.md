@@ -130,9 +130,35 @@ opens a colour-tinted PNG (rendered by Labelary); **Export ZPL** downloads the s
 **Open template…** reloads any saved template.
 
 **Grouping & alignment:** shift-click to multi-select, then **Group** to stack items (set
-direction, margin, and cross-alignment in the properties panel); groups can be nested. **Center on
-band** centers an item/group across the width. Data blocks accept **sample text** that shows on the
-canvas and drives the preview; static blocks take their text in the properties panel.
+direction, margin, and cross-alignment in the properties panel); groups can be nested. Data blocks
+accept **sample text** that shows on the canvas and drives the preview; static blocks take their
+text in the properties panel.
+
+**Snap guides:** tick **Snap to center** and/or **Snap to quarters** in the toolbox to make a
+dragged element's centre snap to the band's 50% (pink) and/or 25%/75% (slate) lines. The guides are
+invisible until an axis snaps, then a dashed line flashes in; each axis snaps independently. The
+toggles are a session preference (not saved).
+
+**Print-accurate text (font-0 metrics):** the editor sizes every text block with the **same font-0
+model the printer uses** (mirroring `ZplGeneratorService`): length along the text = `chars ×
+fontSize × 0.46`, thickness = `fontSize`, drawn in a Helvetica/Arial face (the on-screen stand-in
+for the printer's resident font `^A0`). So a text block on the canvas occupies the footprint it
+will print, and **snap-to-center, the 25%/75% quarters, free placement, and the Y axis all match
+the print** — for upright and rotated text alike. Data-bound fields use the **sample** length at
+design time; their real printed length depends on the data (centred data fields are re-centred from
+the real value by the renderer).
+
+**Center on band:** the **Center on band** button is a persistent toggle (it shows an active
+outline when on). While on, the selected element/group is kept centred across the band **width**
+and its horizontal drag is locked (vertical still moves); the flag is saved with the template. With
+the font-0 editor metrics above, snapping already centres accurately; this toggle additionally lets
+the renderer re-centre at print time (useful for data-bound text whose real length isn't known at
+design time). Non-rotated text centres via a ZPL field block (`^FB`); rotated text and
+images/shapes centre on the `fontSize`/known dimensions (the same model as the basic wristband).
+
+> **Center-on-band limitation:** a **barcode** is centred on its stored box, not on the exact
+> printed symbol width (the renderer doesn't compute the rendered bar width), so a centred barcode
+> may sit a few dots off true centre. Centre text/images/shapes for pixel-accurate results.
 
 > **Known limitation:** barcodes show as a placeholder rectangle on the editor canvas (the real
 > symbol appears only in the PNG preview and on the printer), and the renderer currently emits

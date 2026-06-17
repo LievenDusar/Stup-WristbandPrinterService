@@ -61,6 +61,35 @@ class TemplateZplRendererTest {
     }
 
     @Test
+    void render_centeredText_nonRotated_usesFieldBlockCenter() {
+        TemplateElement el = new TemplateElement("t", ElementType.STATIC_TEXT, 999, 50, 20, 100, 0,
+            null, "STAFF", 24, "0", null, null, null, null, null).withCenterOnBand(true);
+        String zpl = renderer.render(def(el), data); // band width 203
+        assertThat(zpl).contains("^FO0,50");
+        assertThat(zpl).contains("^FB203,1,0,C");
+        assertThat(zpl).contains("^A0N,24,24");
+        assertThat(zpl).contains("^FDSTAFF^FS");
+    }
+
+    @Test
+    void render_centeredText_rotated270_centersOnFontSize() {
+        TemplateElement el = new TemplateElement("t", ElementType.TEXT, 999, 70, 60, 600, 270,
+            DataBinding.FULL_NAME, null, 60, "0", null, null, null, null, null).withCenterOnBand(true);
+        String zpl = renderer.render(def(el), data); // band width 203 → (203-60)/2 = 71
+        assertThat(zpl).contains("^FO71,70");
+        assertThat(zpl).contains("^A0B,60,60").contains("^FDJan Janssens^FS");
+    }
+
+    @Test
+    void render_centeredText_rotated90_centersOnFontSize() {
+        TemplateElement el = new TemplateElement("t", ElementType.TEXT, 999, 70, 28, 600, 90,
+            DataBinding.FULL_NAME, null, 28, "0", null, null, null, null, null).withCenterOnBand(true);
+        String zpl = renderer.render(def(el), data); // band width 203 → (203-28)/2 = 87
+        assertThat(zpl).contains("^FO87,70");
+        assertThat(zpl).contains("^A0R,28,28").contains("^FDJan Janssens^FS");
+    }
+
+    @Test
     void render_barcode_emitsBcWithValue() {
         TemplateElement el = new TemplateElement("b", ElementType.BARCODE, 0, 0, 100, 400, 270,
             DataBinding.BARCODE_VALUE, null, null, null, "CODE128", false, null, null, null);
@@ -71,6 +100,29 @@ class TemplateZplRendererTest {
 
     @Test
     void render_shape_emitsGraphicBox() {
+        TemplateElement el = new TemplateElement("g", ElementType.SHAPE, 5, 6, 180, 4, 0,
+            null, null, null, null, null, null, null, ShapeType.LINE, 4);
+        assertThat(renderer.render(def(el), data)).contains("^FO5,6").contains("^GB180,4,4");
+    }
+
+    @Test
+    void render_centeredShape_centersOnBandWidth() {
+        // shape width 100 on a 203-wide band → x = (203-100)/2 = 51
+        TemplateElement el = new TemplateElement("g", ElementType.SHAPE, 999, 6, 100, 4, 0,
+            null, null, null, null, null, null, null, ShapeType.LINE, 4).withCenterOnBand(true);
+        assertThat(renderer.render(def(el), data)).contains("^FO51,6").contains("^GB100,4,4");
+    }
+
+    @Test
+    void render_centeredShape_rotated90_usesHeightAsCross() {
+        // rotated 90 → cross extent = heightDots (40); x = (203-40)/2 = 81
+        TemplateElement el = new TemplateElement("g", ElementType.SHAPE, 999, 6, 100, 40, 90,
+            null, null, null, null, null, null, null, ShapeType.LINE, 4).withCenterOnBand(true);
+        assertThat(renderer.render(def(el), data)).contains("^FO81,6");
+    }
+
+    @Test
+    void render_notCentered_isByteIdentical_backCompat() {
         TemplateElement el = new TemplateElement("g", ElementType.SHAPE, 5, 6, 180, 4, 0,
             null, null, null, null, null, null, null, ShapeType.LINE, 4);
         assertThat(renderer.render(def(el), data)).contains("^FO5,6").contains("^GB180,4,4");
