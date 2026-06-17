@@ -22,9 +22,10 @@ public class WristbandGalleryCatalog {
             WristbandType.CREW,
             "Crew wristband",
             "Staff / volunteer band with barcode for shift scanning",
-            "/api/wristbands/crew/preview/image",
+            "/api/wristbands/preview/image",
             """
             {
+              "wristbandType":   "crew",
               "eventName":       "Pukkelpop 2026",
               "firstName":       "Annechien",
               "lastName":        "Van De Wall",
@@ -38,9 +39,10 @@ public class WristbandGalleryCatalog {
             WristbandType.PERMIT,
             "Electricity permit",
             "Campsite power-box access permit",
-            "/api/wristbands/permit/preview/image",
+            "/api/wristbands/preview/image",
             """
             {
+              "wristbandType": "permit",
               "eventName":   "Pukkelpop 2026",
               "permitLabel": "ELEKTRICITEIT"
             }
@@ -51,9 +53,10 @@ public class WristbandGalleryCatalog {
             WristbandType.PERMIT,
             "Parking permit",
             "Vendor / VIP parking access permit",
-            "/api/wristbands/permit/preview/image",
+            "/api/wristbands/preview/image",
             """
             {
+              "wristbandType": "permit",
               "eventName":   "Pukkelpop 2026",
               "permitLabel": "PARKING"
             }

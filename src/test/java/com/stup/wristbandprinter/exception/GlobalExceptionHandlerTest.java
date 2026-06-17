@@ -46,6 +46,7 @@ class GlobalExceptionHandlerTest {
     void missingRequiredField_returns400WithFieldDetails() throws Exception {
         String body = """
             {
+              "wristbandType": "crew",
               "firstName": "Jan",
               "lastName": "Janssens",
               "clubName": "STUP vzw",
@@ -53,7 +54,7 @@ class GlobalExceptionHandlerTest {
             }
             """;
 
-        mockMvc.perform(post("/api/wristbands/crew/preview/zpl")
+        mockMvc.perform(post("/api/wristbands/preview/zpl")
                 .header("X-API-Key", "test-key")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body))
@@ -70,6 +71,7 @@ class GlobalExceptionHandlerTest {
 
         String body = """
             {
+              "wristbandType": "crew",
               "eventName": "Pukkelpop 2026",
               "firstName": "Jan",
               "lastName": "Janssens",
@@ -78,7 +80,7 @@ class GlobalExceptionHandlerTest {
             }
             """;
 
-        mockMvc.perform(post("/api/wristbands/crew/print")
+        mockMvc.perform(post("/api/wristbands/print")
                 .header("X-API-Key", "test-key")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body))
@@ -93,6 +95,7 @@ class GlobalExceptionHandlerTest {
 
         String body = """
             {
+              "wristbandType": "crew",
               "eventName": "Pukkelpop 2026",
               "firstName": "Jan",
               "lastName": "Janssens",
@@ -102,7 +105,7 @@ class GlobalExceptionHandlerTest {
             }
             """;
 
-        mockMvc.perform(post("/api/wristbands/crew/print")
+        mockMvc.perform(post("/api/wristbands/print")
                 .header("X-API-Key", "test-key")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body))
@@ -118,6 +121,7 @@ class GlobalExceptionHandlerTest {
 
         String body = """
             {
+              "wristbandType": "crew",
               "eventName": "Pukkelpop 2026",
               "firstName": "Jan",
               "lastName": "Janssens",
@@ -127,7 +131,7 @@ class GlobalExceptionHandlerTest {
             }
             """;
 
-        mockMvc.perform(post("/api/wristbands/crew/print")
+        mockMvc.perform(post("/api/wristbands/print")
                 .header("X-API-Key", "test-key")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body))
@@ -137,8 +141,8 @@ class GlobalExceptionHandlerTest {
 
     @Test
     void wrongHttpMethod_returns405() throws Exception {
-        // GET /crew/print: only POST is mapped → 405 Method Not Allowed
-        mockMvc.perform(get("/api/wristbands/crew/print")
+        // GET /print: only POST is mapped → 405 Method Not Allowed
+        mockMvc.perform(get("/api/wristbands/print")
                 .header("X-API-Key", "test-key"))
             .andExpect(status().isMethodNotAllowed())
             .andExpect(jsonPath("$.status").value(405));
@@ -146,9 +150,20 @@ class GlobalExceptionHandlerTest {
 
     @Test
     void missingApiKey_returns401() throws Exception {
-        mockMvc.perform(post("/api/wristbands/crew/preview/zpl")
+        mockMvc.perform(post("/api/wristbands/preview/zpl")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{}"))
             .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void unknownWristbandType_returns400() throws Exception {
+        mockMvc.perform(post("/api/wristbands/print")
+                .header("X-API-Key", "test-key")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"wristbandType\":\"unknown\"}"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.status").value(400))
+            .andExpect(jsonPath("$.error").value("Bad request"));
     }
 }

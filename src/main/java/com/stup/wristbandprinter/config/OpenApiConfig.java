@@ -10,13 +10,14 @@ import org.springframework.context.annotation.Profile;
  * Central OpenAPI / Swagger metadata for the management role.
  *
  * <p>Declares the tag set and its display order so the Swagger UI groups endpoints as:
- * <strong>Wristbands</strong> (crew + permit print/preview) → <strong>Jobs</strong> →
- * <strong>Printers &amp; Gallery</strong> → <strong>Templates</strong> →
- * <strong>Authentication</strong>.</p>
+ * <strong>Wristbands</strong> (polymorphic print/preview, type selected by {@code wristbandType})
+ * → <strong>Jobs</strong> → <strong>Printers &amp; Gallery</strong> →
+ * <strong>Templates</strong> → <strong>Authentication</strong>.</p>
  *
  * <p>Operations are assigned to these tags via {@code @Operation(tags = …)} on each controller
- * method (one tag per operation), so the crew and permit endpoints land in the same
- * "Wristbands" group while the type-agnostic job/printer endpoints get their own sections.</p>
+ * method (one tag per operation). The single {@code POST /api/wristbands/print} endpoint (and its
+ * preview siblings) accept both crew and permit requests via the {@code wristbandType} discriminator
+ * field, while the type-agnostic job/printer endpoints get their own sections.</p>
  *
  * <p>This definition is additive — springdoc merges it with the auto-generated spec and the
  * {@code @SecurityScheme} declared on {@link SecurityConfig}.</p>
@@ -27,7 +28,7 @@ import org.springframework.context.annotation.Profile;
     info = @Info(title = "STUP Wristband Printer Service API", version = "v1"),
     tags = {
         @Tag(name = "Wristbands",
-             description = "Print and preview crew and permit wristbands"),
+             description = "Print and preview wristbands (crew or permit, chosen by the wristbandType field)"),
         @Tag(name = "Jobs",
              description = "Manage print jobs: list, detail, preview, live status (SSE), reprint, cancel, clear"),
         @Tag(name = "Printers & Gallery",

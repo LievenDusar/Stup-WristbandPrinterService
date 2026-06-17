@@ -63,7 +63,7 @@ class WristbandControllerTest {
         PrintJob job = new PrintJob(jobId, sampleRequest());
         when(printQueueService.enqueue(any())).thenReturn(job);
 
-        mockMvc.perform(post("/api/wristbands/crew/print")
+        mockMvc.perform(post("/api/wristbands/print")
                 .header("X-API-Key", API_KEY)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(sampleRequest())))
@@ -75,9 +75,9 @@ class WristbandControllerTest {
     @Test
     void print_returns400_whenFieldMissing() throws Exception {
         String body = """
-            {"firstName":"Jan","lastName":"Janssens","clubName":"STUP vzw","barcodeValue":"123"}
+            {"wristbandType":"crew","firstName":"Jan","lastName":"Janssens","clubName":"STUP vzw","barcodeValue":"123"}
             """;
-        mockMvc.perform(post("/api/wristbands/crew/print")
+        mockMvc.perform(post("/api/wristbands/print")
                 .header("X-API-Key", API_KEY)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body))
@@ -87,7 +87,7 @@ class WristbandControllerTest {
 
     @Test
     void print_returns401_whenApiKeyMissing() throws Exception {
-        mockMvc.perform(post("/api/wristbands/crew/print")
+        mockMvc.perform(post("/api/wristbands/print")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(sampleRequest())))
             .andExpect(status().isUnauthorized());
@@ -95,7 +95,7 @@ class WristbandControllerTest {
 
     @Test
     void print_returns401_whenApiKeyWrong() throws Exception {
-        mockMvc.perform(post("/api/wristbands/crew/print")
+        mockMvc.perform(post("/api/wristbands/print")
                 .header("X-API-Key", "wrong-key")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(sampleRequest())))
@@ -103,19 +103,37 @@ class WristbandControllerTest {
     }
 
     @Test
-    void crewPrint_oldUrl_redirectsTo308() throws Exception {
-        mockMvc.perform(post("/api/wristbands/print")
+    void oldCrewPrintUrl_returns404() throws Exception {
+        mockMvc.perform(post("/api/wristbands/crew/print")
                 .header("X-API-Key", API_KEY)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{}"))
-            .andExpect(status().is(308));
+            .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void oldPermitPrintUrl_returns404() throws Exception {
+        mockMvc.perform(post("/api/wristbands/permit/print")
+                .header("X-API-Key", API_KEY)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}"))
+            .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void print_returns400_whenWristbandTypeMissing() throws Exception {
+        mockMvc.perform(post("/api/wristbands/print")
+                .header("X-API-Key", API_KEY)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"eventName\":\"E\",\"firstName\":\"A\"}"))
+            .andExpect(status().isBadRequest());
     }
 
     @Test
     void previewZpl_returnsZplString() throws Exception {
         when(wristbandZplResolver.resolve(any())).thenReturn("^XA^XZ");
 
-        mockMvc.perform(post("/api/wristbands/crew/preview/zpl")
+        mockMvc.perform(post("/api/wristbands/preview/zpl")
                 .header("X-API-Key", API_KEY)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(sampleRequest())))
@@ -129,7 +147,7 @@ class WristbandControllerTest {
         when(wristbandZplResolver.resolve(any())).thenReturn("^XA^XZ");
         when(labelaryPreviewService.renderPreview("^XA^XZ")).thenReturn(new byte[]{1, 2, 3});
 
-        mockMvc.perform(post("/api/wristbands/crew/preview/image")
+        mockMvc.perform(post("/api/wristbands/preview/image")
                 .header("X-API-Key", API_KEY)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(sampleRequest())))
@@ -143,7 +161,7 @@ class WristbandControllerTest {
         when(labelaryPreviewService.renderPreview(any()))
             .thenThrow(new LabelaryUnavailableException("Labelary down"));
 
-        mockMvc.perform(post("/api/wristbands/crew/preview/image")
+        mockMvc.perform(post("/api/wristbands/preview/image")
                 .header("X-API-Key", API_KEY)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(sampleRequest())))
@@ -160,7 +178,7 @@ class WristbandControllerTest {
         WristbandPrintRequest req = sampleRequest();
         req.setTemplateId(templateId);
 
-        mockMvc.perform(post("/api/wristbands/crew/preview/image")
+        mockMvc.perform(post("/api/wristbands/preview/image")
                 .header("X-API-Key", API_KEY)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(req)))
@@ -183,7 +201,7 @@ class WristbandControllerTest {
         WristbandPrintRequest req = sampleRequest();
         req.setStockColorCode(2);
 
-        mockMvc.perform(post("/api/wristbands/crew/preview/image")
+        mockMvc.perform(post("/api/wristbands/preview/image")
                 .header("X-API-Key", API_KEY)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(req)))
@@ -198,7 +216,7 @@ class WristbandControllerTest {
         when(wristbandZplResolver.resolve(any())).thenReturn("^XA^XZ");
         when(labelaryPreviewService.renderPreview(any())).thenReturn(new byte[]{1, 2, 3});
 
-        mockMvc.perform(post("/api/wristbands/crew/preview/image")
+        mockMvc.perform(post("/api/wristbands/preview/image")
                 .header("X-API-Key", API_KEY)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(sampleRequest())))
@@ -206,6 +224,54 @@ class WristbandControllerTest {
 
         verifyNoInteractions(previewColorService);
     }
+
+    // ── Permit cases migrated from PermitWristbandControllerTest ─────────────
+
+    @Test
+    void permitPrint_returns202_andLowercaseType() throws Exception {
+        UUID jobId = UUID.randomUUID();
+        PermitWristbandPrintRequest req = samplePermitRequest();
+        PrintJob job = new PrintJob(jobId, req, null, null);
+        when(printQueueService.enqueue(any())).thenReturn(job);
+
+        mockMvc.perform(post("/api/wristbands/print")
+                .header("X-API-Key", API_KEY)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(req)))
+            .andExpect(status().isAccepted())
+            .andExpect(jsonPath("$.jobId").value(jobId.toString()))
+            .andExpect(jsonPath("$.wristbandType").value("permit"));
+    }
+
+    @Test
+    void permitPrint_returns400_whenPermitLabelMissing() throws Exception {
+        mockMvc.perform(post("/api/wristbands/print")
+                .header("X-API-Key", API_KEY)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"wristbandType\":\"permit\",\"eventName\":\"Pukkelpop 2026\"}"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.fields.permitLabel").exists());
+    }
+
+    @Test
+    void permitPreviewImage_withStockColor_tintsPng() throws Exception {
+        when(wristbandZplResolver.resolve(any())).thenReturn("^XA^XZ");
+        when(labelaryPreviewService.renderPreview(any())).thenReturn(new byte[]{1, 2, 3});
+        when(previewColorService.tint(any(), any())).thenReturn(new byte[]{4, 5, 6});
+
+        PermitWristbandPrintRequest req = samplePermitRequest();
+        req.setStockColorCode(2);
+
+        mockMvc.perform(post("/api/wristbands/preview/image")
+                .header("X-API-Key", API_KEY)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(req)))
+            .andExpect(status().isOk());
+
+        verify(previewColorService).tint(eq(new byte[]{1, 2, 3}), eq("#800080"));
+    }
+
+    // ── Job management tests ──────────────────────────────────────────────────
 
     @Test
     void getJobById_returns200_whenJobExists() throws Exception {
@@ -322,6 +388,7 @@ class WristbandControllerTest {
     void crewPrint_returns400_whenCopiesBelowOne() throws Exception {
         String body = """
             {
+              "wristbandType": "crew",
               "eventName": "Pukkelpop 2026",
               "firstName": "Jan",
               "lastName": "Janssens",
@@ -331,7 +398,7 @@ class WristbandControllerTest {
             }
             """;
 
-        mockMvc.perform(post("/api/wristbands/crew/print")
+        mockMvc.perform(post("/api/wristbands/print")
                 .header("X-API-Key", API_KEY)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body))
@@ -515,6 +582,13 @@ class WristbandControllerTest {
         r.setLastName("Janssens");
         r.setClubName("STUP vzw");
         r.setBarcodeValue("123456789");
+        return r;
+    }
+
+    private PermitWristbandPrintRequest samplePermitRequest() {
+        PermitWristbandPrintRequest r = new PermitWristbandPrintRequest();
+        r.setEventName("Pukkelpop 2026");
+        r.setPermitLabel("ELEKTRICITEIT");
         return r;
     }
 }

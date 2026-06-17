@@ -238,7 +238,7 @@ The complete REST reference — wristband printing, job streaming (SSE), and the
 plus `curl` examples is in **[docs/api.md](docs/api.md)**.
 
 All endpoints (except `/api/wristbands/jobs/stream` and `/jobs.html`) require an `X-API-Key` header.
-The `/api/templates` endpoints back the [template designer](docs/template-designer.md).
+The `/api/wristband-templates` and `/api/wristband-assets` endpoints back the [template designer](docs/template-designer.md).
 
 ---
 

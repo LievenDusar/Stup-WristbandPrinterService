@@ -94,30 +94,31 @@ Editor endpoints use the **admin cookie**; catalog/preview/print use the existin
 
 | Method | Path | Purpose | Status |
 |---|---|---|---|
-| `POST` | `/api/templates` | Create a template → `201 + detail` | ✅ Plan 1 |
-| `PUT` | `/api/templates/{id}` | Update a template → `200` / `404` | ✅ Plan 1 |
-| `GET` | `/api/templates` | Catalog list (`id, slug, name, projectType, updatedAt`); `?projectType=` filters | ✅ Plan 1 |
-| `GET` | `/api/templates/{id}` | Full definition → `200` / `404` | ✅ Plan 1 |
-| `DELETE` | `/api/templates/{id}` | Soft-delete → `204` / `404` | ✅ Plan 1 |
-| `GET` | `/api/templates/{id}/preview?color=white` | PNG with sample data (Symfony thumbnails) | ✅ Plan 2 |
-| `POST` | `/api/templates/{id}/preview` | PNG with supplied data (editor live preview) | ✅ Plan 2 |
-| `POST` | `/api/templates/assets`, `GET .../assets/{id}` | Upload / fetch logo | ✅ Plan 2 |
+| `POST` | `/api/wristband-templates` | Create a template → `201 + detail` | ✅ Plan 1 |
+| `PUT` | `/api/wristband-templates/{id}` | Update a template → `200` / `404` | ✅ Plan 1 |
+| `GET` | `/api/wristband-templates` | Catalog list (`id, slug, name, projectType, updatedAt`); `?projectType=` filters | ✅ Plan 1 |
+| `GET` | `/api/wristband-templates/{id}` | Full definition → `200` / `404` | ✅ Plan 1 |
+| `DELETE` | `/api/wristband-templates/{id}` | Soft-delete → `204` / `404` | ✅ Plan 1 |
+| `POST` | `/api/wristband-templates/{id}/preview` | PNG preview; body is **optional** — omit for sample data (Symfony thumbnails), supply `WristbandData` for live preview (editor). The old `GET /{id}/preview` is removed. | ✅ Plan 2 |
+| `POST` | `/api/wristband-assets` | Upload a logo asset → `201 + { id }` | ✅ Plan 2 |
+| `GET` | `/api/wristband-assets/{id}` | Fetch a logo asset by id | ✅ Plan 2 |
 | `POST` | `/api/wristbands/print` (+ optional `templateId`) | Print via a template; absent → legacy layout | ✅ Plan 2 |
 
 ## Symfony flow
 
-1. `GET /api/templates?projectType=festival` → list of `{ id, slug, name, projectType }`.
-2. Optionally `GET /api/templates/{id}/preview` → PNG thumbnail (same Labelary mechanism as the
-   jobs slide-in).
+1. `GET /api/wristband-templates?projectType=festival` → list of `{ id, slug, name, projectType }`.
+2. Optionally `POST /api/wristband-templates/{id}/preview` (no body) → PNG thumbnail (same Labelary
+   mechanism as the jobs slide-in).
 3. User picks a template.
-4. Symfony calls `POST /api/wristbands/print` with `templateId` + the five data fields.
+4. Symfony calls `POST /api/wristbands/print` with `"wristbandType": "crew"`, `templateId`, and the
+   five crew data fields.
 
 ## Roadmap
 
 | Plan | Scope | Status |
 |---|---|---|
-| **1 — Persistence & Catalog/CRUD API** | Domain model, `jsonb` storage, Flyway `V3`, `TemplateService`, `/api/templates`, tests | ✅ Done |
-| **2 — Rendering, assets, preview & print** | `GfImageEncoder`, `TemplateAssetService` (logo→`^GF`), `TemplateZplRenderer`, save-time ZPL snapshot, preview PNG endpoints, `/print` `templateId` routing | ✅ Done |
+| **1 — Persistence & Catalog/CRUD API** | Domain model, `jsonb` storage, Flyway `V3`, `TemplateService`, `/api/wristband-templates`, tests | ✅ Done |
+| **2 — Rendering, assets, preview & print** | `GfImageEncoder`, `TemplateAssetService` (logo→`^GF`), `TemplateZplRenderer`, save-time ZPL snapshot, preview PNG endpoints (`POST /api/wristband-templates/{id}/preview`), `/print` `templateId` routing | ✅ Done |
 | **3 — Editor UI** | Konva.js drag-and-drop page (`template-editor.html`), toolbox, properties panel, colour preview, save/export | ✅ Done |
 
 ## Using the editor

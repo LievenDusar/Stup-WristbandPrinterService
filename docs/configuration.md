@@ -123,4 +123,4 @@ All values under `wristband.permit.*`:
 | `code.module-width-dots` | 2 | Narrow-bar module width for the optional scan code |
 | `code.show-human-readable` | false | Whether to print the human-readable value below the scan code |
 
-Calibrate by using `POST /api/wristbands/permit/preview/image` and adjusting YAML values.
+Calibrate by using `POST /api/wristbands/preview/image` (with `"wristbandType": "permit"`) and adjusting YAML values.

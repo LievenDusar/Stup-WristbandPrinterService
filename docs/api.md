@@ -5,19 +5,26 @@ Authentication: `X-API-Key` header on all endpoints except `/jobs/stream`.
 
 ---
 
-## Crew wristband
+## Print & preview (polymorphic)
+
+A single set of endpoints handles both wristband types. The `wristbandType` discriminator
+field in the JSON body selects the type: `"crew"` or `"permit"` (lowercase on the wire in
+both requests and responses).
+
+> **Breaking change (hard cut):** All type-specific sub-paths and the legacy 308-redirect alias
+> are removed. Symfony must deploy these new paths in lockstep with this service.
 
 | Method | URL | Description |
 |--------|-----|-------------|
-| POST | `/crew/print` | Enqueue a crew print job → 202 |
-| POST | `/crew/preview/zpl` | Return ZPL as plain text |
-| POST | `/crew/preview/image` | Return PNG preview via Labelary |
-| POST | `/print` ⚠ | **Deprecated 308 alias** → `/crew/print` |
+| POST | `/print` | Enqueue a print job → 202 |
+| POST | `/preview/zpl` | Return ZPL as plain text |
+| POST | `/preview/image` | Return PNG preview via Labelary |
 
-### Request body (`WristbandPrintRequest`)
+### Crew request body
 
 | Field | Type | Required | Notes |
 |-------|------|----------|-------|
+| `wristbandType` | `"crew"` | ✅ | Discriminator — must be lowercase `"crew"` |
 | `eventName` | string | ✅ | |
 | `firstName` | string | ✅ | |
 | `lastName` | string | ✅ | |
@@ -27,21 +34,26 @@ Authentication: `X-API-Key` header on all endpoints except `/jobs/stream`.
 | `codeSymbology` | `CODE128` \| `CODE39` \| `QR` | ❌ | Defaults to `CODE128` |
 | `stockColorCode` | integer | ❌ | Preview-only PNG tint (see stock colors below) |
 | `printerId` | string | ❌ | Defaults to first registered printer |
+| `copies` | integer | ❌ | Number of bands to print; defaults to 1 |
 
----
+**Crew example:**
 
-## Permit wristband
+```json
+{
+  "wristbandType": "crew",
+  "eventName": "Pukkelpop 2026",
+  "firstName": "Annechien",
+  "lastName": "Van De Wall",
+  "clubName": "Chiro Sint-Christina Brustem",
+  "barcodeValue": "12345654245524789"
+}
+```
 
-| Method | URL | Description |
-|--------|-----|-------------|
-| POST | `/permit/print` | Enqueue a permit print job → 202 |
-| POST | `/permit/preview/zpl` | Return ZPL as plain text |
-| POST | `/permit/preview/image` | Return PNG preview via Labelary |
-
-### Request body (`PermitWristbandPrintRequest`)
+### Permit request body
 
 | Field | Type | Required | Notes |
 |-------|------|----------|-------|
+| `wristbandType` | `"permit"` | ✅ | Discriminator — must be lowercase `"permit"` |
 | `eventName` | string | ✅ | Printed in block 4 |
 | `permitLabel` | string | ✅ | e.g. `ELEKTRICITEIT`, `PARKING`. Printed as "Toelating [label]" |
 | `clubName` | string | ❌ | If absent, a dotted fill-in line is printed instead |
@@ -50,6 +62,22 @@ Authentication: `X-API-Key` header on all endpoints except `/jobs/stream`.
 | `codeSymbology` | `CODE128` \| `CODE39` \| `QR` | ❌ | Defaults to `CODE128` |
 | `stockColorCode` | integer | ❌ | Preview-only PNG tint |
 | `printerId` | string | ❌ | Defaults to first registered printer |
+| `copies` | integer | ❌ | Number of bands to print; defaults to 1 |
+
+**Permit example:**
+
+```json
+{
+  "wristbandType": "permit",
+  "eventName": "Pukkelpop 2026",
+  "permitLabel": "ELEKTRICITEIT",
+  "clubName": "Backstage crew"
+}
+```
+
+### Response note
+
+The jobs list response field `wristbandType` is also lowercase: `"crew"` or `"permit"`.
 
 ---
 
@@ -74,6 +102,34 @@ Authentication: `X-API-Key` header on all endpoints except `/jobs/stream`.
 |--------|-----|-------------|
 | GET | `/printers` | List registered printers |
 | GET | `/gallery` | List all wristband types with sample preview data |
+
+---
+
+## Wristband templates (`/api/wristband-templates`)
+
+> **Breaking change (hard cut):** The old template path prefix is removed; all template endpoints
+> now live under `/api/wristband-templates/**`.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/wristband-templates` | Create a template → 201 + detail |
+| PUT | `/api/wristband-templates/{id}` | Update a template → 200 / 404 |
+| GET | `/api/wristband-templates` | Catalog list; `?projectType=` filters |
+| GET | `/api/wristband-templates/{id}` | Full definition → 200 / 404 |
+| DELETE | `/api/wristband-templates/{id}` | Soft-delete → 204 / 404 |
+| POST | `/api/wristband-templates/{id}/preview` | PNG preview; body is optional — omit for sample data, supply `WristbandData` for live preview |
+
+> The old `GET /api/wristband-templates/{id}/preview` is removed. Preview is now a single
+> `POST` with an optional body.
+
+---
+
+## Wristband assets (`/api/wristband-assets`)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/wristband-assets` | Upload a logo asset → 201 + `{ id }` |
+| GET | `/api/wristband-assets/{id}` | Fetch a logo asset by id |
 
 ---
 

@@ -32,17 +32,25 @@ name by hand.
 
 ## API contract
 
+All three endpoints accept the shared polymorphic request body with `"wristbandType": "permit"`.
+See [api.md](api.md) for the full field list.
+
 ### Enqueue
-`POST /api/wristbands/permit/print`
+`POST /api/wristbands/print`
+
+```json
+{
+  "wristbandType": "permit",
+  "eventName": "Pukkelpop 2026",
+  "permitLabel": "ELEKTRICITEIT"
+}
+```
 
 ### Preview (ZPL text)
-`POST /api/wristbands/permit/preview/zpl`
+`POST /api/wristbands/preview/zpl`
 
 ### Preview (PNG image)
-`POST /api/wristbands/permit/preview/image`
-
-All three endpoints accept `PermitWristbandPrintRequest`. See [api.md](api.md) for the
-full field list.
+`POST /api/wristbands/preview/image`
 
 ## Supported permit types
 

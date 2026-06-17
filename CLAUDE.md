@@ -32,9 +32,11 @@ important concept to understand before editing anything.
 
 ### Request flow (print)
 
-1. Symfony (or the UI) → `POST /api/wristbands/crew/print` (crew) or
-   `POST /api/wristbands/permit/print` (permit) on **management**. The legacy `POST /api/wristbands/print`
-   issues a **308 permanent redirect** to `/crew/print` for backward compatibility.
+1. Symfony (or the UI) → `POST /api/wristbands/print` on **management** with a JSON body
+   containing a lowercase `wristbandType` discriminator: `"crew"` or `"permit"`. Previews use
+   `POST /api/wristbands/preview/zpl` and `POST /api/wristbands/preview/image`. The old
+   type-specific paths and the legacy 308-redirect alias are all removed (hard cut — Symfony
+   must deploy the new paths in lockstep).
 2. `PrintQueueService.enqueue` resolves the target `Printer` from the `PrinterRegistry`
    (`printerId` from the request, or the default = first registered printer), persists the job,
    and offers it to that printer's **own** in-memory `BlockingQueue`.
@@ -179,8 +181,12 @@ negotiates with modern daemons — bump if your daemon requires higher.
   every job by default; wipes the printer's **RAM drive (R:)** only — no flash wear.
 - **Print stays monochrome.** Template "colour" tints the **preview only** to judge contrast on
   coloured stock.
-- **Legacy layout is the default.** `/crew/print` without a `templateId` uses the fixed programmatic
-  layout (logo → barcode → text → logo); zero breaking change for Symfony.
+- **Legacy layout is the default.** A crew print request without a `templateId` uses the fixed
+  programmatic layout (logo → barcode → text → logo); supplying a `templateId` opts into template
+  rendering.
+- **`wristbandType` is lowercase on the wire** — both in requests (`"crew"`/`"permit"`) and in the
+  jobs list response. The Java enum stays uppercase internally (`WristbandType.CREW` /
+  `WristbandType.PERMIT`).
 - Wristband geometry is fully config-driven (`wristband.*`) — there are no absolute coordinates to
   maintain; calibrate via YAML, not code. See [docs/configuration.md](docs/configuration.md).
 - **Permit bands carry no personal details** — `firstName`, `lastName`, `barcodeValue` are NULL in
@@ -191,8 +197,6 @@ negotiates with modern daemons — bump if your daemon requires higher.
   endpoints only.
 - `iconName` is stored but not rendered — reserved for a future Font Awesome icon overlay on permit
   bands.
-- **Crew URL restructure**: `/crew/print` is the current crew endpoint; `POST /print` is a **308
-  permanent redirect** alias kept for backward compatibility with Symfony.
 - **Copies per job:** a request may set `copies` (default 1). The printer prints that
   many physical bands from one job via the Zebra `^PQ` command, which is appended **only
   on the print path** (`PrintQueueService` → `ZplCopies.apply`), never in the shared
@@ -205,7 +209,7 @@ negotiates with modern daemons — bump if your daemon requires higher.
 src/main/java/com/stup/wristbandprinter/
 ├── cluster/        Printer registry + WorkerClient (management→worker forwarding)
 ├── config/         @ConfigurationProperties, SecurityConfig, ApiKeyValidator
-├── controller/     WristbandController, PermitWristbandController, AuthController (management REST)
+├── controller/     WristbandController, AuthController (management REST)
 ├── domain/         PrintJob, request/response DTOs, PrintJobStatus
 ├── editor/         Template designer feature package (domain/persistence/service/controller)
 ├── exception/      Custom exceptions + GlobalExceptionHandler (maps to HTTP status)
@@ -259,10 +263,13 @@ docker/                        base image + supporting Docker assets
 
 ## Current work in progress
 
-The permit wristband feature is fully implemented (plans `2026-06-09-permit-wristband-part-1`
-through `part-4`). Most recent work (2026-06-11) is a **front-end refresh of the jobs page and
-gallery** plus surfacing `permitLabel` on the jobs list response — see the dated section at the end
-of [HANDOVER.md](HANDOVER.md). No change to the print/route/worker pipeline.
+The most recent work (2026-06-16) is the **API endpoint restructure**: crew and permit
+print/preview merged into one polymorphic `POST /api/wristbands/print` (discriminator
+`wristbandType`, lowercase on the wire), templates/assets renamed to `/api/wristband-templates`
+and `/api/wristband-assets`, and the old type-specific paths removed (hard cut). See the dated
+section at the end of [HANDOVER.md](HANDOVER.md). The permit wristband feature (plans
+`2026-06-09-permit-wristband-part-1`…`part-4`) and the 2026-06-11 jobs/gallery front-end refresh
+remain in place.
 
 ## Recommended next steps
 

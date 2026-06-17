@@ -12,8 +12,8 @@ let previewVisible = false;
 const DRAWER_BASE_WIDTH = 500; // keep in sync with .drawer width in app.css
 
 const STATUSES = ['PENDING', 'PRINTING', 'DONE', 'FAILED', 'CANCELLED'];
-const TYPES = ['CREW', 'PERMIT'];
-const TYPE_LABELS = { CREW: 'Crew', PERMIT: 'Permit' };
+const TYPES = ['crew', 'permit'];
+const TYPE_LABELS = { crew: 'Crew', permit: 'Permit' };
 
 // Data-driven table columns. `Actions` is always rendered last and is NOT in this list.
 const COLUMNS = [
@@ -235,7 +235,7 @@ function printerLabel(j) {
   return dot + esc(name);
 }
 
-// Small coloured pill marking a job's wristband type (CREW / PERMIT).
+// Small coloured pill marking a job's wristband type (crew / permit).
 function typeBadge(type) {
   if (!type) return '<span class="muted">—</span>';
   return `<span class="badge ${type}">${esc(TYPE_LABELS[type] || type)}</span>`;

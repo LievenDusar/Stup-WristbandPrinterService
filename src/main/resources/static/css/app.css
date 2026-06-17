@@ -137,8 +137,8 @@ tbody tr:hover { background: hsla(0, 0%, 100%, 0.03); }
 .badge.DONE      { background: #4caf50; }
 .badge.FAILED    { background: #f44336; }
 .badge.CANCELLED { background: var(--purple-light); }
-.badge.CREW      { background: #3f6cd6; }
-.badge.PERMIT    { background: #0c9b8a; }
+.badge.crew      { background: #3f6cd6; }
+.badge.permit    { background: #0c9b8a; }
 
 .muted { color: var(--text-muted); }
 .error-text { color: #ff8a80; }

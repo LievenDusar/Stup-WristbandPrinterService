@@ -193,13 +193,15 @@ reworked (DB-backed claim or a broker) — it is explicitly single-instance toda
 A new wristband type for campsite resource access (electricity, parking, …). Unlike crew
 bands it has no personal details. Any non-blank `permitLabel` creates a valid permit band.
 
-### URL scheme
-- `POST /api/wristbands/permit/print` — enqueue
-- `POST /api/wristbands/permit/preview/zpl` — ZPL text
-- `POST /api/wristbands/permit/preview/image` — PNG preview
-- Crew band: `POST /api/wristbands/crew/print` (old `/print` → 308 redirect)
+### URL scheme (at time of writing — superseded by 2026-06-16 restructure)
+- Permit enqueue, ZPL preview, and PNG preview each had dedicated `/permit/…` paths.
+- Crew used a dedicated type-specific path with a legacy 308-redirect alias.
+- See the 2026-06-16 section below for the current single polymorphic endpoint.
 
 ### Request fields (`PermitWristbandPrintRequest`)
+
+_(This class still exists; since the 2026-06-16 restructure its fields are sent as the permit variant of the polymorphic `POST /api/wristbands/print` body — see that section.)_
+
 | Field | Required | Notes |
 |-------|----------|-------|
 | `eventName` | ✅ | Printed in block 4 |
@@ -301,8 +303,8 @@ The wristband property is now **`clubName`** everywhere, matching the Symfony ap
 name. Applies to both crew (`WristbandPrintRequest`) and permit
 (`PermitWristbandPrintRequest`) requests, `WristbandData`/`PermitWristbandData`, the
 entity/response DTOs, the layout/ZPL services, the jobs UI + template designer, Swagger
-schemas, config, docs, and tests. No endpoint **URL** changed (paths are `/crew/print`,
-`/permit/print`, …).
+schemas, config, docs, and tests. No endpoint **URL** changed at this point (the endpoint
+restructure came later — see the 2026-06-16 section).
 
 - **DB.** Flyway **`V8__rename_association_name_to_club_name.sql`** does
   `ALTER TABLE print_jobs RENAME COLUMN association_name TO club_name` — existing rows preserved.
@@ -312,5 +314,50 @@ schemas, config, docs, and tests. No endpoint **URL** changed (paths are `/crew/
 - **Config (operator action).** The YAML keys `wristband.text.font-size-association` and
   `wristband.permit.text.font-size-association` are renamed to **`…font-size-club`**. Any prod
   override of the old keys must be updated or it silently falls back to the default.
-- **Caller action.** Symfony / API clients must send `clubName` (was `associationName`).
+- **Caller action.** Symfony / API clients must send `clubName` (was `associationName`). Endpoint
+  URLs were unchanged at the time of this rename (the endpoint restructure came later — see
+  the 2026-06-16 section).
 - Historical specs/plans under `docs/superpowers/` were left as-is (point-in-time records).
+
+---
+
+## 2026-06-16 — API endpoint restructure
+
+### What changed
+
+- **Single polymorphic print endpoint.** `POST /api/wristbands/print` (and its preview siblings
+  `POST /api/wristbands/preview/zpl` / `POST /api/wristbands/preview/image`) now handle both crew
+  and permit wristbands via a `wristbandType` discriminator field in the JSON body.
+
+- **`wristbandType` is lowercase on the wire** — both in requests and in the jobs list response:
+  `"crew"` and `"permit"`. The Java enum stays uppercase internally (`WristbandType.CREW` /
+  `WristbandType.PERMIT`).
+
+- **Removed paths (hard cut — no aliases or redirects):** All type-specific sub-paths under
+  `/api/wristbands/` and the legacy 308-redirect alias on `POST /api/wristbands/print` are gone.
+
+  **Symfony must deploy the new paths in lockstep with this service.**
+
+- **Templates renamed:** The old template path prefix is gone; all template endpoints now live
+  under `/api/wristband-templates/**`. CRUD is unchanged; only the base path moved.
+
+- **Assets split out:** The old asset sub-paths under the template prefix are gone; assets are now
+  `POST /api/wristband-assets` and `GET /api/wristband-assets/{id}`.
+
+- **Template preview folded into a single optional-body POST:** The old
+  `GET /api/wristband-templates/{id}/preview` is removed. Preview is now
+  `POST /api/wristband-templates/{id}/preview` with an **optional** body: omit the body for sample
+  data (Symfony thumbnails), or supply a `WristbandData` body for live preview (editor).
+
+### Request fields (new merged body)
+
+Crew fields: `wristbandType` (`"crew"`), `eventName`, `firstName`, `lastName`, `clubName`,
+`barcodeValue` (+ optional `templateId`, `codeSymbology`, `stockColorCode`, `printerId`, `copies`).
+
+Permit fields: `wristbandType` (`"permit"`), `eventName`, `permitLabel` (+ optional `clubName`,
+`iconName`, `codeValue`, `codeSymbology`, `stockColorCode`, `printerId`, `copies`).
+
+### Source records
+
+Design spec: `docs/superpowers/specs/2026-06-16-api-endpoint-restructure-design.md`  
+Implementation plan: `docs/superpowers/plans/2026-06-16-api-endpoint-restructure.md`
