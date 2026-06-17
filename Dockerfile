@@ -12,6 +12,7 @@ WORKDIR /app
 COPY --from=build /app/target/wristband-printer-service-*.jar app.jar
 COPY docker-entrypoint.sh /app/docker-entrypoint.sh
 RUN chmod +x /app/docker-entrypoint.sh
-# 8080 = local HTTP, 8443 = production HTTPS
-EXPOSE 8080 8443
+# 8080 = local HTTP, 8443 = production HTTPS,
+# 8081 = prod internal plain-HTTP (private Docker network only — worker self-registration)
+EXPOSE 8080 8443 8081
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
