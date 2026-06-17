@@ -49,6 +49,13 @@ services:
       SPRING_PROFILES_ACTIVE: worker
       SECURITY_API_KEY: ${API_KEY}
       PRINTER_HOST: ${PRINTER1_HOST}
+      # Self-registration identity (see step 2 / the TLS prerequisite note above).
+      WORKER_ID: printer-1
+      WORKER_DISPLAY_NAME: Printer 1
+      WORKER_BASE_URL: http://printer-worker-1:8080
+      # Internal plain-HTTP port on management (private Docker network only) — avoids the
+      # self-signed-cert TLS failure that HTTPS:8443 causes for worker self-registration.
+      WORKER_MANAGEMENT_BASE_URL: http://management:8081
 
   # --- Printer-worker template: copy this block to add a printer ---
   # printer-worker-2:

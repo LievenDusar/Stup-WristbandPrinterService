@@ -1,5 +1,11 @@
 server:
   port: 8443
+  # Plain-HTTP connector for in-network worker -> management calls (self-registration,
+  # heartbeat). Not published to the host (see docker-compose.prod.yml) — only reachable on
+  # the private Docker network. The main 8443 connector stays HTTPS-only.
+  internal-http:
+    enabled: ${INTERNAL_HTTP_ENABLED:true}
+    port: ${INTERNAL_HTTP_PORT:8081}
   ssl:
     enabled: true
     key-store: file:${SSL_KEYSTORE_PATH:/certs/keystore.p12}

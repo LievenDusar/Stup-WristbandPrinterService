@@ -79,18 +79,18 @@ the worker calls management to register and send heartbeats):
       WORKER_ID: printer-2
       WORKER_DISPLAY_NAME: [printer-2-label]
       WORKER_BASE_URL: http://printer-worker-2:8080
-      WORKER_MANAGEMENT_BASE_URL: https://management:8443
+      WORKER_MANAGEMENT_BASE_URL: http://management:8081
 ```
 
 Add each new worker to the management service's `depends_on` list.
 
-> ⚠️ **Prerequisite — worker → management is HTTPS-only in prod.** Management listens
-> HTTPS-only on 8443 with a self-signed certificate (see [HTTPS & Symfony certificate
-> trust](#https--symfony-certificate-trust)). Before a worker can self-register, either add an
-> internal **HTTP** connector on management for `/api/internal/**`, or configure the worker's
-> `RestClient` to trust management's self-signed certificate. Until one of those is done, do not
-> set a live `WORKER_MANAGEMENT_BASE_URL=https://...` in prod — registration calls will fail TLS
-> verification.
+> 📝 **Worker → management uses an internal plain-HTTP port.** Management's public connector is
+> HTTPS-only on 8443 with a self-signed certificate, which a worker's `RestClient` cannot verify
+> (PKIX failure). So management *also* listens on a plain-HTTP port (`8081`, set via
+> `server.internal-http.*` in `application-prod.yml`) that is **not** published to the host — only
+> reachable on the private Docker network. Workers therefore set
+> `WORKER_MANAGEMENT_BASE_URL=http://management:8081` (not `https://...:8443`). Public traffic stays
+> HTTPS-only; see [HTTPS & Symfony certificate trust](#https--symfony-certificate-trust).
 
 ### 3. Printers self-register — no static registry to edit
 
@@ -151,12 +151,12 @@ it (or copy the block and bump the index for a third printer):
       WORKER_ID: printer-2
       WORKER_DISPLAY_NAME: Inkom
       WORKER_BASE_URL: http://printer-worker-2:8080
-      WORKER_MANAGEMENT_BASE_URL: https://management:8443
+      WORKER_MANAGEMENT_BASE_URL: http://management:8081
 ```
 
 (Optionally add `printer-worker-2` to the management `depends_on:` list so it starts first.) See the
-prerequisite note in step 2 above about worker → management TLS before setting a live
-`WORKER_MANAGEMENT_BASE_URL`.
+note in step 2 above on why `WORKER_MANAGEMENT_BASE_URL` points at the internal HTTP port
+(`http://management:8081`) rather than HTTPS.
 
 **3. Redeploy** — pick the command for your situation:
 
