@@ -363,6 +363,28 @@ class WristbandControllerTest {
     }
 
     @Test
+    void reprint_withCopiesParamOne_overridesMultiCopyOriginalDownToOne() throws Exception {
+        UUID jobId = UUID.randomUUID();
+        WristbandPrintRequest original = new WristbandPrintRequest();
+        original.setEventName("Pukkelpop 2026");
+        original.setFirstName("Jan"); original.setLastName("Janssens");
+        original.setClubName("STUP vzw"); original.setBarcodeValue("123");
+        original.setCopies(2);
+        PrintJob originalJob = new PrintJob(jobId, original, "printer-1", "Inkom");
+        when(printQueueService.getJob(jobId)).thenReturn(java.util.Optional.of(originalJob));
+
+        ArgumentCaptor<PrintableRequest> captor = ArgumentCaptor.forClass(PrintableRequest.class);
+        when(printQueueService.enqueue(captor.capture()))
+            .thenAnswer(inv -> new PrintJob(UUID.randomUUID(), inv.getArgument(0)));
+
+        mockMvc.perform(post("/api/wristbands/jobs/" + jobId + "/reprint?copies=1")
+                .header("X-API-Key", API_KEY))
+            .andExpect(status().isAccepted());
+
+        org.assertj.core.api.Assertions.assertThat(captor.getValue().getCopies()).isEqualTo(1);
+    }
+
+    @Test
     void crewPrint_returns400_whenCopiesBelowOne() throws Exception {
         String body = """
             {

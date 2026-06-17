@@ -105,7 +105,7 @@ over **SSE**, and provides:
   Printers are never added or hard-deleted from the browser (add = start a worker container).
 - A **Copies** column (replacing the old *Completed* column, which now lives only in the
   detail drawer) and a **Columns ▾** chooser to toggle which data columns are visible
-  (max 5 + always-on Actions), remembered per browser in `localStorage`.
+  (max 6 + always-on Actions), remembered per browser in `localStorage`.
 
 `GET /api/wristbands/gallery` powers `wristband-gallery.html` (a sample of every band type), which
 shares `app.css` and shows each preview in a 90vh modal.
@@ -281,3 +281,13 @@ maintainer before starting:
    emits CODE128).
 3. **Editor canvas barcode rendering** so the designer WYSIWYG matches printed output.
 4. Replace the placeholder event logo with a real per-event asset in production.
+
+## graphify
+
+This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
+
+Rules:
+- For codebase questions, first run `graphify query "<question>"` when graphify-out/graph.json exists. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
+- If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
+- Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
+- After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).

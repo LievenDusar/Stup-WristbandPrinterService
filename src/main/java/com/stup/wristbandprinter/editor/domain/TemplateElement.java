@@ -33,7 +33,8 @@ public record TemplateElement(
     StackDirection stackDirection,   // GROUP
     Integer marginDots,              // GROUP
     CrossAlign crossAlign,           // GROUP
-    String sampleText                // TEXT / STATIC_TEXT (design + preview only)
+    String sampleText,               // TEXT / STATIC_TEXT (design + preview only)
+    Boolean centerOnBand             // any leaf/group: renderer centers across band width
 ) {
 
     /** Backwards-compatible 16-arg leaf constructor (group/sample fields default to null). */
@@ -43,7 +44,7 @@ public record TemplateElement(
                            Integer thicknessDots) {
         this(id, type, x, y, widthDots, heightDots, rotation, binding, value, fontSize, font,
             symbology, showHumanReadable, assetId, shape, thicknessDots,
-            null, null, null, null, null);
+            null, null, null, null, null, null);
     }
 
     /** Factory for a group element. Leaf fields are null; {@code x}/{@code y} are the group origin. */
@@ -52,6 +53,13 @@ public record TemplateElement(
                                         List<TemplateElement> children) {
         return new TemplateElement(id, ElementType.GROUP, x, y, 0, 0, 0,
             null, null, null, null, null, null, null, null, null,
-            children, stackDirection, marginDots, crossAlign, null);
+            children, stackDirection, marginDots, crossAlign, null, null);
+    }
+
+    /** Returns a copy with centerOnBand set. */
+    public TemplateElement withCenterOnBand(boolean v) {
+        return new TemplateElement(id, type, x, y, widthDots, heightDots, rotation, binding, value,
+            fontSize, font, symbology, showHumanReadable, assetId, shape, thicknessDots,
+            children, stackDirection, marginDots, crossAlign, sampleText, v);
     }
 }

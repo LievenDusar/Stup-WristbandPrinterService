@@ -1,4 +1,4 @@
-import { layer, getSelection, setSelection, applyLayout, getCanvasDots, getScale } from './canvas.js';
+import { layer, getSelection, setSelection, applyLayout, centerNodeOnBand } from './canvas.js';
 import { nextId } from './state.js';
 
 const Konva = window.Konva;
@@ -50,15 +50,33 @@ export function ungroupSelected() {
   layer.draw();
 }
 
-// Center the selected node (or its outermost group) across the band width.
-export function centerSelectedOnBand() {
+// Toggle the centerOnBand flag on the selected element/group. When on, lock horizontal
+// drag (dragBoundFunc keeps x centered) and center immediately; when off, free it.
+export function toggleCenterOnBand() {
   const sel = getSelection();
   if (sel.length !== 1) { alert('Select a single item or group to center.'); return; }
   let node = sel[0];
   while (node.getParent() && node.getParent() !== layer) node = node.getParent();
-  const scale = getScale();
-  const widthPx = getCanvasDots().widthDots * scale;
-  const box = node.getClientRect({ relativeTo: layer });
-  node.x(node.x() + (widthPx - box.width) / 2 - (box.x - node.x()));
+  const on = !node.getAttr('centerOnBand');
+  node.setAttr('centerOnBand', on || undefined);
+  if (on) {
+    centerNodeOnBand(node);
+    node.dragBoundFunc(function (pos) {
+      // keep the locked (centered) x, allow y to move
+      return { x: this.absolutePosition().x, y: pos.y };
+    });
+  } else {
+    node.dragBoundFunc(null);
+  }
+  setSelection([node]); // refresh transformer + button state
   layer.draw();
+}
+
+// Whether the current single selection (outermost) is centered — for button state.
+export function isSelectionCentered() {
+  const sel = getSelection();
+  if (sel.length !== 1) return false;
+  let node = sel[0];
+  while (node.getParent() && node.getParent() !== layer) node = node.getParent();
+  return !!node.getAttr('centerOnBand');
 }

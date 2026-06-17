@@ -34,7 +34,7 @@ const COLUMNS = [
     cell: j => `<span title="${fmtDateTime(j.submittedAt)}">${relTime(j.submittedAt)}</span>` },
 ];
 
-const MAX_COLS = 5;
+const MAX_COLS = 6;
 const MIN_COLS = 1;
 const DEFAULT_COLS = ['name', 'type', 'event', 'copies', 'status'];
 const ALL_COL_KEYS = COLUMNS.map(c => c.key);
@@ -99,7 +99,7 @@ function toggleColumn(key) {
     if (visibleCols.length <= MIN_COLS) return;        // keep at least one data column
     visibleCols = visibleCols.filter(k => k !== key);
   } else {
-    if (visibleCols.length >= MAX_COLS) return;        // cap at five data columns
+    if (visibleCols.length >= MAX_COLS) return;        // cap at six data columns
     visibleCols.push(key);
   }
   saveVisibleCols();
@@ -596,7 +596,10 @@ async function reprint(id) {
   if (!sel) return;                                  // cancelled
   const params = new URLSearchParams();
   if (sel.printerId) params.set('printerId', sel.printerId);
-  if (sel.copies && sel.copies !== 1) params.set('copies', String(sel.copies));
+  // Always send the chosen count: the dialog returns a validated value >= 1, pre-filled
+  // with the original's copies. Omitting the param makes the backend reuse the original
+  // count, so a deliberate reduction to 1 must be sent explicitly to be honored.
+  if (sel.copies) params.set('copies', String(sel.copies));
   const qs = params.toString();
   const res = await guarded(fetch('/api/wristbands/jobs/' + id + '/reprint' + (qs ? '?' + qs : ''),
                                   { method: 'POST' }));

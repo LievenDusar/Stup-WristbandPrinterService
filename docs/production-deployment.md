@@ -158,7 +158,15 @@ it (or copy the block and bump the index for a third printer):
 prerequisite note in step 2 above about worker → management TLS before setting a live
 `WORKER_MANAGEMENT_BASE_URL`.
 
-**3. Redeploy:**
+**3. Redeploy** — pick the command for your situation:
+
+**Image already built — just add the new worker** (leaves the running services untouched):
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env.prod up -d printer-worker-2
+```
+
+**App code or image changed — rebuild and recreate** management + workers:
 
 ```bash
 docker compose -f docker-compose.prod.yml --env-file .env.prod up --build -d

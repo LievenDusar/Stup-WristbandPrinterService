@@ -46,7 +46,7 @@ class TemplateDefinitionJsonTest {
         TemplateElement free = new TemplateElement(
             "free", ElementType.STATIC_TEXT, 0, 0, 24, 120, 0,
             null, "STAFF", 24, "0", null, null, null, null, null,
-            null, null, null, null, "Crew");
+            null, null, null, null, "Crew", null);
 
         TemplateElement nameGroup = TemplateElement.group(
             "g-name", 0, 0, StackDirection.LENGTH, 10, CrossAlign.CENTER, java.util.List.of(first, last));
@@ -65,5 +65,24 @@ class TemplateDefinitionJsonTest {
         assertThat(o.children().get(0).children()).hasSize(2); // nested group preserved
         assertThat(o.children().get(1).sampleText()).isEqualTo("Crew");
         assertThat(o.children().get(0).crossAlign()).isEqualTo(CrossAlign.CENTER);
+    }
+
+    @Test
+    void centerOnBand_roundTripsAndOmitsWhenNull() throws Exception {
+        com.fasterxml.jackson.databind.ObjectMapper m = new com.fasterxml.jackson.databind.ObjectMapper();
+        TemplateElement centered = new TemplateElement(
+            "c", ElementType.TEXT, 0, 0, 28, 200, 90,
+            DataBinding.FULL_NAME, null, 28, "0", null, null, null, null, null)
+            .withCenterOnBand(true);
+        String json = m.writeValueAsString(centered);
+        assertThat(json).contains("\"centerOnBand\":true");
+
+        TemplateElement plain = new TemplateElement(
+            "p", ElementType.TEXT, 0, 0, 28, 200, 0,
+            DataBinding.FULL_NAME, null, 28, "0", null, null, null, null, null);
+        assertThat(m.writeValueAsString(plain)).doesNotContain("centerOnBand"); // NON_NULL
+
+        TemplateElement back = m.readValue(json, TemplateElement.class);
+        assertThat(back.centerOnBand()).isTrue();
     }
 }
