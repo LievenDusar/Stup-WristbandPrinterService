@@ -40,7 +40,7 @@ public final class WristbandPrintRequest implements PrintableRequest {
     @Schema(description = "Optional scan-code symbology; defaults to CODE128 when omitted")
     private CodeSymbology codeSymbology;
 
-    @Schema(description = "Optional stock-color code (1 = white). Preview-only tint.")
+    @Schema(description = "Optional stock-color code (configured: 1=white, 2=purple, 3=yellow, 4=blue, 5=green, 6=red). Preview-only tint.", example = "1")
     private Integer stockColorCode;
 
     @Schema(description = "Optional id of the printer to use; when omitted the default printer is used")

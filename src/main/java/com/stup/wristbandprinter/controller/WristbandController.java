@@ -7,6 +7,8 @@ import com.stup.wristbandprinter.editor.service.PreviewColorService;
 import com.stup.wristbandprinter.exception.InvalidStockColorException;
 import com.stup.wristbandprinter.service.*;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import org.springframework.context.annotation.Profile;
@@ -53,20 +55,38 @@ public class WristbandController {
 
     @PostMapping("/print")
     @Operation(summary = "Enqueue a wristband print job (crew or permit)", tags = {"Wristbands"})
-    public ResponseEntity<PrintJobResponse> print(@Valid @RequestBody PrintableRequest request) {
+    public ResponseEntity<PrintJobResponse> print(
+            @Valid @RequestBody
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(content = @Content(mediaType = "application/json", examples = {
+                @ExampleObject(name = "Crew",   value = WristbandRequestExamples.CREW),
+                @ExampleObject(name = "Permit", value = WristbandRequestExamples.PERMIT)
+            }))
+            PrintableRequest request) {
         PrintJob job = printQueueService.enqueue(request);
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(job.toResponse());
     }
 
     @PostMapping(value = "/preview/zpl", produces = "text/plain;charset=UTF-8")
     @Operation(summary = "Generate ZPL for a wristband (crew or permit) as plain text", tags = {"Wristbands"})
-    public ResponseEntity<String> previewZpl(@Valid @RequestBody PrintableRequest request) {
+    public ResponseEntity<String> previewZpl(
+            @Valid @RequestBody
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(content = @Content(mediaType = "application/json", examples = {
+                @ExampleObject(name = "Crew",   value = WristbandRequestExamples.CREW),
+                @ExampleObject(name = "Permit", value = WristbandRequestExamples.PERMIT)
+            }))
+            PrintableRequest request) {
         return ResponseEntity.ok(wristbandZplResolver.resolve(request));
     }
 
     @PostMapping(value = "/preview/image", produces = MediaType.IMAGE_PNG_VALUE)
     @Operation(summary = "Render a PNG preview of a wristband (crew or permit) via Labelary", tags = {"Wristbands"})
-    public ResponseEntity<byte[]> previewImage(@Valid @RequestBody PrintableRequest request) {
+    public ResponseEntity<byte[]> previewImage(
+            @Valid @RequestBody
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(content = @Content(mediaType = "application/json", examples = {
+                @ExampleObject(name = "Crew",   value = WristbandRequestExamples.CREW),
+                @ExampleObject(name = "Permit", value = WristbandRequestExamples.PERMIT)
+            }))
+            PrintableRequest request) {
         String zpl = wristbandZplResolver.resolve(request);
         byte[] png = labelaryPreviewService.renderPreview(zpl);
         byte[] out = applyStockColor(png, request.getStockColorCode());
