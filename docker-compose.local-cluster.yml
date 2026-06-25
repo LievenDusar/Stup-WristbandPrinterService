@@ -107,6 +107,9 @@ services:
       - SPRING_DATASOURCE_USERNAME=wristbands
       - SPRING_DATASOURCE_PASSWORD=wristbands
       - SECURITY_API_KEY=local-dev-key
+      # Print-only key + CORS so you can exercise the browser-integration path locally.
+      - SECURITY_PRINT_API_KEY=local-print-key
+      - CORS_ALLOWED_ORIGINS=http://localhost:3000
     ports:
       - "8080:8080"
     depends_on:

@@ -116,11 +116,11 @@ Build the shared base image once (and after changing `docker/base/Dockerfile`):
    ```bash
    curl -s -X POST http://localhost:8080/api/wristbands/print \
      -H "Content-Type: application/json" -H "X-API-Key: local-dev-key" \
-     -d '{"eventName":"Test","firstName":"Jan","lastName":"Janssen","clubName":"STUP","barcodeValue":"111"}'
+     -d '{"wristbandType":"crew","eventName":"Test","firstName":"Jan","lastName":"Janssen","clubName":"STUP","barcodeValue":"111"}'
 
    curl -s -X POST http://localhost:8080/api/wristbands/print \
      -H "Content-Type: application/json" -H "X-API-Key: local-dev-key" \
-     -d '{"eventName":"Test","firstName":"An","lastName":"Peeters","clubName":"STUP","barcodeValue":"222","printerId":"printer-2"}'
+     -d '{"wristbandType":"crew","eventName":"Test","firstName":"An","lastName":"Peeters","clubName":"STUP","barcodeValue":"222","printerId":"printer-2"}'
    ```
 
 4. **Watch the ZPL arrive** at each fake printer:

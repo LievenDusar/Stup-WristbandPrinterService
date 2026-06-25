@@ -20,12 +20,20 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest({WristbandController.class, AuthController.class})
 @Import({SecurityConfig.class, ApiKeyAuthFilter.class, AuthCookieService.class})
-@EnableConfigurationProperties({AdminProperties.class, WristbandProperties.class})
-@TestPropertySource(properties = {"security.api-key=test-key", "security.admin.password=pw"})
+@EnableConfigurationProperties({AdminProperties.class, WristbandProperties.class, CorsProperties.class})
+@TestPropertySource(properties = {
+    "security.api-key=test-key",
+    "security.print-api-key=print-key",
+    "security.admin.password=pw",
+    "cors.allowed-origins=https://app.example"
+})
 class SecurityConfigTest {
 
     @Autowired private MockMvc mockMvc;
@@ -57,5 +65,39 @@ class SecurityConfigTest {
         // Method Not Allowed, rather than being rejected by security with 401.
         mockMvc.perform(get("/api/wristbands/login"))
             .andExpect(status().isMethodNotAllowed());
+    }
+
+    @Test
+    void corsPreflight_fromAllowedOrigin_passesWithoutAuth() throws Exception {
+        // Browser preflight carries no key; it must return 200 with the allow-origin header,
+        // otherwise the real cross-origin POST is never sent.
+        mockMvc.perform(options("/api/wristbands/print")
+                .header("Origin", "https://app.example")
+                .header("Access-Control-Request-Method", "POST"))
+            .andExpect(status().isOk())
+            .andExpect(header().string("Access-Control-Allow-Origin", "https://app.example"));
+    }
+
+    @Test
+    void printEndpoint_acceptsPrintOnlyKey() throws Exception {
+        // ROLE_PRINT reaches /print: past security it hits body validation (400), not auth (401).
+        mockMvc.perform(post("/api/wristbands/print")
+                .header("X-API-Key", "print-key")
+                .contentType("application/json")
+                .content("{}"))
+            .andExpect(result -> assertNotEquals(401, result.getResponse().getStatus()));
+    }
+
+    @Test
+    void adminEndpoint_rejectsPrintOnlyKey() throws Exception {
+        // The print-only key must NOT reach admin endpoints (job list).
+        mockMvc.perform(get("/api/wristbands/jobs").header("X-API-Key", "print-key"))
+            .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void adminEndpoint_acceptsAdminKey() throws Exception {
+        mockMvc.perform(get("/api/wristbands/jobs").header("X-API-Key", "test-key"))
+            .andExpect(result -> assertNotEquals(401, result.getResponse().getStatus()));
     }
 }

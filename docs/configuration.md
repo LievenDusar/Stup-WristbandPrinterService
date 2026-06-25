@@ -27,7 +27,13 @@ its own [Wristband layout](#wristband-layout) section with an annotated diagram.
 | Property | Default | Description |
 |---|---|---|
 | `labelary.base-url` | `http://api.labelary.com` | Labelary API base URL (preview rendering) |
-| `security.api-key` | `changeme` | Static API key — override in production; shared by management + workers |
+| `security.api-key` | `changeme` | Static **admin** API key — override in production; shared by management + workers. Keep off the browser. |
+| `security.print-api-key` | _(empty)_ | Optional **print-only** key (`SECURITY_PRINT_API_KEY`): valid only on `POST /print`, `/preview/zpl`, `/preview/image`. Safe to expose in a browser — cannot reach admin endpoints. Blank = off. |
+| `cors.allowed-origins` | _(empty)_ | Browser origin(s) allowed to call cross-origin (`CORS_ALLOWED_ORIGINS`, comma-separated), e.g. `https://www.stupvzw.be`. Empty = no cross-origin allowed. |
+
+> **Browser callers (Symfony):** the print-only key + CORS let the Symfony front-end call
+> `/print` and `/preview/*` directly without exposing the admin key. Full guide:
+> [symfony-proxy-integration.md](symfony-proxy-integration.md).
 
 ## Profiles & startup
 

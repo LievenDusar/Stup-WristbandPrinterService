@@ -78,6 +78,10 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: prod
       SECURITY_API_KEY: ${API_KEY}
+      # Optional: limited key + CORS origin so the Symfony browser app can call /print + /preview
+      # directly. Both empty = off (feature disabled). See docs/symfony-proxy-integration.md.
+      SECURITY_PRINT_API_KEY: ${PRINT_API_KEY:-}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
       COOKIE_SECRET: ${COOKIE_SECRET}
       SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}

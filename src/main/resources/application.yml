@@ -9,6 +9,9 @@ spring:
 
 security:
   api-key: changeme  # Override via security.api-key env var or profile YAML in all real environments
+  # Optional limited key for the print + preview endpoints only (env var SECURITY_PRINT_API_KEY).
+  # Safe to expose in a browser: it cannot reach the admin UI or destructive actions. Blank = off.
+  print-api-key: ${SECURITY_PRINT_API_KEY:}
   admin:
     username: admin
     # password supplied per-profile / via env (SECURITY_ADMIN_PASSWORD); never defaulted in base
@@ -16,6 +19,11 @@ security:
     secure: true       # send cookie only over HTTPS (overridden in local)
     same-site: Strict  # overridden to Lax in local
   # cookie-secret: required in prod (COOKIE_SECRET env var); if unset in dev the signing key falls back to the admin password
+
+cors:
+  # Origins allowed to call the print/preview endpoints directly from a browser (comma-separated,
+  # env var CORS_ALLOWED_ORIGINS), e.g. https://app.stup.be. Empty = no cross-origin allowed.
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:}
 
 printer:
   host: localhost

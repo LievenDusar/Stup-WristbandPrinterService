@@ -13,6 +13,8 @@ built-in admin UI, a visual template designer, and support for multiple printers
   - [Adding a printer](#adding-a-printer)
 - [Configuration](#configuration) → [docs/configuration.md](docs/configuration.md)
 - [API endpoints](#api-endpoints) → [docs/api.md](docs/api.md)
+  - [Symfony integration (CORS / proxy)](docs/symfony-proxy-integration.md)
+  - [Symfony usage example (production)](docs/symfony-usage-example.md)
 - [Job management UI](#job-management-ui)
 - [Labelary preview](#labelary-preview)
 - [Job persistence](#job-persistence)
@@ -69,7 +71,9 @@ docker compose -f docker-compose.prod.yml --env-file .env.prod up --build -d
 
 Open **https://&lt;MANAGEMENT_HOSTNAME&gt;:8443/jobs.html** (self-signed cert). For adding more
 printers, Symfony certificate trust, and the full topology, see
-[Production deployment](#production-deployment) and [Architecture](#architecture).
+[Production deployment](#production-deployment) and [Architecture](#architecture). To let the
+Symfony app print **from the browser**, also set `PRINT_API_KEY` + `CORS_ALLOWED_ORIGINS` — see
+[Direct browser calls from Symfony](docs/production-deployment.md#direct-browser-calls-from-symfony-optional).
 
 ---
 
@@ -239,6 +243,11 @@ plus `curl` examples is in **[docs/api.md](docs/api.md)**.
 
 All endpoints (except `/api/wristbands/jobs/stream` and `/jobs.html`) require an `X-API-Key` header.
 The `/api/wristband-templates` and `/api/wristband-assets` endpoints back the [template designer](docs/template-designer.md).
+
+The STUP Symfony app calls the print/preview endpoints from the browser using a **separate
+print-only key** (`SECURITY_PRINT_API_KEY`) with CORS limited to the STUP origin
+(`CORS_ALLOWED_ORIGINS`); a server-side proxy is the higher-security alternative. See
+**[docs/symfony-proxy-integration.md](docs/symfony-proxy-integration.md)**.
 
 ---
 

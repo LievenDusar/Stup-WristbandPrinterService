@@ -177,6 +177,14 @@ negotiates with modern daemons — bump if your daemon requires higher.
   blank, or still `changeme`.
 - **API key everywhere except** `/api/wristbands/jobs/stream` and the static UI shells; the jobs UI
   authenticates via an **HttpOnly admin cookie** (no key in the browser). See `SecurityConfig`.
+- **Two API keys, two roles.** The admin key (`security.api-key`, grants `ROLE_ADMIN`) unlocks
+  everything. An **optional** print-only key (`security.print-api-key`, grants `ROLE_PRINT`) is valid
+  **only** on `POST /print`, `/preview/zpl`, `/preview/image` and is rejected (401) elsewhere — it is
+  safe to expose in a browser. `ApiKeyAuthFilter` assigns the role; `SecurityConfig` maps endpoints.
+- **CORS is config-driven and off by default.** `cors.allowed-origins` (`CorsProperties`, env
+  `CORS_ALLOWED_ORIGINS`) lists browser origins allowed to call cross-origin; empty = no cross-origin.
+  Used so the Symfony browser app can call print/preview directly with the print-only key. The
+  CORS preflight (`OPTIONS`) is permitAll. Full guide: `docs/symfony-proxy-integration.md`.
 - **Defensive RAM-cache clear:** `printer.clear-command` (`^XA^IDR:*.*^FS^XZ`) is prepended to
   every job by default; wipes the printer's **RAM drive (R:)** only — no flash wear.
 - **Print stays monochrome.** Template "colour" tints the **preview only** to judge contrast on
