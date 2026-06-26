@@ -5,7 +5,8 @@ Authentication: `X-API-Key` header on all endpoints except `/jobs/stream`.
 
 > **Calling from the STUP Symfony app?** The browser calls `/print` + `/preview/*` directly with a
 > **print-only key** (`SECURITY_PRINT_API_KEY`), with CORS limited to the STUP origin
-> (`CORS_ALLOWED_ORIGINS`). That key only reaches print/preview — never the admin endpoints. See
+> (`CORS_ALLOWED_ORIGINS`). That key reaches print/preview and its own job's status
+> (`GET /jobs/{jobId}`, `/jobs/{jobId}/stream`) — never the global list/stream or admin endpoints. See
 > [symfony-proxy-integration.md](symfony-proxy-integration.md).
 
 ---

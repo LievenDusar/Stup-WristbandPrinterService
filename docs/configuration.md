@@ -28,7 +28,7 @@ its own [Wristband layout](#wristband-layout) section with an annotated diagram.
 |---|---|---|
 | `labelary.base-url` | `http://api.labelary.com` | Labelary API base URL (preview rendering) |
 | `security.api-key` | `changeme` | Static **admin** API key — override in production; shared by management + workers. Keep off the browser. |
-| `security.print-api-key` | _(empty)_ | Optional **print-only** key (`SECURITY_PRINT_API_KEY`): valid only on `POST /print`, `/preview/zpl`, `/preview/image`. Safe to expose in a browser — cannot reach admin endpoints. Blank = off. |
+| `security.print-api-key` | _(empty)_ | Optional **print-only** key (`SECURITY_PRINT_API_KEY`): valid on `POST /print`, `/preview/zpl`, `/preview/image` and on reading its own job's status (`GET /jobs/{jobId}`, `GET /jobs/{jobId}/stream`). Cannot reach the global job list/stream or any admin endpoint. Safe to expose in a browser. Blank = off. |
 | `cors.allowed-origins` | _(empty)_ | Browser origin(s) allowed to call cross-origin (`CORS_ALLOWED_ORIGINS`, comma-separated), e.g. `https://www.stupvzw.be`. Empty = no cross-origin allowed. |
 
 > **Browser callers (Symfony):** the print-only key + CORS let the Symfony front-end call

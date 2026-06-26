@@ -100,4 +100,32 @@ class SecurityConfigTest {
         mockMvc.perform(get("/api/wristbands/jobs").header("X-API-Key", "test-key"))
             .andExpect(result -> assertNotEquals(401, result.getResponse().getStatus()));
     }
+
+    @Test
+    void printKey_canReadSingleJobStatus() throws Exception {
+        // ROLE_PRINT may read its own job's status (404 from the mocked service, not 401).
+        mockMvc.perform(get("/api/wristbands/jobs/11111111-1111-1111-1111-111111111111")
+                .header("X-API-Key", "print-key"))
+            .andExpect(result -> assertNotEquals(401, result.getResponse().getStatus()));
+    }
+
+    @Test
+    void printKey_canReadSingleJobStream() throws Exception {
+        mockMvc.perform(get("/api/wristbands/jobs/11111111-1111-1111-1111-111111111111/stream")
+                .header("X-API-Key", "print-key"))
+            .andExpect(result -> assertNotEquals(401, result.getResponse().getStatus()));
+    }
+
+    @Test
+    void printKey_cannotReadGlobalJobStream() throws Exception {
+        // The global stream (all jobs) must stay admin-only.
+        mockMvc.perform(get("/api/wristbands/jobs/stream").header("X-API-Key", "print-key"))
+            .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void printKey_cannotListAllJobs() throws Exception {
+        mockMvc.perform(get("/api/wristbands/jobs").header("X-API-Key", "print-key"))
+            .andExpect(status().isUnauthorized());
+    }
 }

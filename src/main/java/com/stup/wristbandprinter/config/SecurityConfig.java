@@ -72,7 +72,16 @@ public class SecurityConfig {
                     "/api/wristbands/preview/zpl",
                     "/api/wristbands/preview/image"
                 ).hasAnyRole("PRINT", "ADMIN")
-                // Everything else (jobs, SSE stream, reprint/cancel, printers, templates) is
+                // The global job list + global stream stay admin-only. List the global stream
+                // BEFORE the per-job rule below so it is not caught by /jobs/*.
+                .requestMatchers(HttpMethod.GET, "/api/wristbands/jobs/stream").hasRole("ADMIN")
+                // A browser print client may follow the job it created: single-job status and
+                // that one job's SSE stream (but not the global list/stream above, nor previews).
+                .requestMatchers(HttpMethod.GET,
+                    "/api/wristbands/jobs/*",
+                    "/api/wristbands/jobs/*/stream"
+                ).hasAnyRole("PRINT", "ADMIN")
+                // Everything else (job list, reprint/cancel, printers, templates) is
                 // admin-only — the print-only key cannot reach it.
                 .anyRequest().hasRole("ADMIN")
             )

@@ -179,8 +179,11 @@ negotiates with modern daemons — bump if your daemon requires higher.
   authenticates via an **HttpOnly admin cookie** (no key in the browser). See `SecurityConfig`.
 - **Two API keys, two roles.** The admin key (`security.api-key`, grants `ROLE_ADMIN`) unlocks
   everything. An **optional** print-only key (`security.print-api-key`, grants `ROLE_PRINT`) is valid
-  **only** on `POST /print`, `/preview/zpl`, `/preview/image` and is rejected (401) elsewhere — it is
-  safe to expose in a browser. `ApiKeyAuthFilter` assigns the role; `SecurityConfig` maps endpoints.
+  on `POST /print`, `/preview/zpl`, `/preview/image` **and** on reading a single job's status
+  (`GET /jobs/{jobId}`, `GET /jobs/{jobId}/stream`); it is rejected (401) everywhere else — the
+  global job list/stream, reprint/cancel, printers, templates. So a browser print client can follow
+  the job it created. `ApiKeyAuthFilter` assigns the role; `SecurityConfig` maps endpoints (the
+  global `/jobs/stream` rule is ordered before `/jobs/*` so the print key can't reach it).
 - **CORS is config-driven and off by default.** `cors.allowed-origins` (`CorsProperties`, env
   `CORS_ALLOWED_ORIGINS`) lists browser origins allowed to call cross-origin; empty = no cross-origin.
   Used so the Symfony browser app can call print/preview directly with the print-only key. The

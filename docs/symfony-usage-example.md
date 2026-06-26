@@ -163,10 +163,29 @@ body: JSON.stringify({
 
 See [permit-wristband.md](permit-wristband.md) for the full field list.
 
-## 6. Live job status — not available with the print-only key
+## 6. Following the print job's status
 
-The print call returns `202` immediately (fire-and-forget). Following a job to
-`DONE`/`FAILED` uses the SSE stream `GET /api/wristbands/jobs/{jobId}/stream`, which is
-**admin-only** — the print-only key gets `401` there. If you need live status in the browser, use
-the **server-side proxy** (Symfony forwards with the admin key and relays the stream); see
-[symfony-proxy-integration.md](symfony-proxy-integration.md#alternative--server-side-proxy).
+The print call returns `202` immediately. The print-only key may also **read its own job's status** —
+both the single-job endpoint (`GET /jobs/{jobId}`) and that job's SSE stream
+(`GET /jobs/{jobId}/stream`) are open to it. (The *global* job list and *global* stream stay
+admin-only.)
+
+**Polling — simplest, works from the browser:**
+
+```js
+async function jobStatus(printUrl, printKey, jobId) {
+  const res = await fetch(printUrl + '/api/wristbands/jobs/' + jobId, {
+    headers: { 'X-API-Key': printKey },
+  });
+  if (!res.ok) return null;          // 404 = unknown id, 401 = wrong key
+  const job = await res.json();
+  return job.status;                 // PENDING → PRINTING → DONE / FAILED / CANCELLED
+}
+```
+
+Poll every 1–2 s until `status` is `DONE`, `FAILED`, or `CANCELLED`.
+
+**SSE stream — mind the header limitation.** `GET /jobs/{jobId}/stream` is allowed for the print
+key, but a browser `EventSource` **cannot set the `X-API-Key` header**, so plain
+`new EventSource(url)` won't authenticate. To stream from the browser you need a fetch-based SSE
+reader that sets the header (e.g. `@microsoft/fetch-event-source`); otherwise use polling above.

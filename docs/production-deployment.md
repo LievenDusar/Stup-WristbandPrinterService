@@ -196,8 +196,10 @@ key** plus a **CORS allow-list** — so you never ship the admin key to the brow
 
 **What it does**
 
-- The print-only key works **only** on `POST /api/wristbands/print`, `/preview/zpl`, `/preview/image`.
-- It is rejected (401) on every admin endpoint (jobs list, reprint, cancel, printers, templates).
+- The print-only key works on `POST /api/wristbands/print`, `/preview/zpl`, `/preview/image`, and on
+  reading **its own job's status**: `GET /jobs/{jobId}` and `GET /jobs/{jobId}/stream`.
+- It is rejected (401) on everything else — the global job list, the global stream, reprint, cancel,
+  printers, templates.
 - CORS lets the browser call cross-origin; without it the browser blocks the request.
 
 **1. Set two values in `.env.prod`:**

@@ -66,8 +66,9 @@ Both default to empty/off (`application.yml`). With them set, the service:
 - answers the CORS preflight for `OPTIONS` without auth,
 - emits `Access-Control-Allow-Origin` for the configured origin(s),
 - accepts the print-only key (or the admin key) on
-  `POST /api/wristbands/print`, `/preview/zpl`, `/preview/image`,
-- still rejects that key (`401`) on every admin endpoint.
+  `POST /api/wristbands/print`, `/preview/zpl`, `/preview/image`, and on a single job's status
+  (`GET /jobs/{jobId}`, `GET /jobs/{jobId}/stream`),
+- still rejects that key (`401`) on the global job list/stream and every admin endpoint.
 
 Wiring lives in `SecurityConfig` (`corsConfigurationSource` + the `hasAnyRole("PRINT","ADMIN")`
 matcher) and `ApiKeyAuthFilter` (`ROLE_PRINT` vs `ROLE_ADMIN`).
