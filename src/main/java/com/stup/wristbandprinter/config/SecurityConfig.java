@@ -1,6 +1,7 @@
 package com.stup.wristbandprinter.config;
 
 import com.stup.wristbandprinter.security.ApiKeyAuthFilter;
+import com.stup.wristbandprinter.security.PrivateNetworkAccessFilter;
 import io.swagger.v3.oas.annotations.enums.SecuritySchemeIn;
 import io.swagger.v3.oas.annotations.enums.SecuritySchemeType;
 import io.swagger.v3.oas.annotations.security.SecurityScheme;
@@ -17,6 +18,7 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.filter.CorsFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -41,7 +43,7 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http, CorsProperties corsProperties) throws Exception {
         http
             // CORS allow-list driven by cors.allowed-origins (see corsConfigurationSource).
             .cors(Customizer.withDefaults())
@@ -92,7 +94,10 @@ public class SecurityConfig {
                 .accessDeniedHandler((req, res, e) ->
                     res.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized"))
             )
-            .addFilterBefore(apiKeyAuthFilter, UsernamePasswordAuthenticationFilter.class);
+            .addFilterBefore(apiKeyAuthFilter, UsernamePasswordAuthenticationFilter.class)
+            // Must run before CorsFilter (which answers + short-circuits the preflight) so the
+            // Private Network Access opt-in header is on the preflight response.
+            .addFilterBefore(new PrivateNetworkAccessFilter(corsProperties), CorsFilter.class);
         return http.build();
     }
 

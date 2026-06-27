@@ -128,4 +128,23 @@ class SecurityConfigTest {
         mockMvc.perform(get("/api/wristbands/jobs").header("X-API-Key", "print-key"))
             .andExpect(status().isUnauthorized());
     }
+
+    @Test
+    void privateNetworkPreflight_fromAllowedOrigin_getsAllowHeader() throws Exception {
+        mockMvc.perform(options("/api/wristbands/print")
+                .header("Origin", "https://app.example")
+                .header("Access-Control-Request-Method", "POST")
+                .header("Access-Control-Request-Private-Network", "true"))
+            .andExpect(status().isOk())
+            .andExpect(header().string("Access-Control-Allow-Private-Network", "true"));
+    }
+
+    @Test
+    void privateNetworkPreflight_fromDisallowedOrigin_noAllowHeader() throws Exception {
+        mockMvc.perform(options("/api/wristbands/print")
+                .header("Origin", "https://evil.example")
+                .header("Access-Control-Request-Method", "POST")
+                .header("Access-Control-Request-Private-Network", "true"))
+            .andExpect(header().doesNotExist("Access-Control-Allow-Private-Network"));
+    }
 }

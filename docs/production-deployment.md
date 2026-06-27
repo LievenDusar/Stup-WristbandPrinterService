@@ -235,6 +235,16 @@ you must either:
 > must trust the cert, not each browser. Full comparison and code:
 > [symfony-proxy-integration.md](symfony-proxy-integration.md).
 
+**4. Private Network Access (when the service is on an internal IP).** If `<MANAGEMENT_HOSTNAME>`
+resolves to a **private/internal IP** while the page is on a public origin, Chromium browsers gate
+the call behind a "**allow this site to access devices on your local network**" permission (Private
+Network Access). The service answers the PNA preflight with `Access-Control-Allow-Private-Network:
+true` (only for an allow-listed origin), which can let **some** Chromium versions through — but modern
+Chrome may still prompt the user, and other browsers (e.g. Opera) may block it regardless. This is
+browser-specific and inconsistent; the only reliable cross-browser fix is the **server-side proxy**
+(the browser then calls a public same-origin route, never the internal IP). See
+[symfony-proxy-integration.md](symfony-proxy-integration.md).
+
 **Verify** (from a machine that trusts the cert; `-k` skips the check for a quick test):
 
 ```bash
