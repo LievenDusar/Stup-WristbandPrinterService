@@ -15,6 +15,7 @@ public record PrintJobDetailResponse(
     String clubName, // null for PERMIT bands
     String barcodeValue,    // null for PERMIT bands
     String permitLabel,     // null for CREW bands
+    String freeText,        // null except for FREETEXT bands
     int copies,
     Instant submittedAt,
     Instant completedAt,

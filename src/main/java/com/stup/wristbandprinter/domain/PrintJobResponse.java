@@ -13,6 +13,7 @@ public record PrintJobResponse(
     String firstName,   // null for PERMIT bands
     String lastName,    // null for PERMIT bands
     String permitLabel, // null for CREW bands
+    String freeText,    // null except for FREETEXT bands
     int copies,
     Instant submittedAt,
     Instant completedAt,

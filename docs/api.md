@@ -13,9 +13,9 @@ Authentication: `X-API-Key` header on all endpoints except `/jobs/stream`.
 
 ## Print & preview (polymorphic)
 
-A single set of endpoints handles both wristband types. The `wristbandType` discriminator
-field in the JSON body selects the type: `"crew"` or `"permit"` (lowercase on the wire in
-both requests and responses).
+A single set of endpoints handles all wristband types. The `wristbandType` discriminator
+field in the JSON body selects the type: `"crew"`, `"permit"`, or `"freetext"` (lowercase on
+the wire in both requests and responses).
 
 > **Breaking change (hard cut):** All type-specific sub-paths and the legacy 308-redirect alias
 > are removed. Symfony must deploy these new paths in lockstep with this service.
@@ -81,9 +81,28 @@ both requests and responses).
 }
 ```
 
+### Free-text request body
+
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `wristbandType` | `"freetext"` | ✅ | Discriminator — must be lowercase `"freetext"` |
+| `text` | string | ✅ | Freely entered text, printed between two STUP logos |
+| `stockColorCode` | integer | ❌ | Preview-only PNG tint |
+| `printerId` | string | ❌ | Defaults to first registered printer |
+| `copies` | integer | ❌ | Number of bands to print; defaults to 1 |
+
+**Free-text example:**
+
+```json
+{
+  "wristbandType": "freetext",
+  "text": "Backstage"
+}
+```
+
 ### Response note
 
-The jobs list response field `wristbandType` is also lowercase: `"crew"` or `"permit"`.
+The jobs list response field `wristbandType` is also lowercase: `"crew"`, `"permit"`, or `"freetext"`.
 
 ---
 

@@ -48,6 +48,23 @@ class PrintableRequestJsonTest {
     }
 
     @Test
+    void deserializesFreeTextByDiscriminator() throws Exception {
+        String json = """
+            {"wristbandType":"freetext","text":"Backstage"}
+            """;
+        PrintableRequest req = mapper.readValue(json, PrintableRequest.class);
+        assertThat(req).isInstanceOf(FreeTextWristbandPrintRequest.class);
+        assertThat(req.getWristbandType()).isEqualTo(WristbandType.FREETEXT);
+    }
+
+    @Test
+    void serializedFreeTextIncludesLowercaseDiscriminator() throws Exception {
+        FreeTextWristbandPrintRequest req = new FreeTextWristbandPrintRequest();
+        req.setText("Backstage");
+        assertThat(mapper.writeValueAsString(req)).contains("\"wristbandType\":\"freetext\"");
+    }
+
+    @Test
     void missingDiscriminatorFails() {
         String json = "{\"eventName\":\"E\",\"firstName\":\"A\"}";
         assertThatThrownBy(() -> mapper.readValue(json, PrintableRequest.class))

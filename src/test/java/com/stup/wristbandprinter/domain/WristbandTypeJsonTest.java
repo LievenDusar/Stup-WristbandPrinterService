@@ -13,18 +13,21 @@ class WristbandTypeJsonTest {
     void serializesToLowercase() throws Exception {
         assertThat(mapper.writeValueAsString(WristbandType.CREW)).isEqualTo("\"crew\"");
         assertThat(mapper.writeValueAsString(WristbandType.PERMIT)).isEqualTo("\"permit\"");
+        assertThat(mapper.writeValueAsString(WristbandType.FREETEXT)).isEqualTo("\"freetext\"");
     }
 
     @Test
     void deserializesLowercase() throws Exception {
         assertThat(mapper.readValue("\"crew\"", WristbandType.class)).isEqualTo(WristbandType.CREW);
         assertThat(mapper.readValue("\"permit\"", WristbandType.class)).isEqualTo(WristbandType.PERMIT);
+        assertThat(mapper.readValue("\"freetext\"", WristbandType.class)).isEqualTo(WristbandType.FREETEXT);
     }
 
     @Test
     void deserializesAnyCaseForRobustness() throws Exception {
         assertThat(mapper.readValue("\"CREW\"", WristbandType.class)).isEqualTo(WristbandType.CREW);
         assertThat(mapper.readValue("\"Permit\"", WristbandType.class)).isEqualTo(WristbandType.PERMIT);
+        assertThat(mapper.readValue("\"FreeText\"", WristbandType.class)).isEqualTo(WristbandType.FREETEXT);
     }
 
     @Test

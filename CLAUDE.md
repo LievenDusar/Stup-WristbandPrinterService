@@ -22,9 +22,10 @@ important concept to understand before editing anything.
   `prod`). The only role with a UI, admin login, database (Postgres + Flyway), job history, SSE,
   the printer **registry**, ZPL rendering, and template designer. **One instance.** Beans in this
   role are annotated `@Profile("!worker")`.
-  - The management role supports **two wristband types**: CREW (staff/volunteers) and PERMIT
-    (campsite resource access). Both are routed via `PrintableRequest` (sealed interface; permitted
-    types: `WristbandPrintRequest`, `PermitWristbandPrintRequest`).
+  - The management role supports **three wristband types**: CREW (staff/volunteers), PERMIT
+    (campsite resource access), and FREETEXT (freely entered text between two STUP logos). All
+    three are routed via `PrintableRequest` (sealed interface; permitted types:
+    `WristbandPrintRequest`, `PermitWristbandPrintRequest`, `FreeTextWristbandPrintRequest`).
 - **worker** role (`worker` profile) — a thin, **DB-free, UI-free** service, **one per physical
   printer**. Exposes only the internal `POST /api/internal/print`, opens a raw TCP socket to its
   Zebra at `PRINTER_HOST:9100`, and reports success/failure. Reached only by management over the
@@ -33,7 +34,7 @@ important concept to understand before editing anything.
 ### Request flow (print)
 
 1. Symfony (or the UI) → `POST /api/wristbands/print` on **management** with a JSON body
-   containing a lowercase `wristbandType` discriminator: `"crew"` or `"permit"`. Previews use
+   containing a lowercase `wristbandType` discriminator: `"crew"`, `"permit"`, or `"freetext"`. Previews use
    `POST /api/wristbands/preview/zpl` and `POST /api/wristbands/preview/image`. The old
    type-specific paths and the legacy 308-redirect alias are all removed (hard cut — Symfony
    must deploy the new paths in lockstep).
@@ -41,11 +42,13 @@ important concept to understand before editing anything.
    (`printerId` from the request, or the default = first registered printer), persists the job,
    and offers it to that printer's **own** in-memory `BlockingQueue`.
 3. A dedicated worker thread per printer dequeues, then calls
-   `WristbandZplResolver.resolve(PrintableRequest)` which internalises layout for both CREW and
-   PERMIT (routing via `WristbandType`): CREW builds `WristbandData` via `WristbandLayoutService`
-   and emits ZPL via `ZplGeneratorService` *or* `TemplateZplRenderer` (when `templateId` is set);
-   PERMIT builds `PermitWristbandData` via `PermitLayoutService` and emits ZPL via
-   `PermitZplGeneratorService`. The ZPL is then forwarded to the printer's worker via
+   `WristbandZplResolver.resolve(PrintableRequest)` which internalises layout for CREW, PERMIT,
+   and FREETEXT (routing via `WristbandType`): CREW builds `WristbandData` via
+   `WristbandLayoutService` and emits ZPL via `ZplGeneratorService` *or* `TemplateZplRenderer`
+   (when `templateId` is set); PERMIT builds `PermitWristbandData` via `PermitLayoutService` and
+   emits ZPL via `PermitZplGeneratorService`; FREETEXT builds `FreeTextWristbandData` via
+   `FreeTextLayoutService` and emits ZPL via `FreeTextZplGeneratorService`. The ZPL is then
+   forwarded to the printer's worker via
    `WorkerClient.print(baseUrl, …)`. Before forwarding, `PrintQueueService` appends
    `^PQ<copies>` to the resolved ZPL via `ZplCopies` when `copies > 1` (the worker and
    preview paths are unchanged).
@@ -195,14 +198,20 @@ negotiates with modern daemons — bump if your daemon requires higher.
 - **Legacy layout is the default.** A crew print request without a `templateId` uses the fixed
   programmatic layout (logo → barcode → text → logo); supplying a `templateId` opts into template
   rendering.
-- **`wristbandType` is lowercase on the wire** — both in requests (`"crew"`/`"permit"`) and in the
-  jobs list response. The Java enum stays uppercase internally (`WristbandType.CREW` /
-  `WristbandType.PERMIT`).
+- **`wristbandType` is lowercase on the wire** — both in requests (`"crew"`/`"permit"`/`"freetext"`)
+  and in the jobs list response. The Java enum stays uppercase internally (`WristbandType.CREW` /
+  `WristbandType.PERMIT` / `WristbandType.FREETEXT`).
 - Wristband geometry is fully config-driven (`wristband.*`) — there are no absolute coordinates to
   maintain; calibrate via YAML, not code. See [docs/configuration.md](docs/configuration.md).
 - **Permit bands carry no personal details** — `firstName`, `lastName`, `barcodeValue` are NULL in
   the DB for permit jobs. The jobs list response (`PrintJobResponse`) instead carries `permitLabel`,
   which the jobs table shows in the **Name** column (and search) for permit bands.
+- **Free-text bands** carry only a `text` field (plus the shared `printerId`/`stockColorCode`/
+  `copies`) — no event name, no barcode. Layout is logo → text → logo, all centered along both
+  band axes, with the gap on both sides of the text controlled by
+  `wristband.free-text.between-logo-and-text`. The jobs list response carries `freeText`, which
+  the jobs table shows (clipped to 80 chars with the full text on hover) in the **Name** column
+  (and search) for free-text bands.
 - **Stock color is preview-only** — ZPL is always monochrome; `stockColorCode` is resolved to hex
   by `WristbandProperties.stockColors` and passed to `PreviewColorService.tint()` on preview
   endpoints only.

@@ -90,7 +90,7 @@ document.getElementById('print-btn').addEventListener('click', async (e) => {
         'X-API-Key': printKey,
       },
       body: JSON.stringify({
-        wristbandType: 'crew',                       // "crew" or "permit"
+        wristbandType: 'crew',                       // "crew", "permit", or "freetext"
         eventName: 'Pukkelpop 2026',
         firstName: 'Annechien',
         lastName: 'Van De Wall',

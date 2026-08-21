@@ -54,12 +54,13 @@ public class WristbandController {
     // ── Print & preview (crew + permit; type chosen by the wristbandType discriminator) ──
 
     @PostMapping("/print")
-    @Operation(summary = "Enqueue a wristband print job (crew or permit)", tags = {"Wristbands"})
+    @Operation(summary = "Enqueue a wristband print job (crew, permit, or freetext)", tags = {"Wristbands"})
     public ResponseEntity<PrintJobResponse> print(
             @Valid @RequestBody
             @io.swagger.v3.oas.annotations.parameters.RequestBody(content = @Content(mediaType = "application/json", examples = {
-                @ExampleObject(name = "Crew",   value = WristbandRequestExamples.CREW),
-                @ExampleObject(name = "Permit", value = WristbandRequestExamples.PERMIT)
+                @ExampleObject(name = "Crew",     value = WristbandRequestExamples.CREW),
+                @ExampleObject(name = "Permit",   value = WristbandRequestExamples.PERMIT),
+                @ExampleObject(name = "FreeText", value = WristbandRequestExamples.FREETEXT)
             }))
             PrintableRequest request) {
         PrintJob job = printQueueService.enqueue(request);
@@ -67,24 +68,26 @@ public class WristbandController {
     }
 
     @PostMapping(value = "/preview/zpl", produces = "text/plain;charset=UTF-8")
-    @Operation(summary = "Generate ZPL for a wristband (crew or permit) as plain text", tags = {"Wristbands"})
+    @Operation(summary = "Generate ZPL for a wristband (crew, permit, or freetext) as plain text", tags = {"Wristbands"})
     public ResponseEntity<String> previewZpl(
             @Valid @RequestBody
             @io.swagger.v3.oas.annotations.parameters.RequestBody(content = @Content(mediaType = "application/json", examples = {
-                @ExampleObject(name = "Crew",   value = WristbandRequestExamples.CREW),
-                @ExampleObject(name = "Permit", value = WristbandRequestExamples.PERMIT)
+                @ExampleObject(name = "Crew",     value = WristbandRequestExamples.CREW),
+                @ExampleObject(name = "Permit",   value = WristbandRequestExamples.PERMIT),
+                @ExampleObject(name = "FreeText", value = WristbandRequestExamples.FREETEXT)
             }))
             PrintableRequest request) {
         return ResponseEntity.ok(wristbandZplResolver.resolve(request));
     }
 
     @PostMapping(value = "/preview/image", produces = MediaType.IMAGE_PNG_VALUE)
-    @Operation(summary = "Render a PNG preview of a wristband (crew or permit) via Labelary", tags = {"Wristbands"})
+    @Operation(summary = "Render a PNG preview of a wristband (crew, permit, or freetext) via Labelary", tags = {"Wristbands"})
     public ResponseEntity<byte[]> previewImage(
             @Valid @RequestBody
             @io.swagger.v3.oas.annotations.parameters.RequestBody(content = @Content(mediaType = "application/json", examples = {
-                @ExampleObject(name = "Crew",   value = WristbandRequestExamples.CREW),
-                @ExampleObject(name = "Permit", value = WristbandRequestExamples.PERMIT)
+                @ExampleObject(name = "Crew",     value = WristbandRequestExamples.CREW),
+                @ExampleObject(name = "Permit",   value = WristbandRequestExamples.PERMIT),
+                @ExampleObject(name = "FreeText", value = WristbandRequestExamples.FREETEXT)
             }))
             PrintableRequest request) {
         String zpl = wristbandZplResolver.resolve(request);

@@ -5,7 +5,8 @@ import com.fasterxml.jackson.annotation.JsonValue;
 
 public enum WristbandType {
     CREW,
-    PERMIT;
+    PERMIT,
+    FREETEXT;
 
     /** Lowercase wire form used in JSON — both the print/preview discriminator and responses. */
     @JsonValue

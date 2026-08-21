@@ -1,5 +1,7 @@
 package com.stup.wristbandprinter.service;
 
+import com.stup.wristbandprinter.domain.FreeTextWristbandData;
+import com.stup.wristbandprinter.domain.FreeTextWristbandPrintRequest;
 import com.stup.wristbandprinter.domain.PermitWristbandData;
 import com.stup.wristbandprinter.domain.PermitWristbandPrintRequest;
 import com.stup.wristbandprinter.domain.WristbandData;
@@ -32,6 +34,8 @@ class WristbandZplResolverTest {
     @Mock private WristbandLayoutService layoutService;
     @Mock private PermitZplGeneratorService permitZplGeneratorService;
     @Mock private PermitLayoutService permitLayoutService;
+    @Mock private FreeTextZplGeneratorService freeTextZplGeneratorService;
+    @Mock private FreeTextLayoutService freeTextLayoutService;
     @Mock private WristbandTemplateRepository templateRepository;
     @Mock private TemplateZplRenderer templateRenderer;
 
@@ -43,6 +47,7 @@ class WristbandZplResolverTest {
     void setUp() {
         resolver = new WristbandZplResolver(zplGeneratorService, layoutService,
                 permitZplGeneratorService, permitLayoutService,
+                freeTextZplGeneratorService, freeTextLayoutService,
                 templateRepository, templateRenderer);
         // Layout service builds data from the request; return the shared data instance
         // so downstream stubs on zplGeneratorService / templateRenderer still match.
@@ -99,5 +104,18 @@ class WristbandZplResolverTest {
         when(permitZplGeneratorService.generate(permitData)).thenReturn("^XA-permit^XZ");
 
         assertThat(resolver.resolve(req)).isEqualTo("^XA-permit^XZ");
+    }
+
+    @Test
+    void resolve_freeTextRequest_delegatesToFreeTextGenerator() {
+        FreeTextWristbandPrintRequest req = new FreeTextWristbandPrintRequest();
+        req.setText("Backstage");
+
+        FreeTextWristbandData freeTextData = new FreeTextWristbandData("Backstage", "#FFFFFF");
+
+        when(freeTextLayoutService.buildData(req)).thenReturn(freeTextData);
+        when(freeTextZplGeneratorService.generate(freeTextData)).thenReturn("^XA-freetext^XZ");
+
+        assertThat(resolver.resolve(req)).isEqualTo("^XA-freetext^XZ");
     }
 }

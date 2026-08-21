@@ -12,14 +12,19 @@ let previewVisible = false;
 const DRAWER_BASE_WIDTH = 500; // keep in sync with .drawer width in app.css
 
 const STATUSES = ['PENDING', 'PRINTING', 'DONE', 'FAILED', 'CANCELLED'];
-const TYPES = ['crew', 'permit'];
-const TYPE_LABELS = { crew: 'Crew', permit: 'Permit' };
+const TYPES = ['crew', 'permit', 'freetext'];
+const TYPE_LABELS = { crew: 'Crew', permit: 'Permit', freetext: 'Free text' };
+const NAME_CELL_MAX_LEN = 80; // freeText has no length limit, so the table cell is clipped with an ellipsis; hover shows the full text via title
 
 // Data-driven table columns. `Actions` is always rendered last and is NOT in this list.
 const COLUMNS = [
   { key: 'name',      label: 'Name',      sort: 'firstName',
-    cell: j => { const n = ((j.firstName || '') + ' ' + (j.lastName || '')).trim() || j.permitLabel;
-                 return n ? esc(n) : '<span class="muted">—</span>'; } },
+    cell: j => { const n = ((j.firstName || '') + ' ' + (j.lastName || '')).trim() || j.permitLabel || j.freeText;
+                 if (!n) return '<span class="muted">—</span>';
+                 if (j.freeText && n.length > NAME_CELL_MAX_LEN) {
+                   return `<span title="${esc(n)}">${esc(n.slice(0, NAME_CELL_MAX_LEN))}…</span>`;
+                 }
+                 return esc(n); } },
   { key: 'type',      label: 'Type',      sort: 'wristbandType',
     cell: j => typeBadge(j.wristbandType) },
   { key: 'event',     label: 'Event',     sort: 'eventName',
@@ -199,6 +204,7 @@ function render() {
       || j.jobId.toLowerCase().includes(search)
       || (j.eventName || '').toLowerCase().includes(search)
       || (j.permitLabel || '').toLowerCase().includes(search)
+      || (j.freeText || '').toLowerCase().includes(search)
       || ((j.firstName || '') + ' ' + (j.lastName || '')).toLowerCase().includes(search));
 
   list.sort((a, b) => {
@@ -466,7 +472,7 @@ async function showDetail(id) {
   // The identity (name / permit label + event) is promoted into the header; the
   // remaining fields are grouped into titled sections, skipping any that don't apply.
   const name = ((d.firstName || '') + ' ' + (d.lastName || '')).trim();
-  const title = name || d.permitLabel || '—';
+  const title = name || d.permitLabel || d.freeText || '—';
 
   const wristbandRows = detailRows([
     ['Club', d.clubName],

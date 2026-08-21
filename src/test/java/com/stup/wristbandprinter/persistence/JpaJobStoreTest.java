@@ -1,5 +1,6 @@
 package com.stup.wristbandprinter.persistence;
 
+import com.stup.wristbandprinter.domain.FreeTextWristbandPrintRequest;
 import com.stup.wristbandprinter.domain.PrintJob;
 import com.stup.wristbandprinter.domain.PrintJobStatus;
 import com.stup.wristbandprinter.domain.WristbandPrintRequest;
@@ -127,6 +128,26 @@ class JpaJobStoreTest {
         PrintJob loaded = store.loadActive().get(0);
 
         assertThat(loaded.getRequest().getCopies()).isEqualTo(120);
+    }
+
+    @Test
+    void saveAndLoad_roundTripsFreeTextRequest() {
+        UUID id = UUID.randomUUID();
+        FreeTextWristbandPrintRequest req = new FreeTextWristbandPrintRequest();
+        req.setText("Backstage");
+        req.setStockColorCode(2);
+        req.setCopies(5);
+        Instant submitted = Instant.now();
+        store.save(PrintJob.restore(id, req, PrintJobStatus.DONE, submitted, submitted, null));
+
+        PrintJob loaded = store.loadActive().stream()
+            .filter(j -> j.getJobId().equals(id)).findFirst().orElseThrow();
+
+        assertThat(loaded.getRequest()).isInstanceOf(FreeTextWristbandPrintRequest.class);
+        FreeTextWristbandPrintRequest loadedReq = (FreeTextWristbandPrintRequest) loaded.getRequest();
+        assertThat(loadedReq.getText()).isEqualTo("Backstage");
+        assertThat(loadedReq.getStockColorCode()).isEqualTo(2);
+        assertThat(loadedReq.getCopies()).isEqualTo(5);
     }
 
     private WristbandPrintRequest request() {

@@ -17,6 +17,11 @@ class PrintableRequestCopiesTest {
     }
 
     @Test
+    void freeText_defaultsToOne_whenCopiesNull() {
+        assertThat(new FreeTextWristbandPrintRequest().getCopies()).isEqualTo(1);
+    }
+
+    @Test
     void crew_returnsSetValue() {
         WristbandPrintRequest r = new WristbandPrintRequest();
         r.setCopies(42);
@@ -49,5 +54,18 @@ class PrintableRequestCopiesTest {
 
         assertThat(stamped.getCopies()).isEqualTo(7);
         assertThat(stamped.getPrinterId()).isEqualTo("printer-2");
+    }
+
+    @Test
+    void freeText_withCopies_returnsCopyWithNewCount_preservingText() {
+        FreeTextWristbandPrintRequest r = new FreeTextWristbandPrintRequest();
+        r.setText("Backstage");
+        r.setCopies(3);
+
+        PrintableRequest updated = r.withCopies(120);
+
+        assertThat(updated.getCopies()).isEqualTo(120);
+        assertThat(((FreeTextWristbandPrintRequest) updated).getText()).isEqualTo("Backstage");
+        assertThat(r.getCopies()).isEqualTo(3); // original untouched
     }
 }

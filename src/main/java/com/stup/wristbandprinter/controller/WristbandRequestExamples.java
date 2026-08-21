@@ -34,4 +34,12 @@ final class WristbandRequestExamples {
           "stockColorCode": 1,
           "copies": 1
         }""";
+
+    static final String FREETEXT = """
+        {
+          "wristbandType": "freetext",
+          "text": "Backstage",
+          "stockColorCode": 1,
+          "copies": 1
+        }""";
 }

@@ -64,6 +64,35 @@ class PrintJobTest {
     }
 
     @Test
+    void toResponse_usesFreeTextForFreeTextBands() {
+        FreeTextWristbandPrintRequest r = new FreeTextWristbandPrintRequest();
+        r.setText("Backstage");
+        PrintJob job = new PrintJob(UUID.randomUUID(), r);
+
+        PrintJobResponse resp = job.toResponse();
+
+        assertThat(resp.wristbandType()).isEqualTo(WristbandType.FREETEXT);
+        assertThat(resp.freeText()).isEqualTo("Backstage");
+        assertThat(resp.eventName()).isNull();
+        assertThat(resp.firstName()).isNull();
+        assertThat(resp.lastName()).isNull();
+        assertThat(resp.permitLabel()).isNull();
+    }
+
+    @Test
+    void toDetailResponse_usesFreeTextForFreeTextBands() {
+        FreeTextWristbandPrintRequest r = new FreeTextWristbandPrintRequest();
+        r.setText("Backstage");
+        PrintJob job = new PrintJob(UUID.randomUUID(), r);
+
+        PrintJobDetailResponse detail = job.toDetailResponse();
+
+        assertThat(detail.wristbandType()).isEqualTo(WristbandType.FREETEXT);
+        assertThat(detail.freeText()).isEqualTo("Backstage");
+        assertThat(detail.eventName()).isNull();
+    }
+
+    @Test
     void responses_carryCopies() {
         WristbandPrintRequest r = new WristbandPrintRequest();
         r.setEventName("E"); r.setFirstName("F"); r.setLastName("L");

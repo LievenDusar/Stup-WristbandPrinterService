@@ -1,6 +1,7 @@
 package com.stup.wristbandprinter.persistence;
 
 import com.stup.wristbandprinter.domain.CodeSymbology;
+import com.stup.wristbandprinter.domain.FreeTextWristbandPrintRequest;
 import com.stup.wristbandprinter.domain.PermitWristbandPrintRequest;
 import com.stup.wristbandprinter.domain.PrintJob;
 import com.stup.wristbandprinter.domain.PrintJobStatus;
@@ -35,6 +36,7 @@ public class JpaJobStore implements JobStore {
         String eventName = null, firstName = null, lastName = null,
                clubName = null, barcodeValue = null,
                permitLabel = null, iconName = null,
+               freeText = null,
                codeValue = null;
         CodeSymbology codeSymbology = null;
 
@@ -52,6 +54,8 @@ public class JpaJobStore implements JobStore {
             iconName     = p.getIconName();
             codeValue    = p.getCodeValue();
             codeSymbology = p.getCodeSymbology();
+        } else if (r instanceof FreeTextWristbandPrintRequest f) {
+            freeText = f.getText();
         }
 
         repository.save(new PrintJobEntity(
@@ -60,7 +64,7 @@ public class JpaJobStore implements JobStore {
             r.getWristbandType(),
             job.getPrinterId(),
             eventName, firstName, lastName, clubName, barcodeValue,
-            permitLabel, iconName,
+            permitLabel, iconName, freeText,
             r.getStockColorCode(), codeValue, codeSymbology,
             r.getCopies(),
             job.getSubmittedAt(),
@@ -108,6 +112,13 @@ public class JpaJobStore implements JobStore {
             p.setCopies(e.getCopies());
             p.setPrinterId(e.getPrinterId());
             request = p;
+        } else if (type == WristbandType.FREETEXT) {
+            FreeTextWristbandPrintRequest f = new FreeTextWristbandPrintRequest();
+            f.setText(e.getFreeText());
+            f.setStockColorCode(e.getStockColorCode());
+            f.setCopies(e.getCopies());
+            f.setPrinterId(e.getPrinterId());
+            request = f;
         } else {
             WristbandPrintRequest w = new WristbandPrintRequest();
             w.setEventName(e.getEventName());

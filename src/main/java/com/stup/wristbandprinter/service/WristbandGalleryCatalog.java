@@ -61,6 +61,19 @@ public class WristbandGalleryCatalog {
               "permitLabel": "PARKING"
             }
             """
+        ),
+
+        new WristbandGalleryEntry(
+            WristbandType.FREETEXT,
+            "Free text",
+            "Freely entered text between two STUP logos",
+            "/api/wristbands/preview/image",
+            """
+            {
+              "wristbandType": "freetext",
+              "text": "Backstage"
+            }
+            """
         )
     );
 

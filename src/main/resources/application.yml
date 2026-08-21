@@ -82,6 +82,9 @@ wristband:
       height-dots: 200
       module-width-dots: 2
       show-human-readable: false
+  free-text:
+    font-size: 100
+    between-logo-and-text: 200   # ~5 mm at 300 DPI, same gap as permit's between-blocks
 
 labelary:
   base-url: http://api.labelary.com

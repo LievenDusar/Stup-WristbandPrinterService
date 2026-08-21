@@ -1,6 +1,7 @@
 package com.stup.wristbandprinter.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.stup.wristbandprinter.domain.FreeTextWristbandPrintRequest;
 import com.stup.wristbandprinter.domain.PermitWristbandPrintRequest;
 import com.stup.wristbandprinter.domain.PrintableRequest;
 import com.stup.wristbandprinter.domain.WristbandPrintRequest;
@@ -35,6 +36,15 @@ class WristbandRequestExamplesTest {
         PrintableRequest req = mapper.readValue(WristbandRequestExamples.PERMIT, PrintableRequest.class);
         assertThat(req).isInstanceOf(PermitWristbandPrintRequest.class);
         assertThat(req.getWristbandType()).isEqualTo(WristbandType.PERMIT);
+        assertThat(req.getStockColorCode()).isEqualTo(1);
+        assertThat(validator.validate(req)).isEmpty();
+    }
+
+    @Test
+    void freeTextExampleDeserializesToValidFreeTextRequest() throws Exception {
+        PrintableRequest req = mapper.readValue(WristbandRequestExamples.FREETEXT, PrintableRequest.class);
+        assertThat(req).isInstanceOf(FreeTextWristbandPrintRequest.class);
+        assertThat(req.getWristbandType()).isEqualTo(WristbandType.FREETEXT);
         assertThat(req.getStockColorCode()).isEqualTo(1);
         assertThat(validator.validate(req)).isEmpty();
     }

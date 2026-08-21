@@ -18,6 +18,7 @@ public class WristbandProperties {
     private Text text = new Text();
     private Barcode barcode = new Barcode();
     private Permit permit = new Permit();
+    private FreeText freeText = new FreeText();
 
     /**
      * Preview-only stock-color palette. Keys are integer color codes (1 = white is the default);
@@ -54,6 +55,9 @@ public class WristbandProperties {
 
     public Permit getPermit() { return permit; }
     public void setPermit(Permit permit) { this.permit = permit; }
+
+    public FreeText getFreeText() { return freeText; }
+    public void setFreeText(FreeText freeText) { this.freeText = freeText; }
 
     /**
      * Vertical gaps in dots, named in band layout order: top logo → barcode → text → bottom logo.
@@ -181,5 +185,18 @@ public class WristbandProperties {
             public boolean isShowHumanReadable() { return showHumanReadable; }
             public void setShowHumanReadable(boolean showHumanReadable) { this.showHumanReadable = showHumanReadable; }
         }
+    }
+
+    /** Configuration for the free-text wristband layout (wristband.free-text.*). */
+    public static class FreeText {
+        private int fontSize = 66;
+        /** Gap in dots between the logo and the text block, applied symmetrically on both sides. */
+        private int betweenLogoAndText = 150;
+
+        public int getFontSize() { return fontSize; }
+        public void setFontSize(int fontSize) { this.fontSize = fontSize; }
+
+        public int getBetweenLogoAndText() { return betweenLogoAndText; }
+        public void setBetweenLogoAndText(int betweenLogoAndText) { this.betweenLogoAndText = betweenLogoAndText; }
     }
 }

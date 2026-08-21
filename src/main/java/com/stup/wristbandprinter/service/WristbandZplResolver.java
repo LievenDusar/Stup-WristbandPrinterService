@@ -1,5 +1,7 @@
 package com.stup.wristbandprinter.service;
 
+import com.stup.wristbandprinter.domain.FreeTextWristbandData;
+import com.stup.wristbandprinter.domain.FreeTextWristbandPrintRequest;
 import com.stup.wristbandprinter.domain.PermitWristbandData;
 import com.stup.wristbandprinter.domain.PermitWristbandPrintRequest;
 import com.stup.wristbandprinter.domain.PrintableRequest;
@@ -30,6 +32,8 @@ public class WristbandZplResolver {
     private final WristbandLayoutService layoutService;
     private final PermitZplGeneratorService permitZplGeneratorService;
     private final PermitLayoutService permitLayoutService;
+    private final FreeTextZplGeneratorService freeTextZplGeneratorService;
+    private final FreeTextLayoutService freeTextLayoutService;
     private final WristbandTemplateRepository templateRepository;
     private final TemplateZplRenderer templateRenderer;
 
@@ -37,12 +41,16 @@ public class WristbandZplResolver {
                                 WristbandLayoutService layoutService,
                                 PermitZplGeneratorService permitZplGeneratorService,
                                 PermitLayoutService permitLayoutService,
+                                FreeTextZplGeneratorService freeTextZplGeneratorService,
+                                FreeTextLayoutService freeTextLayoutService,
                                 WristbandTemplateRepository templateRepository,
                                 TemplateZplRenderer templateRenderer) {
         this.zplGeneratorService = zplGeneratorService;
         this.layoutService = layoutService;
         this.permitZplGeneratorService = permitZplGeneratorService;
         this.permitLayoutService = permitLayoutService;
+        this.freeTextZplGeneratorService = freeTextZplGeneratorService;
+        this.freeTextLayoutService = freeTextLayoutService;
         this.templateRepository = templateRepository;
         this.templateRenderer = templateRenderer;
     }
@@ -50,18 +58,23 @@ public class WristbandZplResolver {
     /**
      * Resolve ZPL for any printable request type.
      * CREW uses the legacy layout (or template when templateId is set).
-     * PERMIT routing is added in Part 3.
      */
     public String resolve(PrintableRequest request) {
         return switch (request.getWristbandType()) {
-            case CREW   -> resolveCrew((WristbandPrintRequest) request);
-            case PERMIT -> resolvePermit((PermitWristbandPrintRequest) request);
+            case CREW     -> resolveCrew((WristbandPrintRequest) request);
+            case PERMIT   -> resolvePermit((PermitWristbandPrintRequest) request);
+            case FREETEXT -> resolveFreeText((FreeTextWristbandPrintRequest) request);
         };
     }
 
     private String resolvePermit(PermitWristbandPrintRequest request) {
         PermitWristbandData data = permitLayoutService.buildData(request);
         return permitZplGeneratorService.generate(data);
+    }
+
+    private String resolveFreeText(FreeTextWristbandPrintRequest request) {
+        FreeTextWristbandData data = freeTextLayoutService.buildData(request);
+        return freeTextZplGeneratorService.generate(data);
     }
 
     private String resolveCrew(WristbandPrintRequest request) {

@@ -130,3 +130,18 @@ All values under `wristband.permit.*`:
 | `code.show-human-readable` | false | Whether to print the human-readable value below the scan code |
 
 Calibrate by using `POST /api/wristbands/preview/image` (with `"wristbandType": "permit"`) and adjusting YAML values.
+
+---
+
+## Free-text wristband layout
+
+All values under `wristband.free-text.*`:
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `font-size` | 66 | Font size for the free text line |
+| `between-logo-and-text` | 150 | Gap (dots) between each logo and the text, applied symmetrically on both sides |
+
+Layout is logo → text → logo, the whole group centered along the band length, with the text
+centered across the band width — same convention as the other bands. Calibrate by using
+`POST /api/wristbands/preview/image` (with `"wristbandType": "freetext"`) and adjusting YAML values.

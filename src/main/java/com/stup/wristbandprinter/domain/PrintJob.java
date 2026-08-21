@@ -80,7 +80,7 @@ public class PrintJob {
     }
 
     public synchronized PrintJobResponse toResponse() {
-        String firstName = null, lastName = null, permitLabel = null, eventName = null;
+        String firstName = null, lastName = null, permitLabel = null, eventName = null, freeText = null;
         if (request instanceof WristbandPrintRequest w) {
             eventName = w.getEventName();
             firstName = w.getFirstName();
@@ -88,11 +88,13 @@ public class PrintJob {
         } else if (request instanceof PermitWristbandPrintRequest p) {
             eventName   = p.getEventName();
             permitLabel = p.getPermitLabel();
+        } else if (request instanceof FreeTextWristbandPrintRequest f) {
+            freeText = f.getText();
         }
         return new PrintJobResponse(
             jobId, status, request.getWristbandType(),
             printerId, printerName,
-            eventName, firstName, lastName, permitLabel,
+            eventName, firstName, lastName, permitLabel, freeText,
             request.getCopies(),
             submittedAt, completedAt, error);
     }
@@ -100,7 +102,7 @@ public class PrintJob {
     public synchronized PrintJobDetailResponse toDetailResponse() {
         String firstName = null, lastName = null,
                clubName = null, barcodeValue = null,
-               permitLabel = null;
+               permitLabel = null, freeText = null;
         String eventName;
         if (request instanceof WristbandPrintRequest w) {
             eventName    = w.getEventName();
@@ -111,6 +113,9 @@ public class PrintJob {
         } else if (request instanceof PermitWristbandPrintRequest p) {
             eventName   = p.getEventName();
             permitLabel = p.getPermitLabel();
+        } else if (request instanceof FreeTextWristbandPrintRequest f) {
+            eventName = null;
+            freeText  = f.getText();
         } else {
             eventName = null;
         }
@@ -118,7 +123,7 @@ public class PrintJob {
             jobId, status, request.getWristbandType(),
             printerId, printerName,
             eventName, firstName, lastName,
-            clubName, barcodeValue, permitLabel,
+            clubName, barcodeValue, permitLabel, freeText,
             request.getCopies(),
             submittedAt, completedAt, error);
     }

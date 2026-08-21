@@ -139,6 +139,7 @@ tbody tr:hover { background: hsla(0, 0%, 100%, 0.03); }
 .badge.CANCELLED { background: var(--purple-light); }
 .badge.crew      { background: #3f6cd6; }
 .badge.permit    { background: #0c9b8a; }
+.badge.freetext  { background: #b3541e; }
 
 .muted { color: var(--text-muted); }
 .error-text { color: #ff8a80; }

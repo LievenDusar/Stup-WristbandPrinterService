@@ -5,15 +5,18 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 
 /**
  * Sealed interface for all wristband print request types.
- * Permits: {@link WristbandPrintRequest} (CREW), {@link PermitWristbandPrintRequest} (PERMIT).
+ * Permits: {@link WristbandPrintRequest} (CREW), {@link PermitWristbandPrintRequest} (PERMIT),
+ * {@link FreeTextWristbandPrintRequest} (FREETEXT).
  */
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.EXISTING_PROPERTY,
               property = "wristbandType", visible = true)
 @JsonSubTypes({
-    @JsonSubTypes.Type(value = WristbandPrintRequest.class,       name = "crew"),
-    @JsonSubTypes.Type(value = PermitWristbandPrintRequest.class, name = "permit")
+    @JsonSubTypes.Type(value = WristbandPrintRequest.class,        name = "crew"),
+    @JsonSubTypes.Type(value = PermitWristbandPrintRequest.class,  name = "permit"),
+    @JsonSubTypes.Type(value = FreeTextWristbandPrintRequest.class, name = "freetext")
 })
-public sealed interface PrintableRequest permits WristbandPrintRequest, PermitWristbandPrintRequest {
+public sealed interface PrintableRequest
+        permits WristbandPrintRequest, PermitWristbandPrintRequest, FreeTextWristbandPrintRequest {
 
     String getPrinterId();
 

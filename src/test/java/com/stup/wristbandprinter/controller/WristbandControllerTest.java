@@ -271,6 +271,52 @@ class WristbandControllerTest {
         verify(previewColorService).tint(eq(new byte[]{1, 2, 3}), eq("#800080"));
     }
 
+    // ── FreeText cases ──────────────────────────────────────────────────────
+
+    @Test
+    void freeTextPrint_returns202_andLowercaseType() throws Exception {
+        UUID jobId = UUID.randomUUID();
+        FreeTextWristbandPrintRequest req = sampleFreeTextRequest();
+        PrintJob job = new PrintJob(jobId, req, null, null);
+        when(printQueueService.enqueue(any())).thenReturn(job);
+
+        mockMvc.perform(post("/api/wristbands/print")
+                .header("X-API-Key", API_KEY)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(req)))
+            .andExpect(status().isAccepted())
+            .andExpect(jsonPath("$.jobId").value(jobId.toString()))
+            .andExpect(jsonPath("$.wristbandType").value("freetext"));
+    }
+
+    @Test
+    void freeTextPrint_returns400_whenTextMissing() throws Exception {
+        mockMvc.perform(post("/api/wristbands/print")
+                .header("X-API-Key", API_KEY)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"wristbandType\":\"freetext\"}"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.fields.text").exists());
+    }
+
+    @Test
+    void freeTextPreviewImage_withStockColor_tintsPng() throws Exception {
+        when(wristbandZplResolver.resolve(any())).thenReturn("^XA^XZ");
+        when(labelaryPreviewService.renderPreview(any())).thenReturn(new byte[]{1, 2, 3});
+        when(previewColorService.tint(any(), any())).thenReturn(new byte[]{4, 5, 6});
+
+        FreeTextWristbandPrintRequest req = sampleFreeTextRequest();
+        req.setStockColorCode(2);
+
+        mockMvc.perform(post("/api/wristbands/preview/image")
+                .header("X-API-Key", API_KEY)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(req)))
+            .andExpect(status().isOk());
+
+        verify(previewColorService).tint(eq(new byte[]{1, 2, 3}), eq("#800080"));
+    }
+
     // ── Job management tests ──────────────────────────────────────────────────
 
     @Test
@@ -589,6 +635,12 @@ class WristbandControllerTest {
         PermitWristbandPrintRequest r = new PermitWristbandPrintRequest();
         r.setEventName("Pukkelpop 2026");
         r.setPermitLabel("ELEKTRICITEIT");
+        return r;
+    }
+
+    private FreeTextWristbandPrintRequest sampleFreeTextRequest() {
+        FreeTextWristbandPrintRequest r = new FreeTextWristbandPrintRequest();
+        r.setText("Backstage");
         return r;
     }
 }

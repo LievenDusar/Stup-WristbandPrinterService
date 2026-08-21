@@ -40,6 +40,10 @@ public class PrintJobEntity {
     private String permitLabel;
     private String iconName;
 
+    // ── FREETEXT fields ───────────────────────────────────────────────────────
+    @Column(length = 2000)
+    private String freeText;
+
     // ── Shared optional fields ────────────────────────────────────────────────
     private Integer stockColorCode;
     private String  codeValue;
@@ -66,6 +70,7 @@ public class PrintJobEntity {
                           String eventName, String firstName, String lastName,
                           String clubName, String barcodeValue,
                           String permitLabel, String iconName,
+                          String freeText,
                           Integer stockColorCode, String codeValue, CodeSymbology codeSymbology,
                           Integer copies,
                           Instant submittedAt, Instant completedAt, String error) {
@@ -80,6 +85,7 @@ public class PrintJobEntity {
         this.barcodeValue   = barcodeValue;
         this.permitLabel    = permitLabel;
         this.iconName       = iconName;
+        this.freeText       = freeText;
         this.stockColorCode = stockColorCode;
         this.codeValue      = codeValue;
         this.codeSymbology  = codeSymbology;
@@ -100,6 +106,7 @@ public class PrintJobEntity {
     public String getBarcodeValue()  { return barcodeValue; }
     public String getPermitLabel()   { return permitLabel; }
     public String getIconName()      { return iconName; }
+    public String getFreeText()      { return freeText; }
     public Integer getStockColorCode(){ return stockColorCode; }
     public String  getCodeValue()    { return codeValue; }
     public CodeSymbology getCodeSymbology() { return codeSymbology; }
