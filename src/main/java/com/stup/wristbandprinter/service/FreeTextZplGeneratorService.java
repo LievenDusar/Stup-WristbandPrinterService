@@ -31,6 +31,14 @@ public class FreeTextZplGeneratorService {
     // Same advance ratio as the other generators — shared font calibration.
     static final double CHAR_ADVANCE_RATIO = ZplGeneratorService.CHAR_ADVANCE_RATIO;
 
+    // The ^A0 glyph's rendered cross-band footprint is narrower than the nominal font-size cell
+    // (fonts reserve internal ascender/descender padding on the far side; the near side has none —
+    // measured against Labelary: left ink edge always sits exactly at the ^FO x-origin). Centering
+    // by the nominal fontSize alone drifts further off-center as fontSize grows (confirmed: -1.6%
+    // of band width at font 30, -4.1% at font 100). This ratio keeps the text visually centered
+    // across the band width regardless of configured font size.
+    static final double CROSS_BAND_INK_RATIO = 0.76;
+
     private final WristbandProperties props;
     private final LogoConversionService stuplogoService;
 
@@ -81,9 +89,10 @@ public class FreeTextZplGeneratorService {
         zpl.append(stuplogoService.getGfCommand());
     }
 
-    /** Free text: ^A0B (270°/bottom-up), group-centered across the band width. */
+    /** Free text: ^A0B (270°/bottom-up), centered across the band width by its actual ink extent. */
     private void appendText(StringBuilder zpl, String text, int y, int fontSize, int bandWidth) {
-        int x = (bandWidth - fontSize) / 2;
+        int visualWidth = (int) (fontSize * CROSS_BAND_INK_RATIO);
+        int x = (bandWidth - visualWidth) / 2;
         zpl.append(String.format("^FO%d,%d", x, y));
         zpl.append(String.format("^A0B,%d,%d", fontSize, fontSize));
         zpl.append(String.format("^FD%s^FS", text));

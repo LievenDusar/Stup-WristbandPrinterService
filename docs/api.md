@@ -86,7 +86,7 @@ the wire in both requests and responses).
 | Field | Type | Required | Notes |
 |-------|------|----------|-------|
 | `wristbandType` | `"freetext"` | ✅ | Discriminator — must be lowercase `"freetext"` |
-| `text` | string | ✅ | Freely entered text, printed between two STUP logos |
+| `text` | string | ✅ | Freely entered text, printed between two STUP logos; max 50 characters |
 | `stockColorCode` | integer | ❌ | Preview-only PNG tint |
 | `printerId` | string | ❌ | Defaults to first registered printer |
 | `copies` | integer | ❌ | Number of bands to print; defaults to 1 |

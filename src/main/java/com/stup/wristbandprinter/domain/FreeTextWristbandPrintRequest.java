@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
 /**
  * Request body for printing a free-text wristband: freely entered text between two STUP logos.
@@ -20,6 +21,7 @@ import jakarta.validation.constraints.NotBlank;
 public final class FreeTextWristbandPrintRequest implements PrintableRequest {
 
     @NotBlank(message = "text must not be blank")
+    @Size(max = 50, message = "text must be at most 50 characters")
     @Schema(example = "Backstage")
     private String text;
 

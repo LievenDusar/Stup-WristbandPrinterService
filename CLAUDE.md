@@ -207,11 +207,15 @@ negotiates with modern daemons — bump if your daemon requires higher.
   the DB for permit jobs. The jobs list response (`PrintJobResponse`) instead carries `permitLabel`,
   which the jobs table shows in the **Name** column (and search) for permit bands.
 - **Free-text bands** carry only a `text` field (plus the shared `printerId`/`stockColorCode`/
-  `copies`) — no event name, no barcode. Layout is logo → text → logo, all centered along both
-  band axes, with the gap on both sides of the text controlled by
-  `wristband.free-text.between-logo-and-text`. The jobs list response carries `freeText`, which
-  the jobs table shows (clipped to 80 chars with the full text on hover) in the **Name** column
-  (and search) for free-text bands.
+  `copies`) — no event name, no barcode. `text` is capped at 50 characters (`@Size(max = 50)`);
+  exceeding it → 400. Layout is logo → text → logo, all centered along both band axes: the text is
+  centered across the band width by its calibrated ink extent
+  (`FreeTextZplGeneratorService.CROSS_BAND_INK_RATIO`, not the raw font size — the printed glyph is
+  narrower than its nominal font-size cell, so centering on the raw font size drifts further off
+  the more `wristband.free-text.font-size` is increased), with the gap on both sides of the text
+  controlled by `wristband.free-text.between-logo-and-text`. The jobs list response carries
+  `freeText`, which the jobs table shows (clipped to 80 chars with the full text on hover) in the
+  **Name** column (and search) for free-text bands.
 - **Stock color is preview-only** — ZPL is always monochrome; `stockColorCode` is resolved to hex
   by `WristbandProperties.stockColors` and passed to `PreviewColorService.tint()` on preview
   endpoints only.

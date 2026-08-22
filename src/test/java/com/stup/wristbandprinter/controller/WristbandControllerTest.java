@@ -300,6 +300,34 @@ class WristbandControllerTest {
     }
 
     @Test
+    void freeTextPrint_returns400_whenTextExceeds50Characters() throws Exception {
+        FreeTextWristbandPrintRequest req = sampleFreeTextRequest();
+        req.setText("A".repeat(51));
+
+        mockMvc.perform(post("/api/wristbands/print")
+                .header("X-API-Key", API_KEY)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(req)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.fields.text").exists());
+    }
+
+    @Test
+    void freeTextPrint_returns202_whenTextIsExactly50Characters() throws Exception {
+        UUID jobId = UUID.randomUUID();
+        FreeTextWristbandPrintRequest req = sampleFreeTextRequest();
+        req.setText("A".repeat(50));
+        PrintJob job = new PrintJob(jobId, req, null, null);
+        when(printQueueService.enqueue(any())).thenReturn(job);
+
+        mockMvc.perform(post("/api/wristbands/print")
+                .header("X-API-Key", API_KEY)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(req)))
+            .andExpect(status().isAccepted());
+    }
+
+    @Test
     void freeTextPreviewImage_withStockColor_tintsPng() throws Exception {
         when(wristbandZplResolver.resolve(any())).thenReturn("^XA^XZ");
         when(labelaryPreviewService.renderPreview(any())).thenReturn(new byte[]{1, 2, 3});

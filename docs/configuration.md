@@ -142,6 +142,11 @@ All values under `wristband.free-text.*`:
 | `font-size` | 66 | Font size for the free text line |
 | `between-logo-and-text` | 150 | Gap (dots) between each logo and the text, applied symmetrically on both sides |
 
+`text` itself is capped at 50 characters by the request validator, independent of this config.
+
 Layout is logo → text → logo, the whole group centered along the band length, with the text
-centered across the band width — same convention as the other bands. Calibrate by using
+centered across the band width — same convention as the other bands. The width-centering uses a
+calibrated ink ratio (`FreeTextZplGeneratorService.CROSS_BAND_INK_RATIO`, ~0.76), not the raw
+`font-size`, since the printed glyph is narrower than its nominal font-size cell; centering on the
+raw value alone drifts further off-center the larger `font-size` is set. Calibrate by using
 `POST /api/wristbands/preview/image` (with `"wristbandType": "freetext"`) and adjusting YAML values.

@@ -123,12 +123,29 @@ class FreeTextZplGeneratorServiceTest {
     @Test
     void generate_textIsCenteredAcrossBandWidth() {
         int fontSize = props.getFreeText().getFontSize();
-        int expectedX = (props.getWidthDots() - fontSize) / 2;
+        int visualWidth = (int) (fontSize * FreeTextZplGeneratorService.CROSS_BAND_INK_RATIO);
+        int expectedX = (props.getWidthDots() - visualWidth) / 2;
 
         String zpl = service.generate(sampleData());
         Matcher text = Pattern.compile("\\^FO(\\d+),\\d+\\^A0B," + fontSize + "," + fontSize).matcher(zpl);
         assertThat(text.find()).isTrue();
         assertThat(Integer.parseInt(text.group(1))).isEqualTo(expectedX);
+    }
+
+    @Test
+    void generate_textStaysCenteredAcrossBandWidth_regardlessOfConfiguredFontSize() {
+        // Regression: centering by the nominal fontSize alone (instead of its calibrated ink
+        // extent) drifted further off-center as fontSize grew — this must hold at several sizes.
+        for (int fontSize : new int[]{30, 66, 100, 140}) {
+            props.getFreeText().setFontSize(fontSize);
+            int visualWidth = (int) (fontSize * FreeTextZplGeneratorService.CROSS_BAND_INK_RATIO);
+            int expectedX = (props.getWidthDots() - visualWidth) / 2;
+
+            String zpl = service.generate(sampleData());
+            Matcher text = Pattern.compile("\\^FO(\\d+),\\d+\\^A0B," + fontSize + "," + fontSize).matcher(zpl);
+            assertThat(text.find()).isTrue();
+            assertThat(Integer.parseInt(text.group(1))).as("x for fontSize=%d", fontSize).isEqualTo(expectedX);
+        }
     }
 
     @Test
